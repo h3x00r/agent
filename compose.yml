@@ -9,8 +9,9 @@
 #   nexus <persona> review -- claude --resume
 #   nexus ls                          running personas + their sessions
 #
-# Without the launcher (PROJECTS_ROOT from ./.env, or exported as here; for a ddev persona on a VM
-# without a mkcert CA also AGENT_CA_CERTS= , empty, and mkdir -p ~/.ddev ~/.local/share/mkcert first):
+# Without the launcher (PROJECTS_ROOT exported as here: the persona's own root= from its "# persona:" line,
+# else the VM's from ./.env; for a ddev persona on a VM without a mkcert CA also AGENT_CA_CERTS= , empty,
+# and mkdir -p ~/.ddev ~/.local/share/mkcert first):
 #   AGENT_UID=$(id -u) AGENT_GID=$(id -g) DOCKER_GID=$(stat -c %g /var/run/docker.sock) \
 #   PROJECTS_ROOT=$HOME/projects docker compose -p agents -f compose.yml -f compose.personas.yml \
 #     --profile <persona> up -d
@@ -40,6 +41,7 @@ services:
       context: .
       args:
         CLAUDE_VERSION: ${CLAUDE_VERSION:-latest}
+        GROK_VERSION: ${GROK_VERSION:-latest}
         APM_VERSION: ${APM_VERSION:-latest}
         DDEV_VERSION: ${DDEV_VERSION:-}
         UID: ${AGENT_UID:-1000}     # must equal the VM user's uid: the home volume is seeded from the image
@@ -71,7 +73,7 @@ services:
       TERM: xterm-256color
       COLORTERM: truecolor
       LANG: C.UTF-8
-      # The image is the CLI version; upgrade = rebuild/pull + `nexus <persona> restart`.
+      # The image is the CLI version; upgrade = `nexus <persona> upgrade` (or rebuild/pull + restart).
       # The Claude image already locks updates (managed settings); this also covers pins too old for that.
       DISABLE_AUTOUPDATER: "1"
       GROK_DISABLE_AUTOUPDATER: "1" # grok's own switch; its updates would only pile up in ~/.grok/downloads

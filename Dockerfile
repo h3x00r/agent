@@ -9,8 +9,9 @@
 #
 # Stages:  tools → ctx-docker | ctx-ddev (adds ddev) → base (user, tmux, entrypoint) → claude | grok.
 # The vendor installers run in claude-cli, grok-cli and apm-cli, on a bare fetch stage, and only their
-# output is copied on. So each flavour sees only its own pins (CLAUDE_VERSION never touches grok), and a
-# version bump re-runs one installer stage, while a uid, context, node or ddev change re-runs none.
+# output is copied on. So each flavour sees only its own pins (CLAUDE_VERSION never touches grok, nor
+# GROK_VERSION Claude), and a version bump re-runs one installer stage, while a uid, context, node or ddev
+# change re-runs none.
 # APM goes into both flavours.
 
 # Context: "docker" for projects run with docker compose / Dockerfiles, "ddev" adds ddev.
@@ -127,12 +128,19 @@ RUN mkdir -p /etc/claude-code/managed-settings.d \
 
 # --- Grok Build: xAI's installer ---------------------------------------------------------
 # It writes to $HOME/.grok, so HOME points at /opt/grok, the tree that is copied on.
+# GROK_VERSION = latest (the newest on xAI's stable channel) | X.Y.Z[-suffix]; the installer rejects a
+# malformed one and an unknown one fails the download. Like CLAUDE_VERSION, a bump re-runs only this stage.
 FROM fetch AS grok-cli
+SHELL ["/bin/bash", "-eo", "pipefail", "-c"]
+ARG GROK_VERSION=latest
 WORKDIR /tmp
-RUN curl -fsSL -o grok-install.sh https://x.ai/cli/install.sh \
- && HOME=/opt/grok bash grok-install.sh \
+RUN v="${GROK_VERSION#v}" \
+ && if [ "$v" = latest ]; then v=""; fi \
+ && curl -fsSL -o grok-install.sh https://x.ai/cli/install.sh \
+ && HOME=/opt/grok bash grok-install.sh ${v:+"$v"} \
  && chmod -R a+rX /opt/grok \
- && test -x /opt/grok/.grok/bin/grok
+ && test -x /opt/grok/.grok/bin/grok \
+ && { [ -z "$v" ] || /opt/grok/.grok/bin/grok --version | grep -qF "$v"; }
 
 # --- APM (Agent Package Manager): Microsoft's PyPI package -------------------------------
 # Its release binary needs glibc 2.38 and bookworm has 2.36, so apm-cli goes into a venv on python3.

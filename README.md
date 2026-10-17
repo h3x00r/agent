@@ -19,7 +19,9 @@ nexus claude-team              # back into the same session
 ```
 
 Quitting Claude (`/exit`) ends the session instead; start it again with `-- claude`. A grok persona works
-the same way with `-- grok`.
+the same way with `-- grok`. When a new Claude Code (or grok) comes out, `nexus claude-team upgrade` pins it,
+rebuilds, and recreates every persona of that flavour once you confirm.
+How the pieces fit together, as diagrams: [Annex: how it works](#annex-how-it-works).
 
 ## What's in the checkout
 
@@ -63,8 +65,8 @@ they are.
   `docker compose` work inside exactly as outside. ddev personas share ddev's state and its local CA, so
   `https://*.ddev.site` is trusted inside. No project toolchains in the image: the agent drives the
   project's own containers, so it fits any stack.
-- **Upgrades on your terms.** Claude Code, APM and ddev versions are pinned and the built-in auto-updaters
-  are off. An upgrade is a rebuild plus a restart, and logins survive it.
+- **Upgrades on your terms.** Claude Code, Grok Build, APM and ddev versions are pinned and the built-in
+  auto-updaters are off. `nexus <persona> upgrade` moves to a new release in one command, and logins survive it.
 - **Sensible limits.** SSH through agent forwarding only (private keys never enter a container), no
   privilege escalation, and CPU, memory and process limits per persona.
 - **Agent packages built in.** Microsoft's APM (Agent Package Manager) installs skills, prompts, agents and
@@ -80,13 +82,14 @@ ssh-agent holding your key (`ssh-add -l`). For ddev-context personas also ddev f
 
 ```bash
 sudo git clone <this repo> /opt/agents && sudo chown -R "$USER" /opt/agents
-/opt/agents/install.sh                     # asks: personas (flavour, context, name), VM settings, sign-in
+/opt/agents/install.sh                     # asks: personas (flavour, context, name, root), VM settings, sign-in
 cd ~/projects/billing && nexus claude-ddev # e.g. a persona named claude-ddev: opens session "billing"
 ```
 
 `install.sh` suggests `<flavour>-<context>` names: with the default answers you get `claude-ddev` on a VM
 with ddev, `claude-docker` without. It writes `.env`, `personas/<name>.env` (mode 600) and
-`compose.personas.yml`, all together and only once `docker compose config` accepts them. It links the
+`compose.personas.yml`, all together and only once `docker compose config` accepts them. Each persona mounts
+the VM's projects root, or a root of its own; several personas can share one. It links the
 launcher (`/usr/local/bin/nexus`, via sudo if needed), offers `mkcert -install` for ddev contexts, and
 builds the images (or pulls them with a registry). Re-run it to add, change or remove personas.
 `./install.sh --help` lists flags that do the same without questions, e.g.
@@ -112,12 +115,15 @@ refresh picks it up. A change to `statusline/settings.json` needs `nexus <person
   into its web image; alternating between host user and container user forces a rebuild each time.
 - **ddev context: pin DDEV_VERSION to the VM's `ddev version`** (install.sh does). The router and
   ssh-agent are global containers; a version mismatch makes each side recreate them.
-- **Upgrading a CLI = build/pull + `nexus <persona> restart`.** `restart` recreates the container on the
-  current image, which ends its tmux sessions (`claude --resume` picks conversations back up). Personas
-  with the same flavour and context share an image, so restart each of them. The CLIs live outside the
-  home volume, so a new image is enough; auth, settings and sessions in the volume are untouched. Pin
-  `CLAUDE_VERSION` and `APM_VERSION` and bump them: `latest` (or a `stable` channel) is cached once built and
-  needs `nexus <persona> build --no-cache` instead. Grok has no pin, so `--no-cache` is the only way to upgrade it.
+- **Upgrading a CLI = a new image + recreating the containers on it.** `nexus <persona> upgrade [VERSION]`
+  does all of it for Claude Code and grok: it pins `CLAUDE_VERSION` or `GROK_VERSION` (the newest release by
+  default; the pin is VM-wide), builds or pulls each context's image, recreates every persona of that
+  flavour once you confirm (that ends their tmux sessions; `claude --resume` picks conversations back up)
+  and removes the old images. By hand it is build/pull once per context + `nexus <persona> restart` for
+  each persona of the flavour. The CLIs live outside the home
+  volume, so a new image is enough; auth, settings and sessions in the volume are untouched. Pin versions
+  and bump them: `latest` (or a `stable` channel) is cached once built and needs
+  `nexus <persona> build --no-cache` instead. APM's `APM_VERSION` is bumped by hand the same way.
 - **The image is the only Claude Code updater.** Claude Code comes from Anthropic's native installer at
   build time, and the image locks self-updates (`/etc/claude-code/managed-settings.d/`). `claude update` or
   `claude install` would put a copy in the home volume that shadows the image's binary in login shells
@@ -154,3 +160,92 @@ software that keeps its own license and terms of use: Claude Code (Anthropic), G
 the Docker CLI, the GitHub CLI and Node.js among others. Building or using an image is subject to those
 terms, and they decide whether you may share a built image, e.g. on a public registry. This project is not
 affiliated with or endorsed by Anthropic or xAI.
+
+## Annex: how it works
+
+The persona names are examples; so is the split of projects roots in the first diagram.
+
+### What runs on a VM
+
+```text
+VM
+├── Docker daemon ◄─────────── /var/run/docker.sock, mounted into every persona
+│   ├── agent-claude-team   ─┐  persona containers: one per persona, long-lived
+│   ├── agent-claude-max     ├─ each has a tmux server, one session per project,
+│   ├── agent-grok          ─┘  its CLI, and apm, docker, ddev, gh, node
+│   └── project stacks (ddev web/db, compose services)  ◄── started from inside a persona
+│
+├── projects roots, mounted at the same path inside:
+│   ├── /home/local/src    the VM's root: claude-max, grok
+│   └── /home/local/work   a root of its own: claude-team
+├── ssh-agent              its socket is mounted; no private keys inside
+├── ~/.ddev + mkcert CA    shared with ddev-context personas
+└── ~/agent                checkout: install.sh, nexus, .env, compose files, personas/*.env
+```
+
+### Inside one persona
+
+```text
+agent-claude-max                        image: local/agent-claude-ddev:<version>
+├── tmux server     status bar "claude-max @ <vm>", in the persona's colour
+│   ├── main        always there
+│   ├── billing  ◄── nexus claude-max -- claude, run in /home/local/src/billing
+│   └── api      ◄── nexus claude-max -- claude, run in /home/local/src/api
+├── /home/dev           volume agents_claude-max-home: login, settings, history (kept across rebuilds)
+├── /home/local/src     its projects root (same path as on the VM)
+├── /ssh-agent          your agent
+└── claude, apm, docker, ddev, gh   from the image, so a new image upgrades them
+```
+
+### Setup, once per VM (re-run it to change anything)
+
+```text
+bash install.sh
+  │  asks: personas: flavour, context, name, statusline, projects root (- = the VM's)
+  │        VM:       projects root, registry, Claude Code version
+  │        new ones: sign-in key/token, git identity, GH_TOKEN
+  ▼
+writes .env, compose.personas.yml, personas/<name>.env    all together, or nothing
+  ▼
+links /usr/local/bin/nexus
+  ▼
+builds one image per flavour × context      (pulls instead when a registry is set)
+  local/agent-claude-ddev:<ver>    local/agent-grok-ddev:<ver>
+```
+
+### Daily use
+
+```text
+cd /home/local/src/billing
+nexus claude-max -- claude
+  │
+  ├─ looks up the persona: flavour, context, projects root
+  ├─ container running? ── no ──► docker compose up -d (mounts the root, the socket, the ssh-agent)
+  ├─ session "billing" exists? ── yes ─► attach
+  │                            └─ no ──► create it in billing/, running claude
+  ▼
+working in Claude Code
+  ├─ Ctrl-b d  detach: Claude keeps running ──► later, plain `nexus claude-max` reattaches
+  └─ /exit     Claude quits and the session ends ──► next time, `-- claude` again
+```
+
+### A new release
+
+```text
+nexus claude-max upgrade [VERSION | stable] [-y]
+  ├─ takes the lock (one install.sh or upgrade at a time)
+  ├─ looks up the newest version (downloads.claude.ai; x.ai/cli for grok)
+  ├─ pins CLAUDE_VERSION in .env ─────────── on a failure or Ctrl-C, the old pin goes back
+  ├─ builds each context's image, checks `claude --version`
+  ├─ lists the open sessions, asks ──► recreates every Claude persona (claude-team, claude-max)
+  └─ removes the old images
+```
+
+### How an image is built (Dockerfile)
+
+```text
+tools: apt, docker CLI, node, gh, python3 ─► ctx-docker │ ctx-ddev (+ ddev) ─► base: user, tmux, entrypoint
+fetch ─► claude-cli  Anthropic's installer ─┐
+      ─► grok-cli    xAI's installer        ├─ copied into ─► target claude │ grok
+      ─► apm-cli     PyPI, in a venv       ─┘
+```

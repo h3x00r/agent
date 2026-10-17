@@ -10,11 +10,16 @@
 #                                            args go to compose, e.g. build --no-cache
 #   nexus <persona> start                    start it if it isn't running, without attaching (scripts, cron)
 #   nexus <persona> restart                  recreate the container: picks up a rebuilt/pulled image
+#   nexus <persona> upgrade [VERSION|CHANNEL] [-y]
+#                                            pin its CLI (claude or grok) to VERSION, else to the newest
+#                                            release (of CHANNEL), build or pull the images, recreate every
+#                                            persona of that flavour (asks first; -y doesn't), drop the old ones
 #
 # Examples, with personas named claude-ddev and grok-docker (the names install.sh suggests):
 #   cd ~/projects/billing && nexus claude-ddev            # session "billing", shell at that dir
 #   nexus claude-ddev review -- claude --resume           # new session "review", straight into Claude Code
 #   nexus grok-docker                                     # same project, other persona
+#   nexus claude-ddev upgrade                             # the newest Claude Code, for every Claude persona
 set -euo pipefail
 
 die()   { echo "nexus: $*" >&2; exit 1; }
@@ -43,18 +48,40 @@ export AGENT_GID="${AGENT_GID:-$(id -g)}"
 [[ -S /var/run/docker.sock ]] || die "no Docker socket at /var/run/docker.sock"
 export DOCKER_GID="${DOCKER_GID:-$(stat -c %g /var/run/docker.sock)}"
 
-# Projects root: shell, else ./.env, else ~/projects. Read from .env here, because an exported
-# default would also override .env inside compose. Takes the dotenv forms compose takes (export
-# prefix, CRLF, '…', "…" with its escapes, trailing comment), but not ${VAR} references; install.sh's
-# get_kv reads it the same way.
-if [[ -z "${PROJECTS_ROOT:-}" && -f "$AGENTS_DIR/.env" ]]; then
-  PROJECTS_ROOT="$(sed -nE 's/\r$//; s/^[[:space:]]*(export[[:space:]]+)?PROJECTS_ROOT[[:space:]]*=[[:space:]]*//p' "$AGENTS_DIR/.env" | tail -n 1 \
+# env_get KEY: KEY's value in ./.env as compose reads it: the last KEY= line, in the dotenv forms
+# compose takes (export prefix, CRLF, '…', "…" with its escapes, trailing comment), but not ${VAR}
+# references. install.sh's get_kv reads it the same way.
+env_get() {
+  [[ -f "$AGENTS_DIR/.env" ]] || return 0
+  sed -nE "s/\r\$//; s/^[[:space:]]*(export[[:space:]]+)?$1[[:space:]]*=[[:space:]]*//p" "$AGENTS_DIR/.env" | tail -n 1 \
     | sed -E 's/^"((\\.|[^"\\])*)".*/\1/; t dq; s/^\x27((\\.|[^\x27\\])*)\x27.*/\1/; t sq; s/[[:space:]]+#.*//; s/[[:space:]]+$//; b
               :sq; s/\\\x27/\x27/g; b
-              :dq; s/\\\\/\x01/g; s/\\n/\n/g; s/\\t/\t/g; s/\\r/\r/g; s/\\([$"])/\1/g; s/\x01/\\/g')"
-fi
-PROJECTS_ROOT="${PROJECTS_ROOT:-$HOME/projects}"
-export PROJECTS_ROOT="${PROJECTS_ROOT%/}"
+              :dq; s/\\\\/\x01/g; s/\\n/\n/g; s/\\t/\t/g; s/\\r/\r/g; s/\\([$"])/\1/g; s/\x01/\\/g'
+}
+# env_set KEY VALUE: rewrite the KEY= line compose reads, else the first "# KEY=", else append one;
+# install.sh's set_kv, for values that need no quoting. Written through, as install.sh writes .env: a
+# symlinked .env keeps its link, and the file keeps its owner, mode and inode.
+env_set() {
+  local f="$AGENTS_DIR/.env" tmp
+  tmp="$(mktemp "$f.XXXXXX")" || return 1
+  if ! K="$1" L="$1=$2" awk 'BEGIN { k = ENVIRON["K"]; l = ENVIRON["L"] }
+         { line[NR] = $0 }
+         $0 ~ "^[ \t]*(export[ \t]+)?" k "[ \t]*=" { act = NR }
+         !com && $0 ~ "^# ?" k "=" { com = NR }
+         END { at = act ? act : com
+               for (i = 1; i <= NR; i++) print (i == at ? l : line[i])
+               if (!at) print l }' "$f" > "$tmp"; then
+    rm -f "$tmp"; return 1
+  fi
+  if ! cat "$tmp" > "$f"; then warn "writing $f failed; what it should hold is in $tmp"; return 1; fi
+  rm -f "$tmp"
+}
+
+# The VM's projects root: shell, else ./.env, else ~/projects. A persona with its own (root= in its
+# "# persona:" line, set by install.sh) uses that instead. Compose gets it per call (COMPOSE, below) and
+# this process's environment keeps the shell's value, so a nexus run from here works out its own.
+vm_root="${PROJECTS_ROOT:-$(env_get PROJECTS_ROOT)}"
+vm_root="${vm_root:-$HOME/projects}"
 
 # SSH agent forwarding. Ubuntu/Debian user sessions usually have one of these.
 if [[ ! -S "${SSH_AUTH_SOCK:-}" ]]; then
@@ -81,9 +108,13 @@ persona="$1"; shift
 
 [[ -f "$PERSONAS_FILE" ]] || die "no personas set up yet: run $AGENTS_DIR/install.sh"
 [[ "$persona" =~ ^[a-z0-9][a-z0-9-]*$ ]] || die "not a persona name: '$persona'"
-meta=" $(sed -n "s/^# persona: $persona //p" "$PERSONAS_FILE" | head -n 1) "
+meta=" $(sed -n "s/\r\$//; s/^# persona: $persona //p" "$PERSONAS_FILE" | head -n 1) "   # CRLF-safe, as install.sh
 [[ "$meta" != "  " ]] \
   || die "no persona '$persona' (set up: $(sed -n 's/^# persona: \([^ ]*\).*/\1/p' "$PERSONAS_FILE" | paste -sd ' ')); add it with $AGENTS_DIR/install.sh"
+
+meta_get() { local v="${meta#* "$1"=}"; [[ "$v" == "$meta" ]] || echo "${v%% *}"; }
+root="$(meta_get root)"; root="${root:-$vm_root}"; root="${root%/}"
+COMPOSE=(env "PROJECTS_ROOT=$root" "${COMPOSE[@]}")
 
 service="$persona"
 container="agent-$persona"
@@ -92,7 +123,198 @@ container="agent-$persona"
 # required-variable check from blocking e.g. a build on a VM without one.
 mgmt() { export SSH_AUTH_SOCK="${SSH_AUTH_SOCK:-/dev/null}"; exec "${COMPOSE[@]}" --profile "$persona" "$@"; }
 running() { [[ "$(docker inspect -f '{{.State.Running}}' "$container" 2>/dev/null || true)" == true ]]; }
-restart=0 start_only=0
+
+# --- upgrade ---------------------------------------------------------------------------------------
+# Each flavour's CLI: its command, the .env pin its images are built from, the tag that follows the pin,
+# its release channels (the first is the default) and the URL naming a channel's newest version.
+# Another flavour is one more entry.
+declare -A CLI_CMD=([claude]=claude [grok]=grok)
+declare -A CLI_PIN=([claude]=CLAUDE_VERSION [grok]=GROK_VERSION)
+declare -A CLI_TAG=([claude]=CLAUDE_TAG [grok]=GROK_TAG)
+declare -A CLI_CHANNELS=([claude]="latest stable" [grok]="stable alpha")
+declare -A CLI_NEWEST=([claude]="https://downloads.claude.ai/claude-code-releases/{channel}" [grok]="https://x.ai/cli/{channel}")
+
+# compose_q PERSONA ARGS…: compose for that persona; nothing here mounts the ssh-agent, so the socket may
+# be a placeholder, as in mgmt.
+compose_q()   { local p="$1"; shift; SSH_AUTH_SOCK="${SSH_AUTH_SOCK:-/dev/null}" "${COMPOSE[@]}" --profile "$p" "$@"; }
+image_ref()   { compose_q "$1" config --images "$1"; }
+image_id()    { docker image inspect -f '{{.Id}}' "$1" 2>/dev/null; }
+cli_version() { docker run --rm --network none "$1" "$cli" --version 2>/dev/null | head -n 1 || true; }
+
+# What a failed or interrupted upgrade puts back: the pin, and each image tag the run built. A tag that
+# existed before (a fixed *_TAG, or a version built earlier) points at its old image again; a new one goes.
+UP_PIN="" UP_OLD="" UP_REFS=()
+declare -A UP_PRE=()
+up_restore() {
+  local r
+  env_set "$UP_PIN" "$UP_OLD" || warn "couldn't put $UP_PIN=$UP_OLD back into $AGENTS_DIR/.env: set it by hand"
+  for r in "${UP_REFS[@]}"; do
+    if [[ -n "${UP_PRE[$r]}" ]]; then
+      [[ "$(image_id "$r" || true)" == "${UP_PRE[$r]}" ]] || docker tag "${UP_PRE[$r]}" "$r" \
+        || warn "couldn't point $r back at its old image ${UP_PRE[$r]:7:12}"
+    else
+      docker image rm "$r" >/dev/null 2>&1 || true
+    fi
+  done
+}
+cmd_upgrade() {
+  local want="" yes=0 a
+  for a in "$@"; do
+    case "$a" in
+      -y|--yes) yes=1 ;;
+      -*)       die "upgrade: unknown option '$a'" ;;
+      *)        [[ -z "$want" ]] || die "upgrade takes one VERSION or CHANNEL, not '$want $a'"; want="$a" ;;
+    esac
+  done
+  local flavour; flavour="$(meta_get flavour)"
+  [[ -n "$flavour" && -n "${CLI_PIN[$flavour]:-}" ]] || die "upgrade: no CLI known for $persona's flavour '$flavour'"
+  cli="${CLI_CMD[$flavour]}"
+  local pin="${CLI_PIN[$flavour]}" tagvar="${CLI_TAG[$flavour]}" channels="${CLI_CHANNELS[$flavour]}"
+  [[ -f "$AGENTS_DIR/.env" ]] || die "no $AGENTS_DIR/.env yet: run $AGENTS_DIR/install.sh"
+  ! printenv "$pin" >/dev/null || die "$pin is exported in this shell and beats $AGENTS_DIR/.env: unset it, then upgrade"
+  # One upgrade or install.sh at a time per checkout: they share install.sh's lock.
+  exec 8< "$AGENTS_DIR/install.sh"
+  flock -n 8 || die "install.sh or another upgrade is running in $AGENTS_DIR; let it finish first"
+
+  # The version: the one given, or the newest of a channel.
+  local version="${want#v}"
+  version="${version:-${channels%% *}}"
+  if [[ " $channels " == *" $version "* ]]; then
+    local url="${CLI_NEWEST[$flavour]//\{channel\}/$version}"
+    version="$(curl -fsSL --max-time 20 "$url" | tr -d '[:space:]')" || die "can't look up the newest $cli at $url"
+    [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9._]+)?$ ]] || die "$url gave '$version', not a version"
+  elif [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9._]+)?$ ]]; then
+    die "upgrade: '$want' is neither a version (X.Y.Z) nor a channel of $cli ($channels)"
+  fi
+
+  # The pin is VM-wide, so this covers every persona of the flavour: one image per context, built once
+  # (via its first persona). What they and their image names run now:
+  local name rest ctx id r was=""
+  local -a peers=() builders=() olds=()
+  local -A seen=() ref_new=() id_new=()
+  while read -r _ _ name rest; do
+    [[ " $rest " == *" flavour=$flavour "* ]] || continue
+    peers+=("$name")
+    ctx="${rest#*context=}"; ctx="${ctx%% *}"
+    if [[ -z "${seen[${ctx:-none}]:-}" ]]; then seen[${ctx:-none}]=1; builders+=("$name"); fi
+  done < <(grep '^# persona: ' "$PERSONAS_FILE")
+  for name in "${peers[@]}"; do
+    r="$(image_ref "$name")" || die "compose can't resolve $name's image (see above)"
+    if id="$(image_id "$r")"; then olds+=("$id"); was="${was:-$(cli_version "$r")}"; fi
+    if id="$(docker inspect -f '{{.Image}}' "agent-$name" 2>/dev/null)"; then olds+=("$id"); fi
+  done
+  UP_PIN="$pin" UP_OLD="$(env_get "$pin")"
+  UP_OLD="${UP_OLD:-latest}"   # no pin yet meant latest, compose's default
+  echo "nexus: $cli for ${peers[*]}: ${was:-$UP_OLD} -> $version"
+
+  # Pin it, then build or pull each image. A failure or Ctrl-C puts the old pin back (only the pin:
+  # the rest of .env is left alone).
+  trap 'up_restore; exit 130' INT TERM HUP
+  env_set "$pin" "$version" || die "can't write $AGENTS_DIR/.env"
+  for name in "${builders[@]}"; do
+    r="$(image_ref "$name")" || { up_restore; die "compose can't resolve $name's image (see above); $pin is back to $UP_OLD"; }
+    UP_REFS+=("$r"); UP_PRE[$r]="$(image_id "$r" || true)"
+  done
+  local registry="${REGISTRY:-$(env_get REGISTRY)}" verb=build
+  [[ "${registry:-local}" == local ]] || verb=pull
+  for name in "${builders[@]}"; do
+    if [[ $verb == build ]]; then compose_q "$name" build "$name"; else compose_q "$name" pull --policy always "$name"; fi \
+      || { up_restore; die "the $verb for $name failed (see above); $pin is back to $UP_OLD"; }
+  done
+  # Each image must really have that version: with a fixed tag, or a registry image that isn't that
+  # version, .env would name a version nothing runs.
+  local tag="${!tagvar:-$(env_get "$tagvar")}" now="" n
+  for name in "${peers[@]}"; do
+    if ! r="$(image_ref "$name")" || ! id="$(image_id "$r")"; then
+      up_restore; die "no image for $name after the $verb; $pin is back to $UP_OLD"
+    fi
+    ref_new[$name]="$r" id_new[$name]="$id"
+  done
+  for name in "${builders[@]}"; do
+    n="$(cli_version "${ref_new[$name]}")"
+    if [[ " $n " != *" $version "* ]]; then
+      up_restore
+      [[ -n "$n" ]] || die "\`$cli --version\` prints nothing in ${ref_new[$name]} (try: docker run --rm ${ref_new[$name]} $cli --version); $pin is back to $UP_OLD"
+      die "${ref_new[$name]} has $n, not $version${tag:+ (it is tagged by $tagvar=$tag, not the version)}; $pin is back to $UP_OLD"
+    fi
+    now="${now:-$n}"
+  done
+  trap - INT TERM HUP
+  echo "nexus: $pin=$version in $AGENTS_DIR/.env; ${now:-$cli $version} in: $(for name in "${builders[@]}"; do printf '%s ' "${ref_new[$name]}"; done)"
+  r="${ref_new[${builders[0]}]}"
+  if [[ "${r##*:}" != "$version" ]]; then
+    if [[ -z "$tag" || ( "$flavour" == grok && "$tag" == latest ) ]]; then   # a personas file or .env from before upgrade
+      warn "$r is still tagged ${r##*:}: re-run $AGENTS_DIR/install.sh once, and the tags follow $pin from then on"
+    elif [[ "$tag" == latest ]]; then
+      warn "$r is tagged by $tagvar=latest in $AGENTS_DIR/.env, not by the version: remove that line, and the tags follow $pin"
+    fi
+  fi
+
+  # Containers still on an older image. A stopped one is removed: its next start creates it anew.
+  local -a run=() later=() failed=() gone=() kept=()
+  for name in "${peers[@]}"; do
+    id="$(docker inspect -f '{{.Image}}' "agent-$name" 2>/dev/null)" || continue
+    [[ "$id" != "${id_new[$name]}" ]] || continue
+    if [[ "$(docker inspect -f '{{.State.Running}}' "agent-$name")" == true ]]; then
+      run+=("$name")
+    elif docker rm "agent-$name" >/dev/null; then
+      echo "nexus: removed the stopped agent-$name; its next start uses the new image"
+    fi
+  done
+  if (( ${#run[@]} )); then
+    echo "nexus: still on the old image, so recreating ends their tmux sessions (and the $cli in them):"
+    for name in "${run[@]}"; do
+      a="$(docker exec "agent-$name" tmux list-sessions -F '#{session_name}' 2>/dev/null | grep -vx main | paste -sd ' ' - || true)"
+      echo "  $name${a:+  (sessions: $a)}"
+    done
+    a=y
+    if [[ ! -S "${SSH_AUTH_SOCK:-}" ]]; then
+      echo "nexus: but recreating needs an ssh-agent, and this shell has none"; a=n
+    elif (( ! yes )); then
+      a=n
+      if [[ -t 0 ]]; then read -r -p "Recreate them now? [y/N] " a || a=n; fi
+    fi
+    if [[ "$a" == [yY]* ]]; then
+      # Through the launcher, so each gets its own context's preflight (ddev dirs, mkcert CA).
+      for name in "${run[@]}"; do
+        "$AGENTS_DIR/nexus" "$name" restart 8<&- || failed+=("$name")
+      done
+    else
+      later=("${run[@]}")
+    fi
+  fi
+
+  # The old images, unless a container still uses them: their tags under these images' names, or the
+  # image itself if a rebuild left it without one.
+  local -A new_ids=() repos=()
+  for name in "${peers[@]}"; do new_ids[${id_new[$name]}]=1; repos[${ref_new[$name]%:*}]=1; done
+  local t tags
+  for id in $(printf '%s\n' "${olds[@]}" | sort -u); do
+    [[ -z "${new_ids[$id]:-}" ]] || continue
+    tags="$(docker image inspect -f '{{range .RepoTags}}{{.}} {{end}}' "$id" 2>/dev/null)" || continue
+    if [[ -z "${tags// /}" ]]; then
+      if docker image rm "$id" >/dev/null 2>&1; then gone+=("${id:7:12}"); else kept+=("${id:7:12}"); fi
+      continue
+    fi
+    for t in $tags; do
+      [[ -n "${repos[${t%:*}]:-}" ]] || continue
+      if docker image rm "$t" >/dev/null 2>&1; then gone+=("$t"); else kept+=("$t"); fi
+    done
+  done
+  (( ${#gone[@]} )) && echo "nexus: removed the old image: ${gone[*]}"
+  (( ${#kept[@]} )) && echo "nexus: kept the old image (a container still uses it): ${kept[*]}"
+  if (( ${#failed[@]} )); then
+    echo "nexus: recreating ${failed[*]} failed (see above); once that's fixed:$(printf ' nexus %s restart;' "${failed[@]}")" >&2
+    exit 1
+  fi
+  if (( ${#later[@]} )); then
+    echo "nexus: not recreated: ${later[*]}. When they're idle, \`nexus $persona upgrade $version\` recreates them and removes the old image"
+  else
+    echo "nexus: done; ${peers[*]} run ${now:-$cli $version}"
+  fi
+}
+
+restart=0 start_only=0 upgrade=0 up_args=()
 case "${1:-}" in
   ls)      running || die "$persona isn't running; start it with: nexus $persona"
            exec docker exec "$container" tmux list-sessions ;;
@@ -102,12 +324,14 @@ case "${1:-}" in
   build)   shift; mgmt build "$@" "$service" ;;
   pull)    shift; mgmt pull --policy always "$@" "$service" ;;   # compose.yml never pulls on its own
   restart) restart=1 ;;
+  upgrade) shift; upgrade=1 up_args=("$@") ;;
 esac
 
 # Preflight: mount sources must exist, or Docker creates them root-owned.
-[[ "$PROJECTS_ROOT" == /* ]] || die "PROJECTS_ROOT must be an absolute path, not '$PROJECTS_ROOT'"
-mkdir -p "$PROJECTS_ROOT" 2>/dev/null \
-  || die "can't create PROJECTS_ROOT=$PROJECTS_ROOT (from your shell or $AGENTS_DIR/.env); fix it, or unset it for ~/projects"
+if [[ -n "$(meta_get root)" ]]; then where="$persona's own, in $PERSONAS_FILE; change it with install.sh"
+else where="PROJECTS_ROOT from your shell or $AGENTS_DIR/.env; fix it, or unset it for ~/projects"; fi
+[[ "$root" == /?* ]] || die "the projects root must be an absolute path, not '$root' ($where)"
+mkdir -p "$root" 2>/dev/null || die "can't create the projects root $root ($where)"
 # Context "ddev": the VM's ~/.ddev and mkcert CA are mounted, and the CA is trusted inside if it exists.
 no_ca=0
 if [[ "$meta" == *" context=ddev "* ]]; then
@@ -118,6 +342,7 @@ if [[ "$meta" == *" context=ddev "* ]]; then
     export AGENT_CA_CERTS=""; no_ca=1
   fi
 fi
+(( upgrade )) && { cmd_upgrade "${up_args[@]}"; exit 0; }
 
 # (Re)create the persona container if asked or if it isn't running. Its ssh-agent socket path is
 # fixed at creation, for the container's whole life (a new path makes compose recreate it).
@@ -144,8 +369,8 @@ if [[ "${1:-}" == "--" ]]; then shift; cmd=("$@"); fi
 
 dir="$here"
 case "$dir/" in
-  "$PROJECTS_ROOT"/*) [[ -d "$dir" ]] || die "$dir no longer exists; cd to a project dir" ;;
-  *) echo "nexus: $here is outside $PROJECTS_ROOT; starting in $PROJECTS_ROOT" >&2; dir="$PROJECTS_ROOT" ;;
+  "$root"/*) [[ -d "$dir" ]] || die "$dir no longer exists; cd to a project dir" ;;
+  *) echo "nexus: $here is outside $persona's projects root; starting in $root" >&2; dir="$root" ;;
 esac
 session="${session:-$(basename "$dir")}"
 session="${session//[.:]/_}"   # tmux rewrites '.' and ':' in session names; do the same up front

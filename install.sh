@@ -8,7 +8,9 @@
 #   ./install.sh --list           the personas set up so far
 #   ./install.sh --yes [options]  no questions, for scripts: current settings are kept, and the
 #                                 defaults below apply to new ones
-#     --persona NAME:FLAVOUR:CONTEXT   add or update a persona; repeatable
+#     --persona NAME:FLAVOUR:CONTEXT[:ROOT]
+#                                      add or update a persona; repeatable. ROOT: its own projects root
+#                                      (empty: the VM's; left out: an existing persona keeps its own)
 #     --remove NAME                    drop a persona (its env file and home volume stay); repeatable
 #     --projects-root DIR              default: $HOME/projects
 #     --registry HOST                  local (build on this VM; the default) or host[:port][/path]
@@ -19,7 +21,8 @@
 #     --no-build                       don't build (or pull) the images at the end
 #
 # Writes .env, compose.personas.yml and personas/<name>.env (mode 600; an existing one is kept), all
-# at once and only after `docker compose config` accepts them: a run that stops early changes nothing.
+# at once and only after `docker compose config` accepts them: a run that stops early changes nothing,
+# except the projects roots (the VM's and a persona's own), which are created as they are named.
 set -euo pipefail
 
 SELF="$(readlink -f "$0")"   # before the cd: $0 may be relative
@@ -48,7 +51,7 @@ while [[ $# -gt 0 ]]; do
     -h|--help)        usage; exit 0 ;;
     --list)           LIST=1 ;;
     -y|--yes)         YES=1 ;;
-    --persona)        need "$1" "${2-}" NAME:FLAVOUR:CONTEXT; ADD+=("$2"); shift ;;
+    --persona)        need "$1" "${2-}" "NAME:FLAVOUR:CONTEXT[:ROOT]"; ADD+=("$2"); shift ;;
     --remove)         need "$1" "${2-}" "a NAME"; REMOVE+=("$2"); shift ;;
     --projects-root)  need "$1" "${2-}" "a DIR"; OPT_ROOT="$2"; shift ;;
     --registry)       need "$1" "${2-}" "local or a HOST"; OPT_REGISTRY="$2"; shift ;;
@@ -79,11 +82,15 @@ norm_dir() {
 }
 # The projects root is bind-mounted as ROOT:ROOT, so no ':' in it.
 root_ok() { [[ "$1" == /?* && "$1" != *:* ]]; }
-check_spec() {  # check_spec NAME:FLAVOUR:CONTEXT
-  local n f c; IFS=: read -r n f c <<< "$1"
+# A persona's own root also goes into its "# persona:" line, whose fields are split on spaces.
+persona_root_ok() { root_ok "$1" && [[ "$1" != *[[:space:]]* ]]; }
+ROOT_RULE="an absolute directory other than /, without ':' or spaces"
+check_spec() {  # check_spec NAME:FLAVOUR:CONTEXT[:ROOT]
+  local n f c r; IFS=: read -r n f c r <<< "$1"
   valid_name "$n" || die "--persona $1: '$n' is not a usable name ($NAME_RULE)"
   [[ "$f" == claude || "$f" == grok ]] || die "--persona $1: flavour must be claude or grok"
   [[ "$c" == ddev || "$c" == docker ]] || die "--persona $1: context must be ddev or docker"
+  [[ -z "$r" ]] || { norm_dir r; persona_root_ok "$r"; } || die "--persona $1: its projects root must be $ROOT_RULE"
 }
 
 # Flag values are checked before anything is asked.
@@ -198,32 +205,37 @@ env_flavour() {
 }
 
 # --- personas: kept in arrays, loaded from and written to compose.personas.yml -----------------
-P_NAME=() P_FLAVOUR=() P_CONTEXT=() P_COLOUR=() P_STATUSLINE=()
-declare -A LOADED=() STAGED=()   # name -> "flavour context statusline" as loaded; name -> staged env file
+P_NAME=() P_FLAVOUR=() P_CONTEXT=() P_COLOUR=() P_STATUSLINE=() P_ROOT=()   # P_ROOT: empty = the VM's
+declare -A LOADED=() STAGED=()   # name -> "flavour context statusline root" as loaded; name -> staged env file
 idx() { local i; for i in "${!P_NAME[@]}"; do [[ "${P_NAME[i]}" == "$1" ]] && { echo "$i"; return 0; }; done; return 1; }
-put() {    # put NAME FLAVOUR CONTEXT COLOUR STATUSLINE
+put() {    # put NAME FLAVOUR CONTEXT COLOUR STATUSLINE [ROOT]
   local i; i="$(idx "$1")" || i="${#P_NAME[@]}"
-  P_NAME[i]="$1" P_FLAVOUR[i]="$2" P_CONTEXT[i]="$3" P_COLOUR[i]="$4" P_STATUSLINE[i]="$5"
+  P_NAME[i]="$1" P_FLAVOUR[i]="$2" P_CONTEXT[i]="$3" P_COLOUR[i]="$4" P_STATUSLINE[i]="$5" P_ROOT[i]="${6-}"
 }
 drop() {
   local i; i="$(idx "$1")" || return 0
-  unset 'P_NAME[i]' 'P_FLAVOUR[i]' 'P_CONTEXT[i]' 'P_COLOUR[i]' 'P_STATUSLINE[i]'
+  unset 'P_NAME[i]' 'P_FLAVOUR[i]' 'P_CONTEXT[i]' 'P_COLOUR[i]' 'P_STATUSLINE[i]' 'P_ROOT[i]'
   P_NAME=("${P_NAME[@]}") P_FLAVOUR=("${P_FLAVOUR[@]}") P_CONTEXT=("${P_CONTEXT[@]}")
-  P_COLOUR=("${P_COLOUR[@]}") P_STATUSLINE=("${P_STATUSLINE[@]}")
+  P_COLOUR=("${P_COLOUR[@]}") P_STATUSLINE=("${P_STATUSLINE[@]}") P_ROOT=("${P_ROOT[@]}")
 }
 load() {
   [[ -f "$PERSONAS_FILE" ]] || return 0
-  local line w kv name f c col sl
+  local line w kv name f c col sl r
   while read -r line; do
     read -ra w <<< "$line"
-    name="${w[0]-}" f="" c="" col="" sl=""
+    name="${w[0]-}" f="" c="" col="" sl="" r=""
     for kv in "${w[@]:1}"; do
-      case "$kv" in flavour=*) f="${kv#*=}" ;; context=*) c="${kv#*=}" ;; colour=*) col="${kv#*=}" ;; statusline=*) sl="${kv#*=}" ;; esac
+      case "$kv" in
+        flavour=*) f="${kv#*=}" ;; context=*) c="${kv#*=}" ;; colour=*) col="${kv#*=}" ;; statusline=*) sl="${kv#*=}" ;;
+        root=*) r="${kv#*=}" ;;
+      esac
     done
-    valid_name "$name" && [[ "$f" =~ ^(claude|grok)$ && "$c" =~ ^(ddev|docker)$ && "$col" =~ ^colour[0-9]+$ && "$sl" =~ ^(yes|no)$ ]] \
-      || die "$PERSONAS_FILE: persona '$name' has a bad line (edited by hand?): '# persona: $line'; it takes flavour=claude|grok context=ddev|docker colour=colourN statusline=yes|no"
-    put "$name" "$f" "$c" "$col" "$sl"
-    LOADED[$name]="$f $c $sl"
+    if ! valid_name "$name" || ! [[ "$f" =~ ^(claude|grok)$ && "$c" =~ ^(ddev|docker)$ && "$col" =~ ^colour[0-9]+$ && "$sl" =~ ^(yes|no)$ ]] \
+       || { [[ -n "$r" ]] && ! persona_root_ok "$r"; }; then
+      die "$PERSONAS_FILE: persona '$name' has a bad line (edited by hand?): '# persona: $line'; it takes flavour=claude|grok context=ddev|docker colour=colourN statusline=yes|no [root=/dir]"
+    fi
+    put "$name" "$f" "$c" "$col" "$sl" "$r"
+    LOADED[$name]="$f $c $sl $r"
   done < <(sed -n 's/\r$//; s/^# persona: //p' "$PERSONAS_FILE")
 }
 next_colour() {
@@ -236,9 +248,10 @@ suggest_name() {
 has() { local i; for i in "${!P_NAME[@]}"; do [[ "${P_FLAVOUR[i]} ${P_CONTEXT[i]}" == *"$1"* ]] && return 0; done; return 1; }
 list() {
   if (( ! ${#P_NAME[@]} )); then say "  (none yet)"; return; fi
-  local i; printf '  %-31s %-8s %-8s %s\n' NAME FLAVOUR CONTEXT STATUSLINE
+  local i r; printf '  %-31s %-8s %-8s %-10s %s\n' NAME FLAVOUR CONTEXT STATUSLINE "PROJECTS ROOT"
   for i in "${!P_NAME[@]}"; do
-    printf '  %-31s %-8s %-8s %s\n' "${P_NAME[i]}" "${P_FLAVOUR[i]}" "${P_CONTEXT[i]}" "${P_STATUSLINE[i]}"
+    r="${P_ROOT[i]}"; [[ -n "$r" ]] || r="the VM's"
+    printf '  %-31s %-8s %-8s %-10s %s\n' "${P_NAME[i]}" "${P_FLAVOUR[i]}" "${P_CONTEXT[i]}" "${P_STATUSLINE[i]}" "$r"
   done
 }
 
@@ -250,8 +263,26 @@ ask_flavour_context() {  # ask_flavour_context VAR_FLAVOUR VAR_CONTEXT default_f
   choose "$1" "Flavour:" "$3" "${FLAVOURS[@]}"
   choose "$2" "$CONTEXT_Q" "$4" "${CONTEXTS[@]}"
 }
+# ask_root VAR NAME CURRENT: a persona's own projects root, or "" for the VM's ("-" at the prompt).
+ask_root() {
+  local _r="${3:--}" _why
+  while :; do
+    ask _r "Projects root for $2 (-: the VM's, $VM_ROOT_HINT)" "$_r"
+    if [[ -z "$_r" || "$_r" == - ]]; then printf -v "$1" ''; return; fi
+    norm_dir _r
+    if ! persona_root_ok "$_r"; then
+      _why="a projects root must be $ROOT_RULE, not '$_r'"
+    elif ! mkdir -p "$_r" 2>/dev/null; then
+      _why="can't create the projects root '$_r'"
+    else
+      printf -v "$1" '%s' "$_r"; return
+    fi
+    (( ! YES )) || die "$_why"
+    say "  $_why"; _r=-
+  done
+}
 add_interactive() {
-  local f c n sl=no
+  local f c n r sl=no
   ask_flavour_context f c claude "$DEFAULT_CONTEXT"
   while :; do
     ask n "Name" "$(suggest_name "$f" "$c")"
@@ -259,14 +290,16 @@ add_interactive() {
     say "  $NAME_RULE; not taken"
   done
   if [[ "$f" == claude ]] && yesno "Claude Code statusline (statusline/statusline.sh) in $n?" y; then sl=yes; fi
-  put "$n" "$f" "$c" "$(next_colour)" "$sl"
+  ask_root r "$n" ""
+  put "$n" "$f" "$c" "$(next_colour)" "$sl" "$r"
 }
 change_interactive() {
-  local i f c sl; i="$(idx "$1")"
+  local i f c sl r; i="$(idx "$1")"
   ask_flavour_context f c "${P_FLAVOUR[i]}" "${P_CONTEXT[i]}"
   sl=no
   if [[ "$f" == claude ]] && yesno "Claude Code statusline in $1?" "$([[ ${P_FLAVOUR[i]} != claude || ${P_STATUSLINE[i]} == yes ]] && echo y || echo n)"; then sl=yes; fi
-  put "$1" "$f" "$c" "${P_COLOUR[i]}" "$sl"
+  ask_root r "$1" "${P_ROOT[i]}"
+  put "$1" "$f" "$c" "${P_COLOUR[i]}" "$sl" "$r"
 }
 # personas/<name>.env files without a persona, e.g. from the earlier fixed layout. The same name
 # means the same home volume (agents_<name>-home), so logins and history carry over.
@@ -285,17 +318,22 @@ adopt_interactive() {
     put "$n" "$f" "$c" "$(next_colour)" "$sl"
   done
 }
-add_flag() {  # --persona NAME:FLAVOUR:CONTEXT, already checked
-  local n f c i col sl=yes
-  IFS=: read -r n f c <<< "$1"
+add_flag() {  # --persona NAME:FLAVOUR:CONTEXT[:ROOT], already checked
+  local n f c r i col sl=yes keep=""
+  IFS=: read -r n f c r <<< "$1"
   if i="$(idx "$n")"; then
-    col="${P_COLOUR[i]}"
+    col="${P_COLOUR[i]}" keep="${P_ROOT[i]}"
     if [[ "${P_FLAVOUR[i]}" == claude ]]; then sl="${P_STATUSLINE[i]}"; fi   # an existing Claude persona keeps it
   else
     col="$(next_colour)"
   fi
   sl="${STATUSLINE:-$sl}"; [[ "$f" == claude ]] || sl=no
-  put "$n" "$f" "$c" "$col" "$sl"
+  if [[ "$1" == *:*:*:* ]]; then
+    if [[ -n "$r" ]]; then norm_dir r; mkdir -p "$r" 2>/dev/null || die "--persona $1: can't create the projects root '$r'"; fi
+  else
+    r="$keep"
+  fi
+  put "$n" "$f" "$c" "$col" "$sl" "$r"
 }
 
 write_personas() {  # write_personas FILE [staged]: the compose file for every persona in the arrays;
@@ -306,7 +344,7 @@ write_personas() {  # write_personas FILE [staged]: the compose file for every p
     say "# install.sh and the nexus launcher read the \"# persona:\" lines back: keep them in step with"
     say "# the services below if you edit this by hand."
     for i in "${!P_NAME[@]}"; do
-      say "# persona: ${P_NAME[i]} flavour=${P_FLAVOUR[i]} context=${P_CONTEXT[i]} colour=${P_COLOUR[i]} statusline=${P_STATUSLINE[i]}"
+      say "# persona: ${P_NAME[i]} flavour=${P_FLAVOUR[i]} context=${P_CONTEXT[i]} colour=${P_COLOUR[i]} statusline=${P_STATUSLINE[i]}${P_ROOT[i]:+ root=${P_ROOT[i]}}"
     done
     say ""
     say "services:"
@@ -315,7 +353,7 @@ write_personas() {  # write_personas FILE [staged]: the compose file for every p
       env="personas/$n.env"; [[ "${2-}" != staged ]] || env="${STAGED[$n]:-$env}"
       base=_agent; [[ "$c" == ddev ]] && base=_agent-ddev
       # shellcheck disable=SC2016 # literal: compose expands these, not this script
-      if [[ "$f" == claude ]]; then tag='${CLAUDE_TAG:-${CLAUDE_VERSION:-latest}}'; else tag='${GROK_TAG:-latest}'; fi
+      if [[ "$f" == claude ]]; then tag='${CLAUDE_TAG:-${CLAUDE_VERSION:-latest}}'; else tag='${GROK_TAG:-${GROK_VERSION:-latest}}'; fi
       cat <<EOF
 
   "$n":
@@ -381,7 +419,7 @@ write_env_file() {  # write_env_file NAME FLAVOUR: a staged personas/NAME.env fr
 (( EUID != 0 )) || die "run this as the VM user who will use the personas, not as root (it asks for sudo only to link the launcher)"
 if (( ! LIST )); then
   exec 9< "$SELF"   # one run at a time per checkout: a lock on this script, no lock file
-  flock -n 9 || die "another install.sh is running in $AGENTS_DIR; let it finish first"
+  flock -n 9 || die "another install.sh, or a \`nexus <persona> upgrade\`, is running in $AGENTS_DIR; let it finish first"
 fi
 FIRST=1; [[ -f "$PERSONAS_FILE" ]] && FIRST=0   # no registry yet: a first setup, or one from the fixed layout
 load
@@ -404,6 +442,8 @@ DEFAULT_CONTEXT=docker; [[ -n "$VM_DDEV" ]] && DEFAULT_CONTEXT=ddev
 # Nothing below writes a file until the commit step: answers go into staged temp files.
 # --- personas --------------------------------------------------------------------------------
 say "agents setup in $AGENTS_DIR${VM_DDEV:+ (ddev $VM_DDEV on this VM)}"
+VM_ROOT_HINT="${OPT_ROOT:-$(get_kv .env PROJECTS_ROOT)}"   # for ask_root; the VM's root is asked after the personas
+if [[ -n "$VM_ROOT_HINT" ]]; then VM_ROOT_HINT="now $VM_ROOT_HINT"; else VM_ROOT_HINT="asked below"; fi
 for n in "${REMOVE[@]}"; do idx "$n" >/dev/null || die "--remove $n: no such persona"; drop "$n"; done
 for p in "${ADD[@]}"; do add_flag "$p"; done
 if (( ! YES )); then
@@ -411,7 +451,7 @@ if (( ! YES )); then
     say "Personas:"; list
     act=""
     for n in "${P_NAME[@]}"; do
-      choose act "$n:" keep "keep" "change   flavour, context, statusline" "remove"
+      choose act "$n:" keep "keep" "change   flavour, context, statusline, projects root" "remove"
       case "$act" in change) change_interactive "$n" ;; remove) drop "$n" ;; esac
     done
   fi
@@ -422,7 +462,7 @@ fi
 (( ${#P_NAME[@]} )) || warn "no personas configured; add some with ./install.sh (or --persona NAME:FLAVOUR:CONTEXT)"
 for i in "${!P_NAME[@]}"; do
   n="${P_NAME[i]}"
-  if [[ -n "${LOADED[$n]+x}" && "${LOADED[$n]}" != "${P_FLAVOUR[i]} ${P_CONTEXT[i]} ${P_STATUSLINE[i]}" ]]; then
+  if [[ -n "${LOADED[$n]+x}" && "${LOADED[$n]}" != "${P_FLAVOUR[i]} ${P_CONTEXT[i]} ${P_STATUSLINE[i]} ${P_ROOT[i]}" ]]; then
     LATER+=("$n: changed; \`nexus $n restart\` applies it (that ends its tmux sessions)")
   fi
 done
@@ -434,6 +474,8 @@ done
 
 # --- per-VM settings: .env -------------------------------------------------------------------
 stage ENV_NEW .env "$([[ -e .env ]] && echo .env || echo .env.example)"
+# The old template set GROK_TAG=latest; emptied, the grok tag follows GROK_VERSION as Claude's follows CLAUDE_VERSION.
+[[ "$(get_kv "$ENV_NEW" GROK_TAG)" != latest ]] || set_kv "$ENV_NEW" GROK_TAG ""
 root="${OPT_ROOT:-$(get_kv "$ENV_NEW" PROJECTS_ROOT)}"; root="${root:-$HOME/projects}"
 while :; do
   ask root "Projects root (mounted at the same path inside)" "$root"
@@ -654,7 +696,7 @@ say ""
 say "Personas:"; list
 if (( ${#P_NAME[@]} )); then
   say ""
-  say "Start one from a project directory:  cd $root/<project> && nexus ${P_NAME[0]}"
+  say "Start one from a project directory:  cd ${P_ROOT[0]:-$root}/<project> && nexus ${P_NAME[0]}"
 fi
 for l in "${LATER[@]}"; do say "$l"; done
 say "Day-to-day use, upgrades and troubleshooting: runbook.md"
