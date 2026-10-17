@@ -157,7 +157,7 @@ RUN v="${APM_VERSION#v}" \
  && /opt/apm/bin/pip install --no-cache-dir --disable-pip-version-check "$spec" \
  && p="$(/opt/apm/bin/python -c 'import apm_cli.update_policy as u; print(u.__file__)')" \
  && sed -i -e 's/^SELF_UPDATE_ENABLED = True$/SELF_UPDATE_ENABLED = False/' \
-      -e 's/^SELF_UPDATE_DISABLED_MESSAGE = .*/SELF_UPDATE_DISABLED_MESSAGE = "The agent image is the APM updater: set APM_VERSION in the agents .env, then agent <persona> build and restart."/' "$p" \
+      -e 's/^SELF_UPDATE_DISABLED_MESSAGE = .*/SELF_UPDATE_DISABLED_MESSAGE = "The agent image is the APM updater: set APM_VERSION in the agents .env, then nexus <persona> build and restart."/' "$p" \
  && /opt/apm/bin/python -c 'import apm_cli.update_policy as u; assert not u.is_self_update_enabled()'
 
 
@@ -165,11 +165,11 @@ RUN v="${APM_VERSION#v}" \
 FROM base AS grok
 COPY --from=grok-cli /opt/grok /opt/grok
 COPY --from=apm-cli /opt/apm /opt/apm
-# xAI's `agent` binary goes on PATH as grok-agent: a bare `agent` would read as this repo's launcher.
+# xAI's installer links grok and agent into ~/.grok/bin; on PATH under the same names.
 RUN ln -s /opt/grok/.grok/bin/grok /usr/local/bin/grok \
- && ln -s /opt/grok/.grok/bin/agent /usr/local/bin/grok-agent \
+ && ln -s /opt/grok/.grok/bin/agent /usr/local/bin/agent \
  && ln -s /opt/apm/bin/apm /usr/local/bin/apm \
- && test -x /usr/local/bin/grok && test -x /usr/local/bin/grok-agent && apm --version && rm -rf /root/.apm
+ && test -x /usr/local/bin/grok && test -x /usr/local/bin/agent && apm --version && rm -rf /root/.apm
 LABEL agent.flavour="grok"
 USER dev
 

@@ -15,7 +15,7 @@
 #     --claude-version V               latest | stable | X.Y.Z (default: latest)
 #     --statusline | --no-statusline   for the Claude personas given with --persona (default: on for
 #                                      a new one; an existing one keeps its setting)
-#     --link DIR | --no-link           where the `agent` launcher goes (default: /usr/local/bin)
+#     --link DIR | --no-link           where the `nexus` launcher goes (default: /usr/local/bin)
 #     --no-build                       don't build (or pull) the images at the end
 #
 # Writes .env, compose.personas.yml and personas/<name>.env (mode 600; an existing one is kept), all
@@ -26,6 +26,7 @@ SELF="$(readlink -f "$0")"   # before the cd: $0 may be relative
 AGENTS_DIR="$(dirname "$SELF")"
 cd "$AGENTS_DIR"
 PERSONAS_FILE=compose.personas.yml
+MIN_FREE_GB=3   # for Docker, before building or pulling the images
 COLOURS=(colour25 colour28 colour90 colour130 colour31 colour124 colour166 colour61)   # tmux status bars
 
 say()   { printf '%s\n' "$*"; }
@@ -137,7 +138,7 @@ choose() { # choose VAR "question" default "key  description"...; answer by numb
 
 # --- dotenv files ----------------------------------------------------------------------------
 # get_kv FILE KEY: KEY's value the way compose reads a dotenv file (last KEY= line, export prefix,
-# CRLF, '…', "…" with its escapes, trailing comment), minus ${VAR} expansion. The agent launcher
+# CRLF, '…', "…" with its escapes, trailing comment), minus ${VAR} expansion. The nexus launcher
 # reads PROJECTS_ROOT the same way.
 get_kv() {
   [[ -f "$1" ]] || return 0
@@ -302,7 +303,7 @@ write_personas() {  # write_personas FILE [staged]: the compose file for every p
   local i n f c tag base env
   {
     say "# compose.personas.yml — written by ./install.sh; re-run it to add, change or remove personas."
-    say "# install.sh and the agent launcher read the \"# persona:\" lines back: keep them in step with"
+    say "# install.sh and the nexus launcher read the \"# persona:\" lines back: keep them in step with"
     say "# the services below if you edit this by hand."
     for i in "${!P_NAME[@]}"; do
       say "# persona: ${P_NAME[i]} flavour=${P_FLAVOUR[i]} context=${P_CONTEXT[i]} colour=${P_COLOUR[i]} statusline=${P_STATUSLINE[i]}"
@@ -333,7 +334,7 @@ EOF
         cat <<'EOF'
       # Claude Code statusline: the script's directory, so edits and pulls show up live, and its
       # setting as a managed drop-in (beats a user statusLine). The drop-in is a single-file mount,
-      # so a change to statusline/settings.json needs `agent <persona> restart`.
+      # so a change to statusline/settings.json needs `nexus <persona> restart`.
       - ./statusline:/etc/claude-code/statusline:ro
       - ./statusline/settings.json:/etc/claude-code/managed-settings.d/20-statusline.json:ro
 EOF
@@ -422,7 +423,7 @@ fi
 for i in "${!P_NAME[@]}"; do
   n="${P_NAME[i]}"
   if [[ -n "${LOADED[$n]+x}" && "${LOADED[$n]}" != "${P_FLAVOUR[i]} ${P_CONTEXT[i]} ${P_STATUSLINE[i]}" ]]; then
-    LATER+=("$n: changed; \`agent $n restart\` applies it (that ends its tmux sessions)")
+    LATER+=("$n: changed; \`nexus $n restart\` applies it (that ends its tmux sessions)")
   fi
 done
 for n in "${OLD_NAMES[@]}"; do
@@ -522,7 +523,7 @@ fi
 # --- the rest of the questions: launcher link, mkcert, images ---------------------------------
 if (( ! YES )) && [[ "$LINK" != none ]]; then
   while :; do
-    ask LINK "Link the launcher as <dir>/agent (none: skip)" "$LINK"
+    ask LINK "Link the launcher as <dir>/nexus (none: skip)" "$LINK"
     [[ "$LINK" == none ]] && break
     norm_dir LINK
     [[ "$LINK" == /* ]] && break
@@ -531,11 +532,11 @@ if (( ! YES )) && [[ "$LINK" != none ]]; then
 fi
 link=0
 if [[ "$LINK" != none ]]; then
-  target="${LINK%/}/agent"
-  if [[ "$(readlink -f "$target" 2>/dev/null)" == "$AGENTS_DIR/agent" ]]; then
+  target="${LINK%/}/nexus"
+  if [[ "$(readlink -f "$target" 2>/dev/null)" == "$AGENTS_DIR/nexus" ]]; then
     :
   elif [[ -e "$target" || -L "$target" ]] && ! yesno "$target already exists ($(readlink -f "$target" 2>/dev/null || echo a file)); replace it?" n; then
-    LATER+=("launcher: not linked; run it as $AGENTS_DIR/agent")
+    LATER+=("launcher: not linked; run it as $AGENTS_DIR/nexus")
   else
     link=1
   fi
@@ -545,13 +546,30 @@ if has ddev && [[ ! -f "$HOME/.local/share/mkcert/rootCA.pem" ]]; then
   if command -v mkcert >/dev/null && (( ! YES )) && yesno "Trust ddev's local CA on this VM now (mkcert -install)?" y; then
     mkcert=1
   else
-    LATER+=("ddev: run \`mkcert -install\` on this VM (it comes with ddev), then \`agent <persona> restart\`, or https://*.ddev.site stays untrusted inside")
+    LATER+=("ddev: run \`mkcert -install\` on this VM (it comes with ddev), then \`nexus <persona> restart\`, or https://*.ddev.site stays untrusted inside")
   fi
 fi
 verb=build; [[ "$registry" != local ]] && verb=pull
 images=0
 if (( BUILD && ${#P_NAME[@]} )) && yesno "$([[ $verb == build ]] && echo Build || echo Pull) the images now? (the first build takes a few minutes)" y; then
   images=1
+  # A full Docker disk breaks a build halfway, often as apt's "At least one invalid signature was
+  # encountered". Checked only where Docker's data is on this machine (not Docker Desktop or a remote host).
+  droot="$(docker info -f '{{.DockerRootDir}}' 2>/dev/null || true)"
+  if [[ -n "$droot" && -d "$droot" ]] && free="$(df -Pk "$droot" 2>/dev/null | awk 'NR == 2 { print int($4 / 1048576) }')" \
+     && [[ -n "$free" ]] && (( free < MIN_FREE_GB )); then
+    say "  Only $free GB is free for Docker ($droot); a $verb from scratch needs about $MIN_FREE_GB GB, and a full disk"
+    say "  fails it halfway, often as apt's \"At least one invalid signature was encountered\"."
+    say "  Free space first: \`docker system df\` shows what's used; \`docker builder prune\` and \`docker image prune\` free it."
+    if (( ! YES )) && ! yesno "$([[ $verb == build ]] && echo Build || echo Pull) anyway?" n; then
+      images=0 cmds="" seen=" "
+      for i in "${!P_NAME[@]}"; do
+        key="${P_FLAVOUR[i]}-${P_CONTEXT[i]}"; [[ "$seen" == *" $key "* ]] && continue; seen+="$key "
+        cmds+="${cmds:+; }$AGENTS_DIR/nexus ${P_NAME[i]} $verb"
+      done
+      LATER+=("images: skipped for lack of disk space; after freeing some, run: $cmds")
+    fi
+  fi
 fi
 
 # --- commit: everything is answered and checked, so the staged files go in place --------------
@@ -576,29 +594,38 @@ trap 'exit 130' INT TERM HUP
 # --- the launcher on PATH --------------------------------------------------------------------
 SUDO_OPTS=(); (( YES )) && SUDO_OPTS=(-n)   # --yes never waits for a password
 if (( link )); then
-  if mkdir -p "$LINK" 2>/dev/null && ln -sfn "$AGENTS_DIR/agent" "$target" 2>/dev/null; then
+  if mkdir -p "$LINK" 2>/dev/null && ln -sfn "$AGENTS_DIR/nexus" "$target" 2>/dev/null; then
     :
   elif say "-- linking $target needs sudo" \
        && { [[ -d "$LINK" ]] || sudo "${SUDO_OPTS[@]}" mkdir -p "$LINK"; } \
-       && sudo "${SUDO_OPTS[@]}" ln -sfn "$AGENTS_DIR/agent" "$target"; then
+       && sudo "${SUDO_OPTS[@]}" ln -sfn "$AGENTS_DIR/nexus" "$target"; then
     :
   else
-    retry="sudo ln -sfn $(printf %q "$AGENTS_DIR/agent") $(printf %q "$target")"
+    retry="sudo ln -sfn $(printf %q "$AGENTS_DIR/nexus") $(printf %q "$target")"
     [[ -d "$LINK" ]] || retry="sudo mkdir -p $(printf %q "$LINK") && $retry"
     LATER+=("launcher: couldn't link $target; run: $retry")
   fi
 fi
 if [[ "$LINK" != none ]]; then
   case ":$PATH:" in *":${LINK%/}:"*) ;; *) LATER+=("launcher: ${LINK%/} isn't on your PATH") ;; esac
-  a="$(command -v agent || true)"
-  if [[ -n "$a" && "$(readlink -f "$a")" != "$AGENTS_DIR/agent" ]]; then
-    LATER+=("launcher: \`agent\` runs $a, not this launcher (xAI's grok installer links one into ~/.local/bin); put ${LINK%/} first in PATH, or use $AGENTS_DIR/agent")
+  a="$(command -v nexus || true)"
+  if [[ -n "$a" && "$(readlink -f "$a")" != "$AGENTS_DIR/nexus" ]]; then
+    LATER+=("launcher: \`nexus\` runs $a, not this launcher; put ${LINK%/} first in PATH, or use $AGENTS_DIR/nexus")
+  fi
+  # The launcher used to be called agent: a link of that name into this checkout dangles now.
+  old="${LINK%/}/agent"
+  if [[ -L "$old" && "$(readlink -f "$old" 2>/dev/null)" == "$AGENTS_DIR/agent" ]]; then
+    if rm -f "$old" 2>/dev/null || sudo "${SUDO_OPTS[@]}" rm -f "$old"; then
+      say "-- removed $old, the launcher's old name (it is nexus now)"
+    else
+      LATER+=("launcher: remove its old link: sudo rm $(printf %q "$old")")
+    fi
   fi
 fi
 
 # --- ddev's CA, for the ddev personas --------------------------------------------------------
 if (( mkcert )); then
-  mkcert -install || LATER+=("ddev: \`mkcert -install\` failed (see above); run it again on this VM, then \`agent <persona> restart\`")
+  mkcert -install || LATER+=("ddev: \`mkcert -install\` failed (see above); run it again on this VM, then \`nexus <persona> restart\`")
 fi
 
 # --- images ----------------------------------------------------------------------------------
@@ -610,8 +637,8 @@ if (( images )); then
     [[ "$seen" == *" $key "* ]] && continue
     seen+="$key "
     say "-- $verb agent-$key (via ${P_NAME[i]})"
-    "$AGENTS_DIR/agent" "${P_NAME[i]}" "$verb" 9<&- \
-      || { failed=1; LATER+=("images: the $verb of agent-$key failed (see above); retry with: $AGENTS_DIR/agent ${P_NAME[i]} $verb"); }
+    "$AGENTS_DIR/nexus" "${P_NAME[i]}" "$verb" 9<&- \
+      || { failed=1; LATER+=("images: the $verb of agent-$key failed (see above); retry with: $AGENTS_DIR/nexus ${P_NAME[i]} $verb"); }
   done
 fi
 
@@ -620,7 +647,7 @@ say ""
 say "Personas:"; list
 if (( ${#P_NAME[@]} )); then
   say ""
-  say "Start one from a project directory:  cd $root/<project> && agent ${P_NAME[0]}"
+  say "Start one from a project directory:  cd $root/<project> && nexus ${P_NAME[0]}"
 fi
 for l in "${LATER[@]}"; do say "$l"; done
 say "Day-to-day use, upgrades and troubleshooting: runbook.md"

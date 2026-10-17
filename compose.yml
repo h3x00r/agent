@@ -1,13 +1,13 @@
 # /opt/agents/compose.yml — templates for the persona containers, one long-lived container per
-# persona per VM. No personas here: ./install.sh writes them to compose.personas.yml, and the agent
+# persona per VM. No personas here: ./install.sh writes them to compose.personas.yml, and the nexus
 # launcher always loads both files.
 #
 # Each persona container holds a tmux server; every project you work on gets a tmux
 # session inside it (six projects → six sessions in one container, not six containers).
 #
-#   agent <persona>                   attach to / create a session named after $PWD
-#   agent <persona> review -- claude --resume
-#   agent ls                          running personas + their sessions
+#   nexus <persona>                   attach to / create a session named after $PWD
+#   nexus <persona> review -- claude --resume
+#   nexus ls                          running personas + their sessions
 #
 # Without the launcher (PROJECTS_ROOT from ./.env, or exported as here; for a ddev persona on a VM
 # without a mkcert CA also AGENT_CA_CERTS= , empty, and mkdir -p ~/.ddev ~/.local/share/mkcert first):
@@ -34,7 +34,7 @@ services:
   _agent:
     profiles: ["_base"]
     # Never pull implicitly: with REGISTRY=local the name is a Docker Hub one (docker.io/local/…).
-    # A missing image is built here; `agent <persona> pull` pulls explicitly.
+    # A missing image is built here; `nexus <persona> pull` pulls explicitly.
     pull_policy: never
     build:
       context: .
@@ -47,12 +47,12 @@ services:
 
     init: true                      # tini as PID 1: reaps zombies left by tmux/claude children, forwards signals
     # Back after a VM reboot only if its ssh-agent socket exists again by then (see the mount below);
-    # otherwise the next `agent <persona>` starts it. tmux sessions don't survive, `claude --resume` does.
+    # otherwise the next `nexus <persona>` starts it. tmux sessions don't survive, `claude --resume` does.
     restart: unless-stopped
     network_mode: host              # *.ddev.site → 127.0.0.1 and compose-published ports are reachable as on the VM
     user: "${AGENT_UID:-1000}:${AGENT_GID:-1000}"
     group_add:
-      - "${DOCKER_GID:?gid of /var/run/docker.sock on this VM (the agent launcher sets it)}"
+      - "${DOCKER_GID:?gid of /var/run/docker.sock on this VM (the nexus launcher sets it)}"
     working_dir: ${PROJECTS_ROOT:?absolute path of your projects root, e.g. /home/you/projects}
     stop_grace_period: 45s          # entrypoint traps SIGTERM and kills the tmux server cleanly
     security_opt:
@@ -71,7 +71,7 @@ services:
       TERM: xterm-256color
       COLORTERM: truecolor
       LANG: C.UTF-8
-      # The image is the CLI version; upgrade = rebuild/pull + `agent <persona> restart`.
+      # The image is the CLI version; upgrade = rebuild/pull + `nexus <persona> restart`.
       # The Claude image already locks updates (managed settings); this also covers pins too old for that.
       DISABLE_AUTOUPDATER: "1"
       GROK_DISABLE_AUTOUPDATER: "1" # grok's own switch; its updates would only pile up in ~/.grok/downloads

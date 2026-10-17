@@ -1,24 +1,24 @@
 #!/usr/bin/env bash
-# agent — launcher for persona containers. ./install.sh sets up the personas and links this script,
-# e.g. to /usr/local/bin/agent.
+# nexus — launcher for persona containers. ./install.sh sets up the personas and links this script,
+# e.g. to /usr/local/bin/nexus.
 #
-#   agent <persona> [session] [-- cmd ...]   attach to (or create) a tmux session in that persona,
+#   nexus <persona> [session] [-- cmd ...]   attach to (or create) a tmux session in that persona,
 #                                            named after $PWD unless given; cmd runs only on create
-#   agent ls                                 running personas and their sessions
-#   agent <persona> ls                       that persona's sessions
-#   agent <persona> stop|logs|build|pull [args]
+#   nexus ls                                 running personas and their sessions
+#   nexus <persona> ls                       that persona's sessions
+#   nexus <persona> stop|logs|build|pull [args]
 #                                            args go to compose, e.g. build --no-cache
-#   agent <persona> start                    start it if it isn't running, without attaching (scripts, cron)
-#   agent <persona> restart                  recreate the container: picks up a rebuilt/pulled image
+#   nexus <persona> start                    start it if it isn't running, without attaching (scripts, cron)
+#   nexus <persona> restart                  recreate the container: picks up a rebuilt/pulled image
 #
 # Examples, with personas named claude-ddev and grok-docker (the names install.sh suggests):
-#   cd ~/projects/billing && agent claude-ddev            # session "billing", shell at that dir
-#   agent claude-ddev review -- claude --resume           # new session "review", straight into Claude Code
-#   agent grok-docker                                     # same project, other persona
+#   cd ~/projects/billing && nexus claude-ddev            # session "billing", shell at that dir
+#   nexus claude-ddev review -- claude --resume           # new session "review", straight into Claude Code
+#   nexus grok-docker                                     # same project, other persona
 set -euo pipefail
 
-die()   { echo "agent: $*" >&2; exit 1; }
-warn()  { echo "agent: warning: $*" >&2; }
+die()   { echo "nexus: $*" >&2; exit 1; }
+warn()  { echo "nexus: warning: $*" >&2; }
 usage() { awk 'NR > 1 && !/^#/ { exit } NR > 1 { sub(/^# ?/, ""); print }' "$0"; }
 
 [[ $# -ge 1 ]] || { usage; exit 1; }
@@ -94,7 +94,7 @@ mgmt() { export SSH_AUTH_SOCK="${SSH_AUTH_SOCK:-/dev/null}"; exec "${COMPOSE[@]}
 running() { [[ "$(docker inspect -f '{{.State.Running}}' "$container" 2>/dev/null || true)" == true ]]; }
 restart=0 start_only=0
 case "${1:-}" in
-  ls)      running || die "$persona isn't running; start it with: agent $persona"
+  ls)      running || die "$persona isn't running; start it with: nexus $persona"
            exec docker exec "$container" tmux list-sessions ;;
   start)   start_only=1 ;;
   stop)    shift; mgmt stop "$@" "$service" ;;
@@ -123,7 +123,7 @@ fi
 # fixed at creation, for the container's whole life (a new path makes compose recreate it).
 if (( restart )) || ! running; then
   if (( no_ca )); then
-    warn "no mkcert CA on this VM yet — run 'mkcert -install' here, then \`agent $persona restart\`, or https://*.ddev.site stays untrusted inside"
+    warn "no mkcert CA on this VM yet — run 'mkcert -install' here, then \`nexus $persona restart\`, or https://*.ddev.site stays untrusted inside"
   fi
   if [[ -S "$SSH_AUTH_SOCK" ]] && command -v ssh-add >/dev/null; then
     rc=0; ssh-add -l >/dev/null 2>&1 || rc=$?
@@ -145,7 +145,7 @@ if [[ "${1:-}" == "--" ]]; then shift; cmd=("$@"); fi
 dir="$here"
 case "$dir/" in
   "$PROJECTS_ROOT"/*) [[ -d "$dir" ]] || die "$dir no longer exists; cd to a project dir" ;;
-  *) echo "agent: $here is outside $PROJECTS_ROOT; starting in $PROJECTS_ROOT" >&2; dir="$PROJECTS_ROOT" ;;
+  *) echo "nexus: $here is outside $PROJECTS_ROOT; starting in $PROJECTS_ROOT" >&2; dir="$PROJECTS_ROOT" ;;
 esac
 session="${session:-$(basename "$dir")}"
 session="${session//[.:]/_}"   # tmux rewrites '.' and ':' in session names; do the same up front

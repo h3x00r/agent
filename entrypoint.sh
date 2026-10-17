@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Runs under tini (compose `init: true`). Keeps one tmux server alive for this persona for the
-# life of the container. Sessions are created from outside:  agent <persona> [session]
+# life of the container. Sessions are created from outside:  nexus <persona> [session]
 # or:  docker exec -it agent-<persona> tmux new -A -s <name> -c <dir>
 # Given a command instead (docker run --rm <image> claude --version), it just runs that.
 set -uo pipefail
@@ -29,7 +29,7 @@ trap shutdown TERM INT
 
 # "=main": exact match; plain "-t main" would also accept a session like "maintenance".
 tmux has-session -t =main 2>/dev/null || start_server
-echo "[$PERSONA] tmux server up on $(hostname) — attach with: agent $PERSONA"
+echo "[$PERSONA] tmux server up on $(hostname) — attach with: nexus $PERSONA"
 
 # Watchdog: recreate the "main" session if it gets killed, keep PID alive, stay signal-responsive.
 while :; do
