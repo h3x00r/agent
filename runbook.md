@@ -125,7 +125,8 @@ persona; it is kept in the home volume too. Then `apm install` deploys to this p
 (section 2).
 
 **Verification**
-- [ ] `nexus ls` shows `== claude-ddev  (claude, ddev)  running (healthy)` and your session.
+- [ ] `nexus ls` lists `claude-ddev` as `healthy` (or `starting`, for its first half minute), and your session
+      in the sessions table below it.
 - [ ] Inside: `claude --version` prints the version, `docker ps` lists the VM's containers, `ssh-add -l` lists
       your key, and `git var GIT_AUTHOR_IDENT` shows the persona's identity.
 - [ ] ddev context: `ddev version` inside matches the VM's.
@@ -142,7 +143,7 @@ persona; it is kept in the home volume too. Then `apm install` deploys to this p
 | Pick a session from a list | `Prefix+s` (Prefix is tmux's default, `Ctrl-b`) |
 | New window in this project | `Prefix+c` |
 | Leave, keeping everything running | `Prefix+d` |
-| What is set up and running | `nexus ls`: every persona and its state (running, stopped, not started yet), the sessions of the running ones, and containers no persona has any more; `nexus <persona> ls`: one persona's sessions |
+| What is set up and running | `nexus ls`: a table of every persona (flavour, context, ssh, state, projects root), one of the running ones' sessions, and containers no persona has any more; `nexus <persona> ls`: one persona's sessions |
 | One prompt, output on stdout (scripts, cron, pipes) | `nexus <persona> headless "PROMPT" [FLAGS…]` (section 3) |
 | Live usage, all personas | `nexus top`: CPU and memory per persona; model, context, 5h/7d limits and cost per Claude Code session (section 7). `q` quits, `-n 10` redraws every 10 s, `--once` prints one screen |
 | Persona logs | `nexus <persona> logs` (follows; `Ctrl-c` to stop) |
@@ -374,15 +375,20 @@ setting, so it wins over a `statusLine` in a persona's own settings; after chang
 
 **`nexus top`** shows those figures for every persona at once. Each time the statusline draws in a tmux pane,
 the script also saves them to `~/.cache/nexus/status/<pane>` in the persona's home. `nexus top` reads them
-from each running persona, next to `docker stats`, one row per pane running Claude Code (or grok):
+from each running persona: a table of the personas (state, `docker stats` CPU and memory, how many panes run
+their CLI), then one with a row per pane running Claude Code (or grok):
 
 ```text
-PERSONA / SESSION      MODEL       CONTEXT       5H   7D    COST  SEEN
-claude-team  healthy  cpu 1.69%  mem 610MiB
-  api                  Opus 5.5    112k/200k    41%  18%   $3.20   12s
-  web:1.2              Sonnet 5.5  38k/200k     41%  18%   $0.85    3m
-grok  healthy  cpu 0.02%  mem 300MiB
-  api                  grok        -              -    -       -     -
+PERSONA      STATE      CPU       MEM  PANES
+claude-team  healthy  1.69%  610.2MiB  3 claude
+claude-max   stopped      -         -  -
+grok         healthy  0.02%  300.1MiB  1 grok
+
+PERSONA      SESSION  MODEL         CONTEXT   5H   7D   COST  SEEN
+claude-team  api      Opus 5.5    112k/200k  41%  18%  $3.20   12s
+claude-team  web:1.1  Sonnet 5.5   38k/200k  41%  18%  $0.85    3m
+claude-team  web:1.2  Sonnet 5.5   21k/200k  41%  18%  $0.40    9m
+grok         api      grok                -    -    -      -     -
 ```
 
 - **CONTEXT** is used/size, coloured as on the statusline (yellow from 50%, red from 80%). **5H** and **7D** are

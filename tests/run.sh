@@ -257,11 +257,16 @@ check "an unknown persona" 'rc 1 && err_has "no persona" && err_has "$ID-nope"'
 t nx 'Bad!' </dev/null
 check "a name that can't be one" 'rc 1 && err_has "not a persona name"'
 t nx ls </dev/null
-check "ls: both, not started; the removed one gone" \
-      'rc 0 && out_has "== $PC  (claude, docker)  not started yet" && out_has "== $PG  (grok, docker, own ssh key)  not started yet" \
-       && out_has "== $PN  (grok, docker, no ssh)  not started yet" && ! out_has "$PX"'
+check "ls: a table of every persona, not started; the removed one gone" \
+      'rc 0 && out_re "^PERSONA +FLAVOUR +CONTEXT +SSH +STATE +PROJECTS ROOT$" && out_re "^$PC +claude +docker +agent +not started +$ROOT$" \
+       && out_re "^$PG +grok +docker +own key +not started +$ROOT$" && out_re "^$PN +grok +docker +none +not started +$ROOT$" \
+       && out_has "nexus <persona> starts one" && ! out_has "$PX" && ! out_has "SESSION"'
+hdr="$(grep -E '^PERSONA +FLAVOUR' <<< "$OUT")" row="$(grep -E "^$PC " <<< "$OUT")"; x="${hdr%%STATE*}"
+check "  its columns line up under their headers" '[[ ${row:${#x}:11} == "not started" && ${row:${#x}-1:1} == " " ]]'
 t nx top --once </dev/null
-check "top --once: every persona, not started" 'rc 0 && out_has "nexus top" && out_line "$PC  not started" && out_line "$PG  not started"'
+check "top --once: a table of every persona, not started" \
+      'rc 0 && out_has "nexus top" && out_re "^PERSONA +STATE +CPU +MEM +PANES$" && out_re "^$PC +not started +- +- +-$" \
+       && out_re "^$PN +not started +- +- +-$" && out_has "no Claude Code or grok pane"'
 t nx top -n 0 </dev/null
 check "top: -n takes whole seconds" 'rc 1 && err_has "whole seconds"'
 t nx top --bogus </dev/null
@@ -495,18 +500,41 @@ docker exec -i -e TMUX_PANE="$pane" "agent-$PC" bash /etc/claude-code/statusline
  "rate_limits": {"five_hour": {"used_percentage": 12}, "seven_day": {"used_percentage": 40}}}
 EOF
 t nx top --once </dev/null
-re='^  billing +Opus 5\.5 +38k/200k +12% +40% +\$1\.23 +[0-9]+s$'
-check "top: a Claude Code pane, with its statusline's figures" 'rc 0 && out_re "$re"'
-check "  a grok persona: state, CPU, memory; no grok running" 'out_re "^$PG  (starting|healthy|running)  cpu " && out_has "no grok running"'
+re="^$PC"' +billing +Opus 5\.5 +38k/200k +12% +40% +\$1\.23 +[0-9]+s$'
+check "top: a Claude Code pane, with its statusline's figures" \
+      'rc 0 && out_re "^PERSONA +SESSION +MODEL +CONTEXT +5H +7D +COST +SEEN$" && out_re "$re" && out_re "^$PC +(starting|healthy|running) +.* +1 claude$"'
+check "  a grok persona: state, CPU, memory; no grok running" \
+      'out_re "^$PG +(starting|healthy|running) +[0-9.]+% +[0-9.]+[kKMG]i?B +no grok running$"'
+# The same on a terminal, in colour: the colours take no room, so the columns line up as without them.
+pty "$ROOT/app" top --once
+pty_end 30
+plain="${OUT//$'\e['[0-9][0-9]m/}"; plain="${plain//$'\e['[0-9]m/}"   # the T_* codes nexus uses
+hdr="$(grep -E '^PERSONA +SESSION' <<< "$plain")" row="$(grep -E -- "$re" <<< "$plain")"
+check "  on a terminal: coloured, and the colours take no room (the right-aligned rows end level)" \
+      'rc 0 && [[ $OUT == *$'"'"'\e[32m'"'"'* && -n $row ]] && (( ${#hdr} == ${#row} )) && [[ $(grep -c "^PERSONA " <<< "$plain") == 2 ]]'
 t nx ls </dev/null
-check "ls: running, with its sessions" \
-      'rc 0 && out_re "^== $PC  \(claude, docker\)  running" && out_has "   billing  1w  detached  $ROOT/app" && out_has "   my_app  1w  detached  $ROOT/my.app"'
+check "ls: running, with a table of the sessions" \
+      'rc 0 && out_re "^$PC +claude +docker +agent +(starting|healthy|running) +$ROOT$" && out_re "^PERSONA +SESSION +WINDOWS +ATTACHED +DIR$" \
+       && out_re "^$PC +billing +1 +no +$ROOT/app$" && out_re "^$PC +my_app +1 +no +$ROOT/my\.app$" && out_re "^$PG +main +1 +no +$ROOT$"'
 t nx "$PC" ls </dev/null
-check "PERSONA ls: its tmux sessions" 'rc 0 && out_re "^billing: " && out_re "^my_app: "'
+check "PERSONA ls: a table of its sessions" \
+      'rc 0 && out_re "^SESSION +WINDOWS +ATTACHED +DIR$" && out_re "^billing +1 +no +$ROOT/app$" && out_re "^my_app +1 +no +$ROOT/my\.app$"'
+# A session whose dir holds a newline, ESC and BEL sequences, a tab and a C1 OSC (U+009D): what a persona
+# shows must not drive the terminal, nor forge a row.
+evil="$ROOT/q"$'\n\e]0;pwned\a\e[2Jevil\tcol:1:1:x\xc2\x9d0;c1\xc2\x9c'
+esc=$'\e' bel=$'\a' c1=$'\xc2\x9d'
+mkdir -p "$evil" && tx new-session -d -s evil -c "$evil" 'exec sleep 300'
+t nx ls </dev/null
+check "ls: a session dir with control characters reaches the terminal cleaned, as one row" \
+      'rc 0 && [[ $OUT != *"$esc"* && $OUT != *"$bel"* && $OUT != *"$c1"* ]] && [[ $(grep -c pwned <<< "$OUT") == 1 ]] \
+       && out_re "^$PC +evil +1 +no +$ROOT/q "'
+t nx "$PC" ls </dev/null
+check "  and PERSONA ls the same" 'rc 0 && [[ $OUT != *"$esc"* && $OUT != *"$bel"* && $OUT != *"$c1"* ]] && [[ $(grep -c pwned <<< "$OUT") == 1 ]]'
+tx kill-session -t =evil 2>/dev/null
 t nx "$PG" stop </dev/null
 check "stop: the container stops" 'rc 0 && [[ $(docker inspect -f "{{.State.Status}}" "agent-$PG" 2>/dev/null) == exited ]]'
 t nx ls </dev/null
-check "ls: a stopped persona" 'out_has "== $PG  (grok, docker, own ssh key)  stopped:"'
+check "ls: a stopped persona" 'out_re "^$PG +grok +docker +own key +stopped +$ROOT$" && ! out_re "^$PG +main "'
 check "headless runs left no temp files" '[[ -z $(ls -A "$T/tmp") ]]'
 
 summary

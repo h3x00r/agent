@@ -58,7 +58,7 @@ directory and you're in. Detach, and the agents keep working. Reconnect from any
 they are.
 
 - **One command, any project.** `nexus <persona>` opens, or reattaches to, the session for the directory
-  you're in. `nexus ls` shows every persona, running or not, and its sessions.
+  you're in. `nexus ls` shows every persona, running or not, and its sessions, as tables.
 - **See them all at once.** `nexus top` is a live view: CPU and memory per persona, and per Claude Code
   session the model, context use, 5-hour and 7-day plan limits and cost.
 - **Personas, not just containers.** Each has its own account, git author, token and persistent home. Run
@@ -265,9 +265,9 @@ inside a persona, in each tmux pane running Claude Code:
                                            to ~/.cache/nexus/status/<pane>
 on the VM:
 nexus top [-n SECONDS]               redraws every 5s; q quits
-  ├─ docker ps, docker stats ─────► state, CPU, memory per persona
+  ├─ docker ps, docker stats ─────► state, CPU, memory per persona: the first table
   ├─ docker exec <persona> ──────► its panes running claude (or grok), each with its saved figures
-  └─ one row per pane              SEEN = since Claude Code last drew; grok panes come without figures
+  └─ the second table: a row per pane    SEEN = since Claude Code last drew; grok panes come without figures
 ```
 
 ### One prompt, headless

@@ -4,10 +4,11 @@
 #
 #   nexus <persona> [session] [-- cmd ...]   attach to (or create) a tmux session in that persona,
 #                                            named after $PWD unless given; cmd runs only on create
-#   nexus ls                                 every persona and its state; the sessions of the running ones
+#   nexus ls                                 a table of every persona and its state; one of the sessions of
+#                                            the running ones
 #   nexus top [-n SECONDS] [--once]          live view of every persona: CPU, memory and, per Claude Code
 #                                            session, context, 5h/7d limits and cost (q quits)
-#   nexus <persona> ls                       that persona's sessions
+#   nexus <persona> ls                       a table of that persona's sessions
 #   nexus <persona> stop|logs|build|pull [args]
 #                                            args go to compose, e.g. build --no-cache
 #   nexus <persona> headless [PROMPT] [FLAGS…]
@@ -108,31 +109,136 @@ declare -A CLI_TAG=([claude]=CLAUDE_TAG [grok]=GROK_TAG)
 declare -A CLI_CHANNELS=([claude]="latest stable" [grok]="stable alpha")
 declare -A CLI_NEWEST=([claude]="https://downloads.claude.ai/claude-code-releases/{channel}" [grok]="https://x.ai/cli/{channel}")
 
-# Every persona set up here and its state, with the tmux sessions of the running ones; then any persona
-# container this checkout started that no persona has any more (compose labels each with its directory).
+# --- tables: what ls and top print ---------------------------------------------------------------
+# T_* are bold, dim, red, yellow, green and reset, set by set_colours on a terminal (not with NO_COLOR);
+# T_EVERY is top's redraw interval, for its header.
+T_B="" T_D="" T_R="" T_Y="" T_G="" T_0="" T_EVERY=""
+set_colours() {
+  if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then
+    T_B=$'\033[1m' T_D=$'\033[90m' T_R=$'\033[31m' T_Y=$'\033[33m' T_G=$'\033[32m' T_0=$'\033[0m'
+  fi
+}
+# t_plain VAR CELL: CELL without its T_* colours. t_clean VAR TEXT: TEXT as a cell, "-" if empty, without
+# control characters: C0 and DEL, and C1 (U+0080-U+009F, which a terminal can take for ESC [ and the like),
+# byte by byte, so in any locale. Their locals have names no caller uses: printf -v would write those.
+t_plain() { local _tp="${2//$'\033['[0-9][0-9]m/}"; printf -v "$1" '%s' "${_tp//$'\033['[0-9]m/}"; }
+t_clean() {
+  local LC_ALL=C _tc
+  _tc="${2//[[:cntrl:]]/}"; _tc="${_tc//$'\xc2'[$'\x80'-$'\x9f']/}"
+  printf -v "$1" '%s' "${_tc:--}"
+}
+
+# table ALIGN ROW…: the ROWs as columns two spaces apart, the first (the header) dim. A ROW is its cells
+# joined by tabs, none of them empty, so "-" for nothing; a cell may hold T_* colours, which take no room.
+# ALIGN has an l or an r per column (left or right; l where it stops), and a last column on the left isn't
+# padded. Cells are printed as they are: what a persona sent goes through t_clean first. Widths count
+# characters, so a wide one (CJK, emoji) still shifts its row a little.
+table() {
+  local align="$1" r p pad line i last n=0
+  local -a w=() f
+  shift
+  for r in "$@"; do
+    IFS=$'\t' read -r -a f <<< "$r"
+    for i in "${!f[@]}"; do t_plain p "${f[i]}"; (( ${#p} <= ${w[i]:-0} )) || w[i]=${#p}; done
+  done
+  for r in "$@"; do
+    IFS=$'\t' read -r -a f <<< "$r"
+    line="" last=$(( ${#f[@]} - 1 ))
+    for i in "${!f[@]}"; do
+      t_plain p "${f[i]}"
+      printf -v pad '%*s' $(( w[i] - ${#p} )) ''
+      if [[ "${align:i:1}" == r ]]; then line+="$pad${f[i]}"
+      elif (( i == last )); then line+="${f[i]}"
+      else line+="${f[i]}$pad"; fi
+      (( i == last )) || line+="  "
+    done
+    if (( n++ )); then printf '%s\n' "$line"; else printf '%s\n' "$T_D$line$T_0"; fi
+  done
+}
+
+# ps_states: STATE[container] for the persona containers on this VM (healthy, unhealthy, starting, running,
+# stopped, …), found by name as every other command finds them; UP[container] for the running ones, and
+# HERE[container] for those this checkout started (compose labels each with its directory): one docker ps.
+declare -A STATE=() UP=() HERE=()
+ps_states() {
+  local c st sp wd
+  STATE=() UP=() HERE=()
+  while IFS=$'\t' read -r c st sp wd; do
+    [[ "$wd" != "$AGENTS_DIR" ]] || HERE[$c]=1
+    if [[ "$st" == running ]]; then
+      UP[$c]=1
+      case "$sp" in *"(healthy)"*) st=healthy ;; *"(unhealthy)"*) st=unhealthy ;; *"(health: starting)"*) st=starting ;; esac
+    elif [[ "$st" == exited || "$st" == created || "$st" == dead ]]; then
+      st=stopped
+    fi
+    STATE[$c]="$st"
+  done < <(docker ps -a --filter label=agent.persona \
+             --format '{{.Names}}\t{{.State}}\t{{.Status}}\t{{.Label "com.docker.compose.project.working_dir"}}')
+}
+state_colour() {  # state_colour VAR STATE: green when it runs, red unhealthy, yellow on the way, dim otherwise
+  case "$2" in
+    healthy|running)     printf -v "$1" '%s' "$T_G" ;;
+    unhealthy)           printf -v "$1" '%s' "$T_R" ;;
+    starting|restarting) printf -v "$1" '%s' "$T_Y" ;;
+    *)                   printf -v "$1" '%s' "$T_D" ;;
+  esac
+}
+# Run in a persona: a line per tmux session with its name, windows, attached clients and the dir of its
+# current pane, each ended by \037. Each is asked for on its own, by the session's id, and its newlines,
+# tabs and \037s flattened, so a name or a dir can't forge a line or a field. Exit 1: no tmux answer.
+# shellcheck disable=SC2016  # expanded by sh inside the persona
+SESS_PROBE='ids=$(tmux list-sessions -F "#{session_id}" 2>/dev/null) || exit 1
+for id in $ids; do
+  for f in session_name session_windows session_attached pane_current_path; do
+    v=$(tmux display-message -p -t "$id" "#{$f}" 2>/dev/null); printf "%s" "$v" | tr "\n\t\037" "   "; printf "\037"
+  done
+  echo
+done'
+# sess_rows CONTAINER LEAD: a row for each tmux session in CONTAINER, appended to SROWS: LEAD (cells, each
+# ending in a tab, or nothing), then session, windows, attached and the dir of its current pane. False,
+# with a row saying so, if its tmux doesn't answer.
+SROWS=()
+sess_rows() {
+  local out s w a d
+  if ! out="$(timeout 10 docker exec "$1" sh -c "$SESS_PROBE" 2>/dev/null)"; then   # a hung persona can't hang this
+    SROWS+=("$2-"$'\t'"-"$'\t'"-"$'\t'"tmux isn't answering"); return 1
+  fi
+  while IFS=$'\037' read -r s w a d _; do
+    [[ -n "$s$w$a$d" ]] || continue
+    t_clean s "$s"; t_clean d "$d"
+    [[ "$w" =~ ^[0-9]+$ ]] || w=-
+    if [[ "$a" =~ ^[1-9][0-9]*$ ]]; then a=yes; else a=no; fi
+    SROWS+=("$2$s"$'\t'"$w"$'\t'"$a"$'\t'"$d")
+  done <<< "$out"
+}
+
+# nexus ls: every persona set up here, with its flavour, context, ssh, state and projects root; the tmux
+# sessions of the running ones; then any container of this checkout no persona has any more (compose
+# labels each with its directory).
 cmd_ls_all() {
-  local name rest c st fl cx how
+  local name rest c st fl cx how root lc idle=0
+  local -a rows=($'PERSONA\tFLAVOUR\tCONTEXT\tSSH\tSTATE\tPROJECTS ROOT') notes=()
   local -A known=()
   [[ -f "$PERSONAS_FILE" ]] || die "no personas set up yet: run $AGENTS_DIR/config.sh"
+  set_colours; ps_states
+  SROWS=($'PERSONA\tSESSION\tWINDOWS\tATTACHED\tDIR')
   while read -r name rest; do
-    c="agent-$name"; known[$c]=1
-    fl="${rest#*flavour=}"; fl="${fl%% *}"; cx="${rest#*context=}"; cx="${cx%% *}"
-    case " $rest " in *" ssh=none "*) how=", no ssh" ;; *" ssh="*) how=", own ssh key" ;; *) how="" ;; esac
-    st="$(docker inspect -f '{{.State.Status}}{{if .State.Health}} ({{.State.Health.Status}}){{end}}' "$c" 2>/dev/null || true)"
-    case "$st" in
-      "")       st="not started yet: \`nexus $name\` starts it" ;;
-      exited*)  st="stopped: \`nexus $name\` starts it" ;;
-    esac
-    echo "== $name  ($fl, $cx$how)  $st"
-    [[ "$st" == running* ]] || continue
-    docker exec "$c" tmux list-sessions \
-      -F '   #{session_name}  #{session_windows}w  #{?session_attached,attached,detached}  #{pane_current_path}' 2>/dev/null \
-      || echo "   (no sessions)"
+    rest=" $rest " c="agent-$name"; known[$c]=1
+    fl="${rest#* flavour=}"; fl="${fl%% *}"; cx="${rest#* context=}"; cx="${cx%% *}"
+    case "$rest" in *" ssh=none "*) how=none ;; *" ssh="*) how="own key" ;; *) how=agent ;; esac
+    root="$vm_root"; if [[ "$rest" == *" root="* ]]; then root="${rest#* root=}"; root="${root%% *}"; fi
+    t_clean root "${root%/}"
+    st="${STATE[$c]:-not started}"; state_colour lc "$st"
+    rows+=("$name"$'\t'"$fl"$'\t'"$cx"$'\t'"$how"$'\t'"$lc$st$T_0"$'\t'"$root")
+    if [[ -n "${UP[$c]:-}" ]]; then sess_rows "$c" "$name"$'\t' || true; else idle=1; fi
   done < <(sed -n 's/\r$//; s/^# persona: //p' "$PERSONAS_FILE")
-  for c in $(docker ps -a --filter label=agent.persona --filter "label=com.docker.compose.project.working_dir=$AGENTS_DIR" --format '{{.Names}}'); do
-    [[ -n "${known[$c]:-}" ]] && continue
-    echo "== $c  $(docker inspect -f '{{.State.Status}}' "$c"): no persona has it any more (docker rm -f $c removes it)"
+  table lllll "${rows[@]}"
+  if (( ${#SROWS[@]} > 1 )); then echo; table llrll "${SROWS[@]}"; fi
+  if (( idle )); then notes+=("${T_D}nexus <persona> starts one that isn't running$T_0"); fi
+  for c in $(printf '%s\n' "${!HERE[@]}" | sort); do
+    [[ -n "${known[$c]:-}" ]] || notes+=("$c is ${STATE[$c]}, and no persona has it any more: docker rm -f $c removes it")
   done
+  if (( ${#notes[@]} )); then echo; printf '%s\n' "${notes[@]}"; fi
 }
 
 # --- top -------------------------------------------------------------------------------------------
@@ -141,7 +247,6 @@ cmd_ls_all() {
 # context, 5-hour and 7-day limits and session cost: statusline.sh saves them to
 # ~/.cache/nexus/status/<pane> each time it draws, and SEEN is how long ago that was. grok has no
 # statusline, so its panes come without figures.
-T_B="" T_D="" T_R="" T_Y="" T_G="" T_0="" T_EVERY=""   # bold dim red yellow green reset; set by cmd_top
 
 # Run in each running persona with its CLI as $1: the panes running it, typed into a shell or started
 # with `-- <cli>`, each with its snapshot ("-" if none), tab-separated. tmux prints a tab as "_", but no
@@ -177,43 +282,39 @@ top_load() {  # top_load VAR PERCENT: the statusline's colour for it: green, yel
   else printf -v "$1" '%s' "$T_G"; fi
 }
 
-# top_frame: one screen.
+# top_frame: one screen: the personas, then the panes running their CLIs.
 top_frame() {
-  local now hms name rest fl sl c cli st sp cpu mem note lc lab i a b ctx c5 c7 grok=0
+  local now hms name rest fl sl c cli st lc panes i a b lab ctx c5 c7 cpu mem grok=0
   local id wp sess ver ts model used size pct five week cost seen
-  local -A state=() up=() usage=() count=()
-  local -a run=() rows=()
+  local -A cpus=() mems=() count=()
+  local -a prow=($'PERSONA\tSTATE\tCPU\tMEM\tPANES') srow=($'PERSONA\tSESSION\tMODEL\tCONTEXT\t5H\t7D\tCOST\tSEEN') rows=()
+  local -a lines=() run=()
+  local max pl pw=0
   printf -v now '%(%s)T' -1
   printf -v hms '%(%H:%M:%S)T' "$now"
   echo "${T_B}nexus top${T_0}  ${HOSTNAME:-}  $hms${T_EVERY:+  ${T_D}every ${T_EVERY}s, q quits, any other key redraws${T_0}}"
   echo
-  # The containers of this checkout, and the CPU and memory of the running ones (one docker stats call).
-  while IFS=$'\t' read -r c st sp; do
-    if [[ "$st" == running ]]; then
-      run+=("$c"); up[$c]=1
-      case "$sp" in *"(healthy)"*) st=healthy ;; *"(unhealthy)"*) st=unhealthy ;; *"(health: starting)"*) st=starting ;; esac
-    elif [[ "$st" == exited || "$st" == created || "$st" == dead ]]; then
-      st=stopped
-    fi
-    state[$c]="$st"
-  done < <(docker ps -a --filter label=agent.persona --filter "label=com.docker.compose.project.working_dir=$AGENTS_DIR" \
-             --format '{{.Names}}\t{{.State}}\t{{.Status}}')
+  # The personas, their containers' states, and the CPU and memory of the running ones (one docker stats).
+  mapfile -t lines < <(sed -n 's/\r$//; s/^# persona: //p' "$PERSONAS_FILE")
+  ps_states
+  for pl in "${lines[@]}"; do
+    name="${pl%% *}"; (( ${#name} <= pw )) || pw=${#name}
+    [[ -z "${UP[agent-$name]:-}" ]] || run+=("agent-$name")
+  done
   if (( ${#run[@]} )); then
-    while IFS=$'\t' read -r c cpu mem; do usage[$c]="  cpu $cpu  mem ${mem%% /*}"; done \
+    while IFS=$'\t' read -r c cpu mem; do cpus[$c]="$cpu" mems[$c]="${mem%% /*}"; done \
       < <(timeout 20 docker stats --no-stream --format '{{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}' "${run[@]}" 2>/dev/null)
   fi
-  printf '%s%-22s %-11s %-11s %4s %4s %7s %5s%s\n' "$T_D" "PERSONA / SESSION" MODEL CONTEXT 5H 7D COST SEEN "$T_0"
+  # A pane's row fits 79 columns: persona and session label share 26 (the label at least 8), and the rest
+  # of the row is at most 53.
+  max=$(( pw > 18 ? 8 : 26 - pw ))
 
-  while read -r name rest; do
+  for pl in "${lines[@]}"; do
+    name="${pl%% *}" rest="${pl#"$name"}"
     rest=" $rest "
     fl="${rest#* flavour=}"; fl="${fl%% *}"; sl="${rest#* statusline=}"; sl="${sl%% *}"
-    c="agent-$name"; cli="${CLI_CMD[$fl]:-$fl}"; st="${state[$c]:-not started}"
-    case "$st" in healthy|running) lc="$T_G" ;; unhealthy) lc="$T_R" ;; starting|restarting) lc="$T_Y" ;; *) lc="$T_D" ;; esac
-    note=""
-    if [[ "$fl" == claude && "$sl" != yes ]]; then note="  ${T_D}statusline off, so no figures${T_0}"; fi
-    if [[ "$fl" == grok ]]; then grok=1; fi
-    echo "${T_B}${name}${T_0}  ${lc}${st}${T_0}${usage[$c]:-}${note}"
-    [[ -n "${up[$c]:-}" ]] || continue
+    c="agent-$name"; cli="${CLI_CMD[$fl]:-$fl}"; st="${STATE[$c]:-not started}"; state_colour lc "$st"
+    if [[ -z "${UP[$c]:-}" ]]; then prow+=("$T_B$name$T_0"$'\t'"$lc$st$T_0"$'\t-\t-\t-'); continue; fi
 
     # Its panes running the CLI. A session with more than one is shown per pane, as session:window.pane.
     rows=() count=()
@@ -221,32 +322,40 @@ top_frame() {
       sess="${i#*$'\t'*$'\t'}"; sess="${sess%%$'\t'*}"
       rows+=("$i"); count[$sess]=$(( ${count[$sess]:-0} + 1 ))
     done < <(timeout 10 docker exec "$c" sh -c "$TOP_PROBE" sh "$cli" 2>/dev/null)   # a hung persona can't hang this
-    if (( ! ${#rows[@]} )); then echo "  ${T_D}no $cli running${T_0}"; continue; fi
+    if (( ${#rows[@]} )); then panes="${#rows[@]} $cli"; else panes="${T_D}no $cli running$T_0"; fi
+    if [[ "$fl" == claude && "$sl" != yes ]]; then panes+="${T_D}, statusline off$T_0"; fi
+    t_clean cpu "${cpus[$c]:-}"; t_clean mem "${mems[$c]:-}"
+    prow+=("$T_B$name$T_0"$'\t'"$lc$st$T_0"$'\t'"$cpu"$'\t'"$mem"$'\t'"$panes")
     # What a persona sends is printed, never evaluated: numbers are checked before any arithmetic, and
     # control characters dropped, so a pane can't drive this terminal.
     for i in "${rows[@]}"; do
       IFS=$'\t' read -r id wp sess ver ts model used size pct five week cost <<< "$i"
       a="${count[$sess]}"
-      sess="${sess//[[:cntrl:]]/}"; model="${model//[[:cntrl:]]/}"; wp="${wp//[^0-9.]/}"
+      sess="${sess//[[:cntrl:]]/}"; wp="${wp//[^0-9.]/}"
       lab=""
       if (( a > 1 )); then lab=":$wp"; fi
-      if (( ${#sess} + ${#lab} > 20 )); then sess="${sess:0:19-${#lab}}~"; fi
-      lab="$sess$lab"
+      if (( ${#sess} + ${#lab} > max )); then sess="${sess:0:max-1-${#lab}}~"; fi
+      t_clean lab "$sess$lab"
+      if [[ "$fl" == grok ]]; then grok=1; fi
       if [[ "$ver" != v1 || ! "$ts$used$size" =~ ^[0-9]+$ ]]; then
-        printf '  %-20s %-11s %-11s %4s %4s %7s %5s\n' "$lab" "$cli" - - - - -
+        srow+=("$name"$'\t'"$lab"$'\t'"$cli"$'\t-\t-\t-\t-\t-')
         continue
       fi
+      t_clean model "${model:0:11}"
       top_tok a "$used"; top_tok b "$size"; ctx="$a/$b"
       top_load lc "$pct"; top_load c5 "$five"; top_load c7 "$week"
       if [[ "$five" =~ ^[0-9]+$ ]]; then five="$five%"; else five=-; fi
       if [[ "$week" =~ ^[0-9]+$ ]]; then week="$week%"; else week=-; fi
       if [[ "$cost" =~ ^[0-9]+\.[0-9]{4}$ ]]; then cost="\$${cost%??}"; else cost=-; fi   # 3.2000 -> $3.20
       top_age seen $(( now - ts ))
-      printf '  %-20s %-11s %s%-11s%s %s%4s%s %s%4s%s %7s %5s\n' "$lab" "${model:0:11}" \
-        "$lc" "$ctx" "$T_0" "$c5" "$five" "$T_0" "$c7" "$week" "$T_0" "$cost" "$seen"
+      srow+=("$name"$'\t'"$lab"$'\t'"$model"$'\t'"$lc$ctx$T_0"$'\t'"$c5$five$T_0"$'\t'"$c7$week$T_0"$'\t'"$cost"$'\t'"$seen")
     done
-  done < <(sed -n 's/\r$//; s/^# persona: //p' "$PERSONAS_FILE")
+  done
 
+  table llrrl "${prow[@]}"
+  echo
+  if (( ${#srow[@]} == 1 )); then echo "${T_D}no Claude Code or grok pane in a running persona${T_0}"; return; fi
+  table lllrrrrr "${srow[@]}"
   echo
   echo "${T_D}CONTEXT used/size; 5H, 7D: the plan's limits used; COST: the session's, at API prices${T_0}"
   echo "${T_D}SEEN: since Claude Code last drew its statusline, which it does as the session works${T_0}"
@@ -264,9 +373,7 @@ cmd_top() {
     shift
   done
   [[ -f "$PERSONAS_FILE" ]] || die "no personas set up yet: run $AGENTS_DIR/config.sh"
-  if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then
-    T_B=$'\033[1m' T_D=$'\033[90m' T_R=$'\033[31m' T_Y=$'\033[33m' T_G=$'\033[32m' T_0=$'\033[0m'
-  fi
+  set_colours
   if (( once )) || [[ ! -t 1 ]]; then top_frame; return; fi
 
   # As top: the alternate screen, no cursor, and rows cut at the right edge rather than wrapped.
@@ -584,7 +691,9 @@ cmd_upgrade() {
 restart=0 start_only=0 upgrade=0 up_args=() headless=0
 case "${1:-}" in
   ls)      running || die "$persona isn't running; start it with: nexus $persona"
-           exec docker exec "$container" tmux list-sessions ;;
+           set_colours; SROWS=($'SESSION\tWINDOWS\tATTACHED\tDIR')
+           sess_rows "$container" "" || die "tmux in $persona isn't answering; try again, or nexus $persona restart"
+           table lrll "${SROWS[@]}"; exit 0 ;;
   start)   start_only=1 ;;
   stop)    shift; mgmt stop "$@" "$service" ;;
   logs)    shift; mgmt logs -f "$@" "$service" ;;
