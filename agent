@@ -26,6 +26,12 @@ usage() { awk 'NR > 1 && !/^#/ { exit } NR > 1 { sub(/^# ?/, ""); print }' "$0";
 
 # The repo this script lives in, found through the /usr/local/bin symlink.
 AGENTS_DIR="${AGENTS_DIR:-$(dirname "$(readlink -f "$0")")}"
+# Compose runs from the repo: in a shell whose directory was deleted it fails with "getwd: no such
+# file or directory". A session's project dir still comes from $PWD, the path.
+here="$PWD"
+pwd -P >/dev/null 2>&1 || warn "this shell sits in a deleted directory; leave it, e.g. cd $(printf %q "$here")"
+cd "$AGENTS_DIR" 2>/dev/null || die "can't cd to $AGENTS_DIR"
+AGENTS_DIR="$PWD"
 # The personas, written by install.sh. Its "# persona: <name> key=value …" lines are read here too.
 PERSONAS_FILE="$AGENTS_DIR/compose.personas.yml"
 # -p: an exported COMPOSE_PROJECT_NAME would otherwise switch to fresh, empty home volumes.
@@ -136,10 +142,10 @@ session=""; cmd=()
 if [[ $# -gt 0 && "$1" != "--" ]]; then session="$1"; shift; fi
 if [[ "${1:-}" == "--" ]]; then shift; cmd=("$@"); fi
 
-dir="$PWD"
+dir="$here"
 case "$dir/" in
-  "$PROJECTS_ROOT"/*) ;;
-  *) echo "agent: $PWD is outside $PROJECTS_ROOT; starting in $PROJECTS_ROOT" >&2; dir="$PROJECTS_ROOT" ;;
+  "$PROJECTS_ROOT"/*) [[ -d "$dir" ]] || die "$dir no longer exists; cd to a project dir" ;;
+  *) echo "agent: $here is outside $PROJECTS_ROOT; starting in $PROJECTS_ROOT" >&2; dir="$PROJECTS_ROOT" ;;
 esac
 session="${session:-$(basename "$dir")}"
 session="${session//[.:]/_}"   # tmux rewrites '.' and ':' in session names; do the same up front
