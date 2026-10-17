@@ -43,8 +43,8 @@ sudo git clone <this repo> /opt/agents && sudo chown -R "$USER" /opt/agents
 It checks Docker and your ssh-agent, then asks, in this order:
 
 1. **Personas**, one at a time: flavour, context (the default is `ddev` if the VM has ddev), a name (suggested
-   `<flavour>-<context>`: `claude-ddev` on a VM with ddev, `claude-docker` without), for Claude whether to
-   show the statusline, its projects root: `-` (the default) for the VM's, or a directory of its own, and
+   `<flavour>-<context>`: `claude-ddev` on a VM with ddev, `claude-docker` without), whether to show the
+   statusline (what `nexus top` reads; Claude Code's or grok's), its projects root: `-` (the default) for the VM's, or a directory of its own, and
    how its ssh (git over ssh) signs in: `agent`, your ssh-agent (the default); `none`, not at all, so you pull
    and push from the VM; `new`, a key made for it whose public half you add as a deploy key; or the path of a
    key you have ([§5](#no-ssh-commit-inside-push-from-the-vm)).
@@ -263,8 +263,8 @@ to keep the VM settings as they are. Without questions:
 - An existing `personas/<name>.env` is kept. When the flavour changes, config.sh offers a new one (with `--yes`
   it writes one) and keeps the old as `.env.bak`. A new persona whose name has a leftover env file is treated the
   same way: one of its flavour is reused, one of the other flavour is replaced (the old one to `.env.bak`).
-- `--statusline` / `--no-statusline` with `--persona` turn a Claude persona's statusline on or off; without
-  either, an existing Claude persona keeps its setting, and a new one (or one switched from grok) gets it.
+- `--statusline` / `--no-statusline` with `--persona` turn a persona's statusline on or off; without either, an
+  existing persona keeps its setting, and a new one gets it.
 - Removing keeps the env file, the ssh key and the home volume; config.sh prints the commands that delete them.
   While that `personas/<name>.env` stays, an interactive run offers to set the persona up again; delete it to
   stop that.
@@ -311,6 +311,35 @@ the access its persona needs, never your own key; removing it on the git host cu
 `new` never replaces a key that is there. For a fresh one, delete `personas/<name>.key*`, re-run config.sh (it
 makes the key and prints it), add it on the git host, and `nexus <name> restart`: a running persona keeps the
 key it started with until then. The same goes for a key file you named and then replaced.
+
+### Settings for every persona
+
+Two committed files hold the settings every persona of a flavour gets, on every VM that pulls the repo:
+`personas/claude.json` (Claude Code's settings.json format) and `personas/grok.toml` (grok's config.toml format).
+Neither is copied into a persona's home: compose mounts them, read-only, into each persona of that flavour, and
+the persona's own `~/.claude/settings.json` or `~/.grok/config.toml` stays as it is.
+
+| | Claude Code | grok |
+|---|---|---|
+| Committed file | `personas/claude.json` | `personas/grok.toml` |
+| What the persona gets | that file itself | `personas/<name>.grok.toml`, which config.sh writes: `personas/grok.toml`, then, with the statusline on, `statusline/grok/settings.toml`'s `[ui.status_line]` (grok reads one managed file, and the statusline is per persona) |
+| Mounted at | `/etc/claude-code/managed-settings.d/15-personas.json`, a managed drop-in, next to the image's `10-agent-image.json` (its update lock) and the statusline's `20-statusline.json` | `/etc/grok/managed_config.toml`, grok's managed config |
+| Against the persona's own settings | they **win**: managed settings outrank every other layer. A change inside the persona (`/model`, `/config`) holds for that session only | they are **defaults**: a key in `~/.grok/config.toml`, which grok writes as you change settings there, wins |
+| After an edit, or a `git pull` that changes it | `nexus <persona> restart`: the file is mounted on its own, so a running container keeps the version it started with | re-run config.sh: it rewrites `personas/<name>.grok.toml` in place, so the next grok started in a running persona reads it, with no restart |
+| Checked | config.sh checks the JSON | config.sh checks the TOML, on its own and with the statusline added |
+
+- config.sh writes nothing if a file wouldn't parse, since a broken one stops the CLI in every persona it reaches.
+  It checks with python3 on the VM (3.11 for TOML) or in a persona image already there; with neither, it warns.
+- A persona that had no such mount yet gets it when it is next created: config.sh says `nexus <persona> restart`.
+- Without the file, there is nothing to mount. A persona's service that names it while it's missing won't start:
+  nexus says to restore it (`git checkout personas/claude.json`) or to re-run config.sh.
+- As committed, `personas/claude.json` starts Claude Code in `bypassPermissions` mode without its warning, and
+  `personas/grok.toml` sets grok to `always-approve`: every persona runs its tools without asking. Change them
+  there if a persona should ask.
+- Leave out of `personas/grok.toml` what grok records for itself, such as `[privacy]` and the `[marketplace]`
+  install flags: grok keeps those in each persona's own file, and reads `[privacy]` from no other.
+- To see what a persona got: inside it, `claude` shows "(from managed settings)" for the model, and `grok inspect`
+  lists "System Managed: /etc/grok/managed_config.toml" and any warnings.
 
 ## 6. Upgrade Claude Code (or grok, APM, or ddev)
 
@@ -359,10 +388,10 @@ By hand: set the previous `CLAUDE_VERSION`, build, then restart the Claude perso
 
 ## 7. Statusline
 
-Claude personas set up with the statusline show `statusline/statusline.sh` as Claude Code's statusline: model,
-directory, git branch, context use, cost and rate limits. The directory is mounted read-only, so an edit (or a
-`git pull`) shows up at the next refresh, without a restart. `statusline/settings.json` is mounted as a managed
-setting, so it wins over a `statusLine` in a persona's own settings; after changing that file,
+Claude personas set up with the statusline show `statusline/claude/statusline.sh` as Claude Code's statusline:
+model, directory, git branch, context use, cost and rate limits. The directory is mounted read-only, so an edit
+(or a `git pull`) shows up at the next refresh, without a restart. `statusline/claude/settings.json` is mounted as
+a managed setting, so it wins over a `statusLine` in a persona's own settings; after changing that file,
 `nexus <persona> restart`. To turn it on or off for a persona, re-run config.sh and change that persona.
 
 - The line stays blank in a project until you accept Claude Code's workspace trust prompt there (once per
@@ -372,6 +401,12 @@ setting, so it wins over a `statusLine` in a persona's own settings; after chang
 - Per Anthropic's docs, if a persona's account belongs to an organisation that pushes server-managed settings,
   Claude Code uses those instead of file-based ones and skips this drop-in. From v2.1.223 the image's update
   lock still applies (managed `env` merges across sources); older pins lose it too.
+
+**grok** personas with the statusline on show `statusline/grok/statusline.sh` as grok's status line: model and
+effort, directory, branch, cost and context use. grok sends no plan limits, and a cost only once something in the
+session has a price, so the line shows neither until then. It is switched on through grok's managed config,
+with the grok settings for every grok persona ([section 5](#settings-for-every-persona)), and grok reads that at
+launch: a grok already running keeps what it had.
 
 **`nexus top`** shows those figures for every persona at once. Each time the statusline draws in a tmux pane,
 the script also saves them to `~/.cache/nexus/status/<pane>` in the persona's home. `nexus top` reads them
@@ -388,18 +423,19 @@ PERSONA      SESSION  MODEL         CONTEXT   5H   7D   COST  SEEN
 claude-team  api      Opus 5.5    112k/200k  41%  18%  $3.20   12s
 claude-team  web:1.1  Sonnet 5.5   38k/200k  41%  18%  $0.85    3m
 claude-team  web:1.2  Sonnet 5.5   21k/200k  41%  18%  $0.40    9m
-grok         api      grok                -    -    -      -     -
+grok         api      Grok 4.7     64k/500k    -    -  $0.42    1m
 ```
 
 - **CONTEXT** is used/size, coloured as on the statusline (yellow from 50%, red from 80%). **5H** and **7D** are
   the plan's limits used: per account, so personas on one account show the same. They are `-` with an API key.
 - **COST** is the session's at API prices, as Claude Code reports it; on a plan it isn't a bill.
-- **SEEN** is the time since Claude Code last drew the statusline. It draws as the session works, so an idle
+- **SEEN** is the time since the CLI last drew the statusline. It draws as the session works, so an idle
   session's figures are as old as SEEN says.
-- A session with two Claude Code panes shows each as `session:window.pane`. A pane where Claude Code has quit
-  drops out; so does a closed one.
-- No figures (`-`) for a persona with the statusline off, for grok (no statusline), and for a session that
-  hasn't drawn one yet (e.g. before the trust prompt is accepted).
+- A session with two CLI panes shows each as `session:window.pane`. A pane where the CLI has quit drops out; so
+  does a closed one.
+- No figures (`-`) for a persona with the statusline off, and for a session that hasn't drawn one yet (e.g.
+  before Claude Code's trust prompt is accepted, or while grok shows its welcome screen). grok rows never have
+  5H or 7D, and have COST once grok reports one.
 - A frame takes about 2 s, most of it `docker stats`. Whatever a persona writes is only displayed: numbers are
   checked, control characters dropped.
 
@@ -469,6 +505,11 @@ included, on throwaway personas. Nothing of your setup is read or changed, and w
 | `-- cmd` didn't run | the session already existed | use a new session name |
 | ddev rebuilds its web image on every start | ddev run alternately from the VM and the persona | run ddev only inside the persona |
 | `ddev: command not found` inside | a docker-context persona | change it to context `ddev` with config.sh |
+| `nexus: …compose.personas.yml is from before statusline/ was split into claude/ and grok/` | a personas file written before `git pull` brought that change | `./config.sh --yes` (keeps every setting), then `nexus <persona> restart` for each persona; running Claude sessions show no statusline until then |
+| config.sh: `personas/grok.toml isn't TOML grok can read` | a typo in your grok settings (the message names line and column) | fix it and re-run; nothing was written |
+| config.sh: `personas/claude.json isn't JSON Claude Code can read` | a typo in the Claude settings (the message names line and column) | fix it and re-run; nothing was written |
+| A change to `personas/claude.json` doesn't show in a persona | the file is mounted on its own, so a running container keeps the version it started with | `nexus <persona> restart` |
+| grok's status line row stays empty | grok shows its welcome screen (the row comes with the first prompt), statusline off, or the persona's own `~/.grok/config.toml` sets `[ui.status_line]` | start a session; turn it on with config.sh; or remove that section there |
 | No statusline in Claude | workspace not trusted yet, or statusline off for this persona | accept the trust prompt (section 7); else turn it on with config.sh and restart |
 | `nexus: headless: give the prompt first …` | no prompt, and nothing piped in (or the first argument is a one-word flag) | `nexus <persona> headless "PROMPT" [FLAGS…]`, or pipe the prompt in |
 | `nexus: warning: headless: no input on stdin within 3 s …` | the caller (a CI runner, an agent's shell) left stdin open with nothing in it | give `</dev/null`; or, if input was meant, start it sooner |

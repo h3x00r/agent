@@ -20,15 +20,18 @@
 #     --projects-root DIR              default: $HOME/projects
 #     --registry HOST                  local (build on this VM; the default) or host[:port][/path]
 #     --claude-version V               latest | stable | X.Y.Z (default: latest)
-#     --statusline | --no-statusline   for the Claude personas given with --persona (default: on for
-#                                      a new one; an existing one keeps its setting)
+#     --statusline | --no-statusline   the statusline (what nexus top shows) for the personas given with
+#                                      --persona (default: on for a new one; an existing one keeps its own)
 #     --link DIR | --no-link           where the `nexus` launcher goes (default: /usr/local/bin)
 #     --no-build                       don't build (or pull) the images at the end
 #
 # Writes .env, compose.personas.yml and personas/<name>.env (mode 600; an existing one is kept), all
 # at once and only after `docker compose config` accepts them: a run that stops early changes nothing,
 # except the projects roots (the VM's and a persona's own), which are created as they are named. Then
-# it makes the ssh keys asked for (personas/<name>.key) that don't exist yet.
+# it makes the ssh keys asked for (personas/<name>.key) that don't exist yet. Every Claude persona gets
+# personas/claude.json (committed) as a managed settings drop-in. A grok persona gets
+# personas/<name>.grok.toml, its grok managed config: personas/grok.toml (the grok settings for every
+# grok persona, committed) and, with the statusline on, statusline/grok/settings.toml.
 set -euo pipefail
 
 SELF="$(readlink -f "$0")"   # before the cd: $0 may be relative
@@ -125,6 +128,47 @@ check_ssh_flag() {  # check_ssh_flag NAME:agent|none|new|KEY
     *)     norm_dir k
            key_path_ok "$n" "$k" || die "--ssh $1: the key's path must be $KEY_RULE"
            why="$(key_problem "$k")"; [[ -z "$why" ]] || die "--ssh $1: $why" ;;
+  esac
+}
+
+# py_on FILE CODE: run python3 CODE with FILE on stdin, here if this VM's python3 has what CODE imports on
+# its first line (tomllib needs 3.11), else in a persona image already here. Its output in PY_OUT, its exit
+# code in PY_RC; PY_RC=-1 when there is neither. Called directly, not in $(…), so the globals stand.
+PY_OUT="" PY_RC=0
+py_on() {
+  local img
+  PY_OUT="" PY_RC=0
+  if python3 -c "${2%%$'\n'*}" 2>/dev/null; then   # its import line: is this python3 new enough?
+    PY_OUT="$(python3 -c "$2" < "$1" 2>&1)" || PY_RC=$?
+  elif img="$(docker images --format '{{.Repository}}:{{.Tag}}' 2>/dev/null | grep -E '/agent-(claude|grok)-(docker|ddev):' | head -n 1)" \
+       && [[ -n "$img" ]]; then
+    PY_OUT="$(docker run --rm -i --network none --entrypoint python3 "$img" -c "$2" < "$1" 2>&1)" || PY_RC=$?
+  else
+    PY_RC=-1
+  fi
+}
+# settings_problem FILE FORMAT NAME: in WHY, why FILE isn't FORMAT (json, for Claude Code; toml, for grok)
+# its CLI can read, or nothing. A broken settings file stops the CLI short in every persona it reaches, so
+# it is checked before anything is written. When nothing here can check it, WHY stays empty and NAME (the
+# file to name in a warning) goes on UNCHECKED.
+UNCHECKED=() WHY=""
+settings_problem() {
+  local py
+  case "$2" in   # ValueError covers a decode error too: a file that isn't UTF-8 is as broken
+    json) py=$'import sys, json\ntry: json.load(sys.stdin.buffer)\nexcept ValueError as e: print(e); sys.exit(3)' ;;
+    toml) py=$'import sys, tomllib\ntry: tomllib.load(sys.stdin.buffer)\nexcept ValueError as e: print(e); sys.exit(3)' ;;
+  esac
+  WHY=""; py_on "$1" "$py"
+  if (( PY_RC == 3 )); then WHY="$PY_OUT"; elif (( PY_RC )); then UNCHECKED+=("$3"); fi
+}
+# grok_sets_statusline FILE: FILE (grok settings) has a status line of its own, which then stands: asked of
+# tomllib, so any TOML spelling counts; without one here, its usual spellings.
+grok_sets_statusline() {
+  [[ -f "$1" ]] || return 1
+  py_on "$1" $'import sys, tomllib\nd = tomllib.load(sys.stdin.buffer).get("ui")\nsys.exit(4 if isinstance(d, dict) and "status_line" in d else 0)'
+  case "$PY_RC" in
+    4) return 0 ;; 0) return 1 ;;
+    *) grep -qE '^[[:space:]]*(\[[[:space:]]*"?ui"?[[:space:]]*\.[[:space:]]*"?status_line|(ui[[:space:]]*\.[[:space:]]*)?"?status_line"?[[:space:]]*[.=])' "$1" ;;
   esac
 }
 
@@ -297,6 +341,7 @@ FLAVOURS=("claude   Claude Code (Anthropic)" "grok     Grok Build (xAI)")
 CONTEXTS=("ddev     ddev projects: ddev inside, sharing the VM's ddev state and mkcert CA"
           "docker   projects run with docker compose / Dockerfiles: no ddev")
 CONTEXT_Q="Context: which kind of projects does it work on?"
+SL_Q="Statusline (statusline/: model, context, cost; what nexus top shows) in"
 ask_flavour_context() {  # ask_flavour_context VAR_FLAVOUR VAR_CONTEXT default_flavour default_context
   choose "$1" "Flavour:" "$3" "${FLAVOURS[@]}"
   choose "$2" "$CONTEXT_Q" "$4" "${CONTEXTS[@]}"
@@ -355,7 +400,7 @@ add_interactive() {
     valid_name "$n" && ! idx "$n" >/dev/null && break
     say "  $NAME_RULE; not taken"
   done
-  if [[ "$f" == claude ]] && yesno "Claude Code statusline (statusline/statusline.sh) in $n?" y; then sl=yes; fi
+  if yesno "$SL_Q $n?" y; then sl=yes; fi
   ask_root r "$n" ""
   ask_ssh k "$n" ""
   put "$n" "$f" "$c" "$(next_colour)" "$sl" "$r" "$k"
@@ -364,7 +409,7 @@ change_interactive() {
   local i f c sl r k; i="$(idx "$1")"
   ask_flavour_context f c "${P_FLAVOUR[i]}" "${P_CONTEXT[i]}"
   sl=no
-  if [[ "$f" == claude ]] && yesno "Claude Code statusline in $1?" "$([[ ${P_FLAVOUR[i]} != claude || ${P_STATUSLINE[i]} == yes ]] && echo y || echo n)"; then sl=yes; fi
+  if yesno "$SL_Q $1?" "$([[ ${P_STATUSLINE[i]} == yes ]] && echo y || echo n)"; then sl=yes; fi
   ask_root r "$1" "${P_ROOT[i]}"
   ask_ssh k "$1" "${P_SSH[i]}"
   put "$1" "$f" "$c" "${P_COLOUR[i]}" "$sl" "$r" "$k"
@@ -407,7 +452,7 @@ adopt_interactive() {
     [[ -n "$f" ]] || choose f "Flavour:" claude "${FLAVOURS[@]}"
     choose c "$CONTEXT_Q" "$DEFAULT_CONTEXT" "${CONTEXTS[@]}"
     sl=no
-    if [[ "$f" == claude ]] && yesno "Claude Code statusline (statusline/statusline.sh) in $n?" y; then sl=yes; fi
+    if yesno "$SL_Q $n?" y; then sl=yes; fi
     put "$n" "$f" "$c" "$(next_colour)" "$sl"
   done
 }
@@ -416,11 +461,11 @@ add_flag() {  # --persona NAME:FLAVOUR:CONTEXT[:ROOT], already checked
   IFS=: read -r n f c r <<< "$1"
   if i="$(idx "$n")"; then
     col="${P_COLOUR[i]}" keep="${P_ROOT[i]}" key="${P_SSH[i]}"
-    if [[ "${P_FLAVOUR[i]}" == claude ]]; then sl="${P_STATUSLINE[i]}"; fi   # an existing Claude persona keeps it
+    sl="${P_STATUSLINE[i]}"   # an existing persona keeps it
   else
     col="$(next_colour)"
   fi
-  sl="${STATUSLINE:-$sl}"; [[ "$f" == claude ]] || sl=no
+  sl="${STATUSLINE:-$sl}"
   if [[ "$1" == *:*:*:* ]]; then
     if [[ -n "$r" ]]; then norm_dir r; mkdir -p "$r" 2>/dev/null || die "--persona $1: can't create the projects root '$r'"; fi
   else
@@ -468,13 +513,33 @@ write_personas() {  # write_personas FILE [staged]: the compose file for every p
     volumes:
       - $n-home:/home/dev
 EOF
+      if [[ "$f" == claude && -f personas/claude.json ]]; then
+        cat <<'EOF'
+      # Claude Code settings for every Claude persona, personas/claude.json, as a managed drop-in: they
+      # win over the persona's own settings. A single-file mount, so a change to it (a git pull too)
+      # needs `nexus <persona> restart`.
+      - { type: bind, source: ./personas/claude.json, target: /etc/claude-code/managed-settings.d/15-personas.json, read_only: true, bind: { create_host_path: false } }
+EOF
+      fi
       if [[ "$f" == claude && "${P_STATUSLINE[i]}" == yes ]]; then
         cat <<'EOF'
       # Claude Code statusline: the script's directory, so edits and pulls show up live, and its
       # setting as a managed drop-in (beats a user statusLine). The drop-in is a single-file mount,
-      # so a change to statusline/settings.json needs `nexus <persona> restart`.
-      - ./statusline:/etc/claude-code/statusline:ro
-      - ./statusline/settings.json:/etc/claude-code/managed-settings.d/20-statusline.json:ro
+      # so a change to statusline/claude/settings.json needs `nexus <persona> restart`.
+      - ./statusline/claude:/etc/claude-code/statusline:ro
+      - ./statusline/claude/settings.json:/etc/claude-code/managed-settings.d/20-statusline.json:ro
+EOF
+      elif [[ "$f" == grok ]]; then
+        if [[ "${P_STATUSLINE[i]}" == yes ]]; then
+          cat <<'EOF'
+      # grok's statusline: the script's directory, so edits and pulls show up live.
+      - ./statusline/grok:/etc/grok/statusline:ro
+EOF
+        fi
+        cat <<EOF
+      # grok's managed config, written by config.sh: personas/grok.toml, then the statusline's
+      # [ui.status_line] with the statusline on. A key in the persona's ~/.grok/config.toml wins.
+      - { type: bind, source: ./personas/$n.grok.toml, target: /etc/grok/managed_config.toml, read_only: true, bind: { create_host_path: false } }
 EOF
       fi
       if [[ "$k" == none ]]; then
@@ -585,7 +650,7 @@ for n in "${OLD_NAMES[@]}"; do
   idx "$n" >/dev/null && continue
   what="env file"; [[ ! -e "personas/$n.key" ]] || what+=", ssh key"
   LATER+=("$n: removed. Its $what and home volume stay; to delete them:"
-          "    docker rm -f agent-$n; docker volume rm agents_$n-home; rm -f $(printf '%q ' "$AGENTS_DIR/personas/$n".{env,key,key.pub})")
+          "    docker rm -f agent-$n; docker volume rm agents_$n-home; rm -f $(printf '%q ' "$AGENTS_DIR/personas/$n".{env,key,key.pub,grok.toml})")
 done
 
 # --- per-VM settings: .env -------------------------------------------------------------------
@@ -669,6 +734,39 @@ for i in "${!P_NAME[@]}"; do
   write_env_file "$n" "$f"
 done
 
+# --- per grok persona: its managed config, personas/<name>.grok.toml ---------------------------
+# grok's fleet-default layer (/etc/grok/managed_config.toml inside): personas/grok.toml, the grok
+# settings for every grok persona here, then the statusline's [ui.status_line] if the persona has it
+# on (unless personas/grok.toml has one). A key in the persona's own ~/.grok/config.toml wins. Each is
+# checked before anything is written; written in place, it reaches a running persona's next grok.
+declare -A GSTAGED=()
+if has claude && [[ -f personas/claude.json ]]; then
+  settings_problem personas/claude.json json personas/claude.json
+  [[ -z "$WHY" ]] || die "personas/claude.json isn't JSON Claude Code can read, so nothing was written: $WHY"
+fi
+if has grok && [[ -f personas/grok.toml ]]; then   # on its own first, so a message's line numbers are the file's
+  settings_problem personas/grok.toml toml personas/grok.toml
+  [[ -z "$WHY" ]] || die "personas/grok.toml isn't TOML grok can read, so nothing was written (grok would stop on it): $WHY"
+fi
+for i in "${!P_NAME[@]}"; do
+  [[ "${P_FLAVOUR[i]}" == grok ]] || continue
+  n="${P_NAME[i]}"
+  stage tmp "personas/$n.grok.toml"
+  {
+    say "# /etc/grok/managed_config.toml in grok persona $n, written by config.sh from personas/grok.toml"
+    say "# (grok settings for every grok persona here) and, with the statusline on, statusline/grok/settings.toml."
+    say "# Edit those and re-run config.sh, not this file. A key in the persona's ~/.grok/config.toml wins."
+    if [[ -f personas/grok.toml ]]; then say ""; cat personas/grok.toml; say ""; fi
+    if [[ "${P_STATUSLINE[i]}" == yes ]] && ! grok_sets_statusline personas/grok.toml; then say ""; cat statusline/grok/settings.toml; fi
+  } > "$tmp"
+  settings_problem "$tmp" toml personas/grok.toml
+  [[ -z "$WHY" ]] || die "personas/grok.toml is TOML, but with the statusline config.sh adds for $n it isn't (does it set ui.status_line in a way config.sh missed?), so nothing was written; at personas/$n.grok.toml as it would be: $WHY"
+  GSTAGED[$n]="$tmp"
+done
+for f in $(printf '%s\n' "${UNCHECKED[@]}" | sort -u); do
+  warn "couldn't check $f (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run config.sh after the build to check it"
+done
+
 # --- stage compose.personas.yml and check the whole result ------------------------------------
 files=(-f compose.yml)
 if (( ${#P_NAME[@]} )); then
@@ -741,7 +839,8 @@ fi
 
 # --- commit: everything is answered and checked, so the staged files go in place --------------
 # Every target (and the dirs that get the backups) must be writable first, or a commit would stop halfway.
-for t in . personas .env "$PERSONAS_FILE" $(for n in "${!STAGED[@]}"; do echo "personas/$n.env"; done); do
+for t in . personas .env "$PERSONAS_FILE" $(for n in "${!STAGED[@]}"; do echo "personas/$n.env"; done) \
+         $(for n in "${!GSTAGED[@]}"; do echo "personas/$n.grok.toml"; done); do
   if [[ -e "$t" && ! -w "$t" ]]; then die "can't write $AGENTS_DIR/$t (check its owner and mode), so nothing was written"; fi
 done
 trap '' INT TERM HUP   # all of it or none of it
@@ -749,7 +848,26 @@ for n in "${!STAGED[@]}"; do
   bak=""; [[ "$BACKUP" != *" $n "* ]] || bak="$(bakname "personas/$n.env")"
   commit "${STAGED[$n]}" "personas/$n.env" ${bak:+"$bak"}
 done
+# Claude personas whose service had no personas/claude.json mount yet get it with their next (re)create.
+if [[ -f personas/claude.json ]] && ! grep -qF './personas/claude.json,' "$PERSONAS_FILE" 2>/dev/null; then
+  for i in "${!P_NAME[@]}"; do
+    if [[ "${P_FLAVOUR[i]}" == claude && -n "${LOADED[${P_NAME[i]}]+x}" ]]; then
+      LATER+=("${P_NAME[i]}: it gets personas/claude.json as managed settings now; \`nexus ${P_NAME[i]} restart\` brings them in")
+    fi
+  done
+fi
 commit "$ENV_NEW" .env
+for n in "${!GSTAGED[@]}"; do
+  t="personas/$n.grok.toml"
+  i="$(idx "$n")"
+  if [[ -n "${LOADED[$n]+x}" && ! -e "$t" ]]; then
+    LATER+=("$n: its grok settings$([[ ${P_STATUSLINE[i]} == yes ]] && echo " and statusline") come through $t now; \`nexus $n restart\` brings them in")
+  elif [[ -n "${LOADED[$n]+x}" && "${LOADED[$n]}" == "${P_FLAVOUR[i]} ${P_CONTEXT[i]} ${P_STATUSLINE[i]} ${P_ROOT[i]} ${P_SSH[i]}" ]] \
+       && ! cmp -s "${GSTAGED[$n]}" "$t"; then
+    LATER+=("$n: its grok settings changed; the next grok started in it reads them")   # else: changed, and told to restart
+  fi
+  commit "${GSTAGED[$n]}" "$t"
+done
 if (( ${#P_NAME[@]} )); then
   commit "$PERSONAS_NEW" "$PERSONAS_FILE" "$PERSONAS_FILE.bak"
 elif [[ -f "$PERSONAS_FILE" ]]; then

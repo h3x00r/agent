@@ -130,7 +130,7 @@ compose_t() {
 
 # --- lint ------------------------------------------------------------------------------------------
 stage "lint"
-for f in nexus config.sh entrypoint.sh statusline/statusline.sh tests/run.sh; do
+for f in nexus config.sh entrypoint.sh statusline/claude/statusline.sh statusline/grok/statusline.sh tests/run.sh; do
   if out="$(bash -n "$REPO/$f" 2>&1)"; then ok "bash -n $f"; else fail "bash -n $f" "$out"; fi
 done
 if out="$(sh -n "$REPO/tests/fake-grok" 2>&1)"; then ok "sh -n tests/fake-grok"; else fail "sh -n tests/fake-grok" "$out"; fi
@@ -148,12 +148,12 @@ elif (( docker_ok )) && docker image inspect koalaman/shellcheck:stable >/dev/nu
   SC=(docker run --rm -v "$REPO:/mnt:ro" -w /mnt koalaman/shellcheck:stable)
 fi
 if (( ${#SC[@]} )); then
-  for f in nexus config.sh entrypoint.sh tests/run.sh tests/fake-grok; do
+  for f in nexus config.sh entrypoint.sh statusline/grok/statusline.sh tests/run.sh tests/fake-grok; do
     if out="$(cd "$REPO" && "${SC[@]}" "$f" 2>&1)"; then ok "shellcheck $f"; else fail "shellcheck $f" "$out"; fi
   done
-  # statusline.sh keeps its colours in printf formats (SC2059).
-  if out="$(cd "$REPO" && "${SC[@]}" -e SC2059 statusline/statusline.sh 2>&1)"; then ok "shellcheck statusline/statusline.sh"
-  else fail "shellcheck statusline/statusline.sh" "$out"; fi
+  # Claude's statusline.sh keeps its colours in printf formats (SC2059).
+  if out="$(cd "$REPO" && "${SC[@]}" -e SC2059 statusline/claude/statusline.sh 2>&1)"; then ok "shellcheck statusline/claude/statusline.sh"
+  else fail "shellcheck statusline/claude/statusline.sh" "$out"; fi
 else
   skip "shellcheck: not installed, and no koalaman/shellcheck:stable image here"
 fi
@@ -201,27 +201,47 @@ for k in "$PG" "$PG:rel/key" "$PG:$T/keys/open" "$PG:$T/keys/pass" "$PG:$T/keys/
 done
 check "  a refused run writes nothing" '[[ ! -e $A/.env && ! -e $P && ! -e $A/personas/$PG.key ]]'
 
+# Settings for every Claude and every grok persona, in place of the committed ones.
+printf '{"model": "sonnet", "effortLevel": "low"}\n' > "$A/personas/claude.json"
+printf '[models]\ndefault_reasoning_effort = "xhigh"\n\n[ui]\ntheme = "grokday"\n' > "$A/personas/grok.toml"
 t cfg --yes --no-link --no-build --projects-root "$ROOT" --registry "$REG" \
-      --persona "$PC:claude:docker" --persona "$PG:grok:docker" --persona "$PN:grok:docker" \
-      --persona "$PX:claude:docker:$T/own" --ssh "$PG:new" --ssh "$PN:none" --ssh "$PX:$T/keys/link" </dev/null
-check "sets up four personas" 'rc 0'
+      --persona "$PC:claude:docker" --persona "$PG:grok:docker" --persona "$PX:claude:docker:$T/own" \
+      --ssh "$PG:new" --ssh "$PX:$T/keys/link" </dev/null
+check "sets up three personas" 'rc 0'
 check "  a Claude one, statusline on, your agent" 'grep -qxE "# persona: $PC flavour=claude context=docker colour=colour[0-9]+ statusline=yes" "$P"'
-check "  a grok one, no statusline, a key made for it" \
-      'grep -qxE "# persona: $PG flavour=grok context=docker colour=colour[0-9]+ statusline=no ssh=personas/$PG.key" "$P"'
-check "  one more grok one, without ssh" 'grep -qxE "# persona: $PN flavour=grok context=docker colour=colour[0-9]+ statusline=no ssh=none" "$P"'
+check "  a grok one, statusline on, a key made for it" \
+      'grep -qxE "# persona: $PG flavour=grok context=docker colour=colour[0-9]+ statusline=yes ssh=personas/$PG.key" "$P"'
 check "  one with its own projects root, created, and a key given (a symlink to one)" \
       'grep -qxE "# persona: $PX flavour=claude context=docker colour=colour[0-9]+ statusline=yes root=$T/own ssh=$T/keys/link" "$P" && [[ -d $T/own ]]'
 check "  the key made: private, and its public half shown to add" \
       '[[ $(stat -c %a "$A/personas/$PG.key") == 600 ]] && out_has "$(cut -d " " -f 1,2 "$A/personas/$PG.key.pub")"'
+t cfg --yes --no-link --no-build --persona "$PN:grok:docker" --ssh "$PN:none" --no-statusline </dev/null
+check "adds a fourth: grok, with --no-statusline and no ssh; the others as they were" \
+      'rc 0 && grep -qxE "# persona: $PN flavour=grok context=docker colour=colour[0-9]+ statusline=no ssh=none" "$P" \
+       && grep -qE "^# persona: $PG .* statusline=yes " "$P" && grep -qE "^# persona: $PC .* statusline=yes$" "$P"'
+G="$A/personas/$PG.grok.toml" GN="$A/personas/$PN.grok.toml"
+check "  the grok one's managed config: personas/grok.toml, then its statusline; private" \
+      'grep -qx "theme = \"grokday\"" "$G" && grep -qx "command = \"/etc/grok/statusline/statusline.sh\"" "$G" \
+       && [[ $(grep -c "^\[ui.status_line\]" "$G") == 1 && $(stat -c %a "$G") == 600 ]]'
+check "  and with --no-statusline: the settings alone" 'grep -qx "theme = \"grokday\"" "$GN" && ! grep -q "status_line" "$GN"'
 t compose_t --profile "$PG" config "$PG"
-check "  its service: the key and its ssh setting, /dev/null for the agent, SSH_AUTH_SOCK empty" \
+check "  the grok one's service: its statusline, through grok's managed config" \
+      'rc 0 && out_has "source: $A/statusline/grok" && out_has "target: /etc/grok/statusline" \
+       && out_has "target: /etc/grok/managed_config.toml" && ! out_has "claude-code"'
+check "  and its key and ssh setting, /dev/null for the agent, SSH_AUTH_SOCK empty" \
       'rc 0 && out_has "target: /run/nexus/ssh-key" && out_has "target: /etc/ssh/ssh_config.d/50-nexus-key.conf" \
        && grep -B 1 -x "        target: /ssh-agent" <<< "$OUT" | grep -qx "        source: /dev/null" && out_has "SSH_AUTH_SOCK: \"\""'
 t compose_t --profile "$PN" config "$PN"
-check "  a persona without ssh: its ssh setting, /dev/null for the agent, SSH_AUTH_SOCK empty, no key" \
+check "  a persona without ssh: its ssh setting, /dev/null for the agent, SSH_AUTH_SOCK empty, no key; grok settings, no statusline" \
       'rc 0 && out_has "target: /etc/ssh/ssh_config.d/50-nexus-none.conf" && ! out_has "nexus/ssh-key" \
+       && out_has "target: /etc/grok/managed_config.toml" && ! out_has "/etc/grok/statusline" \
        && grep -B 1 -x "        target: /ssh-agent" <<< "$OUT" | grep -qx "        source: /dev/null" && out_has "SSH_AUTH_SOCK: \"\""'
 t compose_t --profile "$PC" config "$PC"
+check "  the Claude one's: statusline/claude, at the path it always had" \
+      'rc 0 && out_has "source: $A/statusline/claude" && out_has "target: /etc/claude-code/statusline" \
+       && out_has "source: $A/statusline/claude/settings.json" && ! out_has "statusline/grok"'
+check "  and personas/claude.json as a managed drop-in" \
+      'out_has "source: $A/personas/claude.json" && out_has "target: /etc/claude-code/managed-settings.d/15-personas.json"'
 check "  an agent persona's: the agent's socket, no key" \
       'rc 0 && grep -B 1 -x "        target: /ssh-agent" <<< "$OUT" | grep -qxF "        source: $SOCK" && ! out_has "nexus/ssh-key"'
 check "  .env: the projects root and the registry" 'grep -qxF "PROJECTS_ROOT=$ROOT" "$A/.env" && grep -qxF "REGISTRY=$REG" "$A/.env"'
@@ -244,6 +264,52 @@ check "a key made anew for an existing persona: shown, with the restart that bri
       'rc 0 && out_has "made personas/$PG.key" && out_has "nexus $PG restart"'
 mv -f "$T/keys/pg" "$A/personas/$PG.key"; mv -f "$T/keys/pg.pub" "$A/personas/$PG.key.pub"   # the first one, for the tests below
 check "  the personas file before it is backed up" '[[ -f $P.bak ]]'
+printf '[ui\ntheme = "broken"\n' > "$A/personas/grok.toml"; cp "$G" "$T/g.before"
+t cfg --yes --no-link --no-build </dev/null
+if err_has "couldn't check personas/grok.toml"; then
+  skip "a broken personas/grok.toml: no Python 3.11 here, nor a persona image, to check it with"
+else
+  check "a personas/grok.toml grok couldn't read: refused, nothing written" \
+        'rc 1 && err_has "TOML grok can read" && err_has "line 1" && cmp -s "$G" "$T/g.before"'
+fi
+printf '[ui]\ntheme = "gr\xffokday"\n' > "$A/personas/grok.toml"; cp "$G" "$T/g.before"
+t cfg --yes --no-link --no-build </dev/null
+if err_has "couldn't check personas/grok.toml"; then skip "a personas/grok.toml that isn't UTF-8: nothing here to check it with"
+else check "a personas/grok.toml that isn't UTF-8: refused too" 'rc 1 && err_has "TOML grok can read" && cmp -s "$G" "$T/g.before"'; fi
+# With nothing to check TOML with (a VM's first setup: no persona image yet, a python3 older than 3.11),
+# config.sh must say so rather than pass a file it couldn't check.
+mkdir -p "$T/fakebin"
+printf '#!/bin/sh\n[ "$1" = images ] && exit 0\nexec %q "$@"\n' "$(command -v docker)" > "$T/fakebin/docker"; chmod 755 "$T/fakebin/docker"
+if python3 -c 'import tomllib' 2>/dev/null; then
+  skip "the couldn't-check warning: this VM's python3 checks TOML itself"
+else
+  printf '[ui]\ntheme = "grokday"\n' > "$A/personas/grok.toml"
+  t env "${NX_ENV[@]}" PATH="$T/fakebin:$PATH" "$A/config.sh" --yes --no-link --no-build </dev/null
+  check "with nothing to check the TOML with: it says so" 'rc 0 && err_has "couldn'"'"'t check personas/grok.toml"'
+fi
+printf '[ui]\ntheme = "grokday"\n\n[ ui . status_line ]\ntype = "builtin"\n' > "$A/personas/grok.toml"
+t cfg --yes --no-link --no-build </dev/null
+check "a personas/grok.toml with a status line of its own: that one stands, once; a running persona reads it" \
+      'rc 0 && ! grep -q "^\[ui.status_line\]" "$G" && grep -qx "type = \"builtin\"" "$G" \
+       && out_has "$PG: its grok settings changed; the next grok started in it reads them"'
+printf '[models]\ndefault_reasoning_effort = "xhigh"\n\n[ui]\ntheme = "grokday"\n' > "$A/personas/grok.toml"
+t cfg --yes --no-link --no-build </dev/null
+check "  and back: the statusline's again" 'rc 0 && grep -qx "command = \"/etc/grok/statusline/statusline.sh\"" "$G"'
+cp "$A/personas/claude.json" "$T/claude.json"; printf '{"model": }\n' > "$A/personas/claude.json"; cp "$P" "$T/p.before"
+t cfg --yes --no-link --no-build </dev/null
+if err_has "couldn't check personas/claude.json"; then
+  skip "a broken personas/claude.json: no python3 here, nor a persona image, to check it with"
+else
+  check "a personas/claude.json Claude Code couldn't read: refused, nothing written" \
+        'rc 1 && err_has "JSON Claude Code can read" && cmp -s "$P" "$T/p.before"'
+fi
+rm "$A/personas/claude.json"; cfg --yes --no-link --no-build </dev/null >/dev/null 2>&1
+t compose_t --profile "$PC" config "$PC"
+check "without personas/claude.json: no drop-in" 'rc 0 && ! out_has "15-personas"'
+cp "$T/claude.json" "$A/personas/claude.json"
+t cfg --yes --no-link --no-build </dev/null
+check "  and with it back: it is mounted again, and the persona is told to restart for it" \
+      'rc 0 && grep -qF "./personas/claude.json," "$P" && out_has "$PC: it gets personas/claude.json as managed settings now"'
 
 # --- nexus, nothing started ------------------------------------------------------------------------
 stage "nexus, before any persona runs"
@@ -277,6 +343,15 @@ t nx "$PC" upgrade -x </dev/null
 check "upgrade: an unknown option" 'rc 1 && err_has "unknown option"'
 t nx "$PC" ls </dev/null
 check "PERSONA ls before it runs" 'rc 1 && err_has "start it with"'
+cp "$P" "$T/personas.yml"; printf '      - ./statusline:/etc/claude-code/statusline:ro\n' >> "$P"
+t nx "$PC" start </dev/null
+check "a start from a personas file from before the statusline split: refused, saying what to do" \
+      'rc 1 && err_has "from before statusline/ was split" && err_has "config.sh"'
+cp "$T/personas.yml" "$P"
+mv "$A/personas/claude.json" "$T/claude.json"
+t nx "$PC" start </dev/null
+check "a start with personas/claude.json gone: refused, saying how to bring it back" 'rc 1 && err_has "personas/claude.json isn" && err_has "git checkout"'
+mv "$T/claude.json" "$A/personas/claude.json"
 mv "$A/personas/$PG.key" "$T/keys/moved"
 t nx "$PG" start </dev/null
 check "a start with its ssh key gone: refused" 'rc 1 && err_has "ssh key $A/personas/$PG.key isn'"'"'t there"'
@@ -371,6 +446,7 @@ stage "headless with Claude ($PC, the stand-in API)"
 t nx "$PC" headless "nxt say hi" </dev/null
 check "starts the persona; only the reply on stdout" 'rc 0 && out_is FAKE-REPLY && err_has "agent-$PC"'
 check "  the prompt reached the API" 'api_got "nxt say hi"'
+check "  with the model and effort from personas/claude.json" 'api_got "\"model\":\"claude-sonnet" && api_got "\"effort\":\"low\""'
 printf 'line one\nline two\n' | t nx "$PC" headless "nxt review"
 check "a prompt and piped input: both, the prompt first" 'rc 0 && out_is FAKE-REPLY && api_got "nxt review\\nline one\\nline two"'
 printf 'nxt piped only' | t nx "$PC" headless
@@ -392,6 +468,9 @@ sock_of() { docker inspect -f '{{range .Mounts}}{{if eq .Destination "/ssh-agent
 t env "${NX_ENV[@]}" SSH_AUTH_SOCK="$T/no-agent" "$A/nexus" "$PG" start </dev/null
 check "start, with SSH_AUTH_SOCK pointing nowhere: it runs, nothing attached, /dev/null for the agent" \
       'rc 0 && [[ $(docker inspect -f "{{.State.Running}}" "agent-$PG" 2>/dev/null) == true && $(sock_of "$PG") == /dev/null ]]'
+t docker exec "agent-$PG" cat /etc/grok/managed_config.toml
+check "  inside: grok's managed config is the persona's, with the settings and the statusline" \
+      'rc 0 && out_has "theme = \"grokday\"" && out_has "/etc/grok/statusline/statusline.sh"'
 pub="$(cut -d " " -f 1,2 "$A/personas/$PG.key.pub")"
 t docker exec "agent-$PG" sh -c 'echo "sock=[$SSH_AUTH_SOCK]"; [ -c /ssh-agent ] && echo agent=/dev/null
                                  ssh-keygen -y -f /run/nexus/ssh-key; ssh -G nxt.invalid | grep -E "^(identit|batchmode)"'
@@ -503,8 +582,30 @@ t nx top --once </dev/null
 re="^$PC"' +billing +Opus 5\.5 +38k/200k +12% +40% +\$1\.23 +[0-9]+s$'
 check "top: a Claude Code pane, with its statusline's figures" \
       'rc 0 && out_re "^PERSONA +SESSION +MODEL +CONTEXT +5H +7D +COST +SEEN$" && out_re "$re" && out_re "^$PC +(starting|healthy|running) +.* +1 claude$"'
-check "  a grok persona: state, CPU, memory; no grok running" \
-      'out_re "^$PG +(starting|healthy|running) +[0-9.]+% +[0-9.]+[kKMG]i?B +no grok running$"'
+check "  a grok persona: state, CPU, memory; no grok running, statusline off" \
+      'out_re "^$PN +(starting|healthy|running) +[0-9.]+% +[0-9.]+[kKMG]i?B +no grok running, statusline off$"'
+# A pane started as grok in the grok persona, and one status line draw in it, with the payload grok
+# 1.0.62 sends (taken from a real run): no limits, and no cost before a priced request.
+gpane="$(docker exec "agent-$PG" tmux new-session -d -P -F '#{pane_id}' -s gtop -c "$ROOT/app" "grok '--single=hold gtop'")"   # the stand-in waits, as grok does
+docker exec -i -e TMUX_PANE="$gpane" "agent-$PG" /etc/grok/statusline/statusline.sh > "$T/gline" <<EOF
+{"schema_version": 1, "cwd": "$ROOT/app", "session_id": "nxt", "model": {"id": "grok-4.6", "display_name": "Grok 4.6"},
+ "workspace": {"current_dir": "$ROOT/app"}, "version": "1.0.62", "cost": {"total_duration_ms": 31, "total_api_duration_ms": 0},
+ "context_window": {"context_window_size": 500000, "context_tokens": 1324, "session_input_tokens": 0, "used_percentage": 0}}
+EOF
+OUT="$(sed 's/\x1b\[[0-9;]*m//g' "$T/gline")" RC=0 ERR=""
+check "grok's statusline.sh: one line, its model and context; no limits, no cost before grok sends one" \
+      '[[ $(wc -l < "$T/gline") == 1 ]] && out_has "Grok 4.6" && out_has "Ctx 1.3k/500k" && ! out_has "✳" && ! out_has "Limit" && ! out_has "─" \
+       && ! out_has "\$"'
+OUT="$(docker exec -i -e COLUMNS=32 "agent-$PG" /etc/grok/statusline/statusline.sh <<< '{"schema_version": 1, "model": {"display_name": "Grok 4.6"},
+ "workspace": {"current_dir": "/tmp/some-long-project-name", "branch": "main"}, "context_window": {"context_window_size": 500000, "context_tokens": 1324}}' \
+  | sed 's/\x1b\[[0-9;]*m//g')"
+check "  in a narrow row: the dir and branch give way, the context stays" 'out_has "Ctx 1.3k/500k" && ! out_has "some-long" && ! out_has "main"'
+t nx top --once </dev/null
+check "top: a grok pane, with its figures; dashes for limits and cost" \
+      'rc 0 && out_re "^$PG +gtop +Grok 4\.6 +1k/500k +- +- +- +[0-9]+s$" && out_re "^$PG +.* +1 grok$" && out_has "grok sends no plan limits"'
+docker exec -i -e TMUX_PANE="$gpane" "agent-$PG" /etc/grok/statusline/statusline.sh >/dev/null <<< '{"schema_version": 1, "model": {"display_name": "Grok 4.6"}}'
+t nx top --once </dev/null
+check "  a pane whose context grok hasn't sent yet: its model, and - for the rest" 'rc 0 && out_re "^$PG +gtop +Grok 4\.6 +- +- +- +- +[0-9]+s$"'
 # The same on a terminal, in colour: the colours take no room, so the columns line up as without them.
 pty "$ROOT/app" top --once
 pty_end 30

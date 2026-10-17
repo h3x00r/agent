@@ -39,13 +39,16 @@ Dockerfile              targets claude | grok, build arg CONTEXT=docker | ddev; 
 entrypoint.sh           keeps the tmux server alive, paints the persona into the status bar
 tmux.conf               session-per-project ergonomics
 nexus                   launcher: `nexus <persona>` from any project dir
-statusline/             Claude Code statusline + its setting, for Claude personas with it on; feeds `nexus top`
+statusline/claude/      Claude Code's statusline + its setting, for Claude personas with it on; feeds `nexus top`
+statusline/grok/        grok's statusline + its [ui.status_line], for grok personas with it on; feeds `nexus top`
 ssh/                    ssh settings for personas with a key of their own (a deploy key, say), or no ssh
 tests/                  run.sh: end-to-end tests of config.sh and nexus, on throwaway personas
 runbook.md              setup, day-to-day use, upgrades, troubleshooting, every environment variable
 LICENSE                 MIT, for the files in this repo (not the software the images download)
 .env.example            per-VM settings template → .env (gitignored)
 personas/*.env.example  per-flavour templates → personas/<persona>.env: secrets + git identity (gitignored)
+personas/claude.json    Claude Code settings for every Claude persona, on every VM (a managed drop-in)
+personas/grok.toml      grok settings for every grok persona, on every VM (its managed config, with the statusline)
 ```
 
 ## Why Nexus
@@ -107,10 +110,12 @@ everything running. `nexus ls` shows every persona and its state, and the sessio
 `nexus top` keeps a live view of them (`q` quits), with Claude Code's own figures for each session.
 Every persona also has `apm` ([Agent Package Manager](https://microsoft.github.io/apm/)): `apm install`
 in a project deploys its skills, prompts, agents and MCP servers to that persona's tool (runbook §2).
-In Claude personas with the statusline on (config.sh asks), Claude Code's statusline is
-`statusline/statusline.sh` (model, dir, branch, context, cost, limits); edit it here and the next
-refresh picks it up. A change to `statusline/settings.json` needs `nexus <persona> restart`. The same
-figures are what `nexus top` shows, so a persona without the statusline shows its sessions without them.
+In personas with the statusline on (config.sh asks), the CLI's statusline is `statusline/claude/statusline.sh`
+or `statusline/grok/statusline.sh` (model, dir, branch, context, cost; Claude's also its plan limits); edit it
+here and the next refresh picks it up. A change to `statusline/claude/settings.json` needs
+`nexus <persona> restart`. The same figures are what `nexus top` shows, so a persona without the statusline
+shows its sessions without them. Every persona also gets its flavour's settings, `personas/claude.json` or
+`personas/grok.toml`, mounted read-only as the CLI's managed settings (runbook §5, "Settings for every persona").
 
 ## Rules that keep it working
 
@@ -204,7 +209,7 @@ VM
 │   └── /home/local/work   a root of its own: claude-team
 ├── ssh-agent              its socket is mounted into the personas that use it: your keys stay outside
 ├── ~/.ddev + mkcert CA    shared with ddev-context personas
-└── ~/agent                checkout: config.sh, nexus, .env, compose files, personas/*.env (and *.key)
+└── ~/agent                checkout: config.sh, nexus, .env, compose files, personas/ (*.env, *.key, grok.toml)
 ```
 
 ### Inside one persona
@@ -259,15 +264,15 @@ working in Claude Code
 ### Watching them
 
 ```text
-inside a persona, in each tmux pane running Claude Code:
-  Claude Code redraws its statusline ─► statusline.sh draws the line
+inside a persona, in each tmux pane running Claude Code (or grok):
+  the CLI redraws its statusline ─► statusline/<cli>/statusline.sh draws the line
                                         └─ and saves model, context, 5h/7d limits, cost
                                            to ~/.cache/nexus/status/<pane>
 on the VM:
 nexus top [-n SECONDS]               redraws every 5s; q quits
   ├─ docker ps, docker stats ─────► state, CPU, memory per persona: the first table
   ├─ docker exec <persona> ──────► its panes running claude (or grok), each with its saved figures
-  └─ the second table: a row per pane    SEEN = since Claude Code last drew; grok panes come without figures
+  └─ the second table: a row per pane    SEEN = since the CLI last drew; grok's have no 5H/7D
 ```
 
 ### One prompt, headless

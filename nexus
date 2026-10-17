@@ -243,10 +243,10 @@ cmd_ls_all() {
 
 # --- top -------------------------------------------------------------------------------------------
 # Every persona at a glance, redrawn every few seconds: its container's state, CPU and memory, and each
-# pane running its CLI. A Claude Code pane in a persona with the statusline on comes with the model,
-# context, 5-hour and 7-day limits and session cost: statusline.sh saves them to
-# ~/.cache/nexus/status/<pane> each time it draws, and SEEN is how long ago that was. grok has no
-# statusline, so its panes come without figures.
+# pane running its CLI. A pane in a persona with the statusline on comes with the model, context, 5-hour
+# and 7-day limits and session cost: the CLI's statusline.sh (statusline/claude/ or statusline/grok/)
+# saves them to ~/.cache/nexus/status/<pane> each time it draws, and SEEN is how long ago that was. grok sends no limits, and a cost only
+# once something in the session has a price.
 
 # Run in each running persona with its CLI as $1: the panes running it, typed into a shell or started
 # with `-- <cli>`, each with its snapshot ("-" if none), tab-separated. tmux prints a tab as "_", but no
@@ -323,7 +323,7 @@ top_frame() {
       rows+=("$i"); count[$sess]=$(( ${count[$sess]:-0} + 1 ))
     done < <(timeout 10 docker exec "$c" sh -c "$TOP_PROBE" sh "$cli" 2>/dev/null)   # a hung persona can't hang this
     if (( ${#rows[@]} )); then panes="${#rows[@]} $cli"; else panes="${T_D}no $cli running$T_0"; fi
-    if [[ "$fl" == claude && "$sl" != yes ]]; then panes+="${T_D}, statusline off$T_0"; fi
+    if [[ "$sl" != yes ]]; then panes+="${T_D}, statusline off$T_0"; fi
     t_clean cpu "${cpus[$c]:-}"; t_clean mem "${mems[$c]:-}"
     prow+=("$T_B$name$T_0"$'\t'"$lc$st$T_0"$'\t'"$cpu"$'\t'"$mem"$'\t'"$panes")
     # What a persona sends is printed, never evaluated: numbers are checked before any arithmetic, and
@@ -337,16 +337,24 @@ top_frame() {
       if (( ${#sess} + ${#lab} > max )); then sess="${sess:0:max-1-${#lab}}~"; fi
       t_clean lab "$sess$lab"
       if [[ "$fl" == grok ]]; then grok=1; fi
-      if [[ "$ver" != v1 || ! "$ts$used$size" =~ ^[0-9]+$ ]]; then
+      if [[ "$ver" != v1 || ! "$ts" =~ ^[0-9]+$ ]]; then
         srow+=("$name"$'\t'"$lab"$'\t'"$cli"$'\t-\t-\t-\t-\t-')
         continue
       fi
+      # Each figure on its own: one the CLI didn't send is "-", and the rest still show.
       t_clean model "${model:0:11}"
-      top_tok a "$used"; top_tok b "$size"; ctx="$a/$b"
-      top_load lc "$pct"; top_load c5 "$five"; top_load c7 "$week"
+      ctx=- lc=""
+      if [[ "$used$size" =~ ^[0-9]+$ && "$used" =~ ^[0-9]+$ && "$size" =~ ^[1-9][0-9]*$ ]]; then
+        top_tok a "$used"; top_tok b "$size"; ctx="$a/$b"; top_load lc "$pct"
+      fi
+      top_load c5 "$five"; top_load c7 "$week"
       if [[ "$five" =~ ^[0-9]+$ ]]; then five="$five%"; else five=-; fi
       if [[ "$week" =~ ^[0-9]+$ ]]; then week="$week%"; else week=-; fi
-      if [[ "$cost" =~ ^[0-9]+\.[0-9]{4}$ ]]; then cost="\$${cost%??}"; else cost=-; fi   # 3.2000 -> $3.20
+      if [[ "$cost" =~ ^[0-9]+\.[0-9]{4}$ ]]; then   # to the cent, rounded as the statusline does: 3.2049 -> $3.20
+        a=$(( (10#${cost/./} + 50) / 100 )); printf -v cost '$%d.%02d' $(( a / 100 )) $(( a % 100 ))
+      else
+        cost=-
+      fi
       top_age seen $(( now - ts ))
       srow+=("$name"$'\t'"$lab"$'\t'"$model"$'\t'"$lc$ctx$T_0"$'\t'"$c5$five$T_0"$'\t'"$c7$week$T_0"$'\t'"$cost"$'\t'"$seen")
     done
@@ -358,8 +366,8 @@ top_frame() {
   table lllrrrrr "${srow[@]}"
   echo
   echo "${T_D}CONTEXT used/size; 5H, 7D: the plan's limits used; COST: the session's, at API prices${T_0}"
-  echo "${T_D}SEEN: since Claude Code last drew its statusline, which it does as the session works${T_0}"
-  if (( grok )); then echo "${T_D}grok has no statusline: its panes come without figures${T_0}"; fi
+  echo "${T_D}SEEN: since the CLI last drew its statusline, which it does as the session works${T_0}"
+  if (( grok )); then echo "${T_D}grok sends no plan limits (5H, 7D), and a cost only once the session has a price${T_0}"; fi
 }
 
 cmd_top() {
@@ -735,6 +743,19 @@ if (( restart )) || ! running; then
   # A missing key would become a root-owned directory (Docker); a running persona has its key mounted already.
   [[ -z "$key" || ( -f "$key" && -r "$key" ) ]] \
     || die "$persona's ssh key $key isn't there; config.sh makes one (SSH: new), or points it at another, none or your agent"
+  # So would the statusline paths a personas file from before statusline/ was split into claude/ and
+  # grok/ still names.
+  if grep -qE '\./statusline(:|/settings\.json:)' "$PERSONAS_FILE"; then
+    die "$PERSONAS_FILE is from before statusline/ was split into claude/ and grok/: re-run $AGENTS_DIR/config.sh (--yes keeps every setting), then start $persona again"
+  fi
+  # So would the settings files a persona's service mounts: personas/claude.json (committed) and a grok
+  # persona's managed config, which config.sh writes.
+  if grep -qF "./personas/claude.json," "$PERSONAS_FILE" && [[ "$meta" == *" flavour=claude "* && ! -f "$AGENTS_DIR/personas/claude.json" ]]; then
+    die "$AGENTS_DIR/personas/claude.json isn't there: restore it (git checkout personas/claude.json), or re-run $AGENTS_DIR/config.sh without it"
+  fi
+  if grep -qF "./personas/$persona.grok.toml," "$PERSONAS_FILE" && [[ ! -f "$AGENTS_DIR/personas/$persona.grok.toml" ]]; then
+    die "$AGENTS_DIR/personas/$persona.grok.toml isn't there: re-run $AGENTS_DIR/config.sh, which writes it"
+  fi
   if (( no_ca )); then
     warn "no mkcert CA on this VM yet — run 'mkcert -install' here, then \`nexus $persona restart\`, or https://*.ddev.site stays untrusted inside"
   fi

@@ -1,0 +1,7 @@
+# statusline/grok/settings.toml: what config.sh adds to a grok persona's managed config
+# (personas/<name>.grok.toml, /etc/grok/managed_config.toml inside) when the persona has the statusline on.
+# grok then runs statusline/grok/statusline.sh, so `nexus top` shows its sessions' figures. A status line
+# in personas/grok.toml, or in the persona's own ~/.grok/config.toml, stands instead.
+[ui.status_line]
+type = "command"
+command = "/etc/grok/statusline/statusline.sh"

@@ -1,0 +1,36 @@
+# personas/grok.toml: grok settings for every grok persona, on every VM that pulls this repo. config.sh
+# copies it into each grok persona's managed config (personas/<name>.grok.toml, /etc/grok/managed_config.toml
+# inside, with the statusline after it) and checks it first, so re-run config.sh after an edit: the next grok
+# started in a persona reads it.
+#
+# It is grok's own config.toml format (~/.grok/docs/user-guide/26-config-reference.md in a persona). These
+# are defaults: a key in a persona's own ~/.grok/config.toml, which grok writes as you change settings there,
+# wins over the same key here. What grok records for itself ([privacy], the [marketplace] install flags,
+# [cli] installer) stays out of this file: grok keeps it in each persona's own.
+
+[[marketplace.sources]]
+name = "xAI Official"
+git = "https://github.com/xai-org/plugin-marketplace.git"
+
+[ui]
+max_thoughts_width = 120
+theme = "grokday"
+fork_secondary_model = "grok-4.6"
+yolo = false
+compact_mode = false
+permission_mode = "always-approve"   # grok runs its tools without asking
+
+[models]
+default = "grok-4.7"
+default_reasoning_effort = "xhigh"
+
+[compat.claude]
+rules = false
+skills = false
+agents = false
+
+[tools]
+respect_gitignore = false
+
+[features]
+subagent_model_inheritance = false
