@@ -138,6 +138,7 @@ persona; it is kept in the home volume too. Then `apm install` deploys to this p
 | New window in this project | `Prefix+c` |
 | Leave, keeping everything running | `Prefix+d` |
 | What is set up and running | `nexus ls`: every persona and its state (running, stopped, not started yet), the sessions of the running ones, and containers no persona has any more; `nexus <persona> ls`: one persona's sessions |
+| One prompt, output on stdout (scripts, cron, pipes) | `nexus <persona> headless "PROMPT" [FLAGS…]` (section 3) |
 | Live usage, all personas | `nexus top`: CPU and memory per persona; model, context, 5h/7d limits and cost per Claude Code session (section 7). `q` quits, `-n 10` redraws every 10 s, `--once` prints one screen |
 | Persona logs | `nexus <persona> logs` (follows; `Ctrl-c` to stop) |
 | Start without attaching / stop | `nexus <persona> start` / `nexus <persona> stop` |
@@ -162,13 +163,43 @@ has: `npx` and `docker` work, `uvx` (Python) doesn't.
 ## 3. Headless runs
 
 ```bash
-nexus claude-ddev start          # no tty needed; does nothing if it's running
-docker exec -w ~/projects/billing agent-claude-ddev \
-  claude -p "$(cat task.md)" --output-format json --allowedTools "Edit,Bash(ddev *)"
+cd ~/projects/billing
+nexus claude-ddev headless "$(cat task.md)" --output-format json --allowedTools "Edit,Bash(ddev *)"
+git diff | nexus claude-ddev headless "review this diff" > review.md
+nexus grok-docker headless "list the TODOs" --output-format json | jq -r .text
 ```
-Start the persona first, especially after a VM reboot. `Bash(ddev *)` allows every ddev subcommand,
-`ddev exec <anything>` included. In a docker-context persona allow what the project needs instead, e.g.
-`Bash(docker compose *)`. Docker access is root on the VM, so keep such runs to repos you trust.
+
+`nexus <persona> headless [PROMPT] [FLAGS…]` runs one prompt through the persona's CLI, without tmux, in the
+directory you're in. That has to be in the persona's projects root (a path through a symlink is fine); from
+anywhere else it refuses, where a session would start in the root. It starts the persona if it isn't running;
+that needs an ssh-agent, as `nexus <persona> start` does. The CLI's stdout, stderr and exit code are the
+command's; nexus's own messages (compose's progress included) go to stderr.
+
+| You give | Claude runs | grok runs |
+|----------|-------------|-----------|
+| `"PROMPT" FLAGS…` | `claude -p FLAGS… -- "PROMPT"` | `grok --single="PROMPT" FLAGS…` |
+| `"PROMPT" FLAGS…`, input piped in | the same; Claude adds the input after the prompt | `grok --prompt-file /dev/stdin FLAGS…`, fed the prompt, a newline, then the input |
+| `FLAGS…`, input piped in | `claude -p FLAGS…`: the input is the prompt | `grok --prompt-file /dev/stdin FLAGS…` |
+
+- **The prompt is the first argument**, unless that is a flag (`-x`, `--opt`, or `--opt=value`, whose value may
+  have spaces): then all the arguments are flags, and the prompt has to be piped in. Any other text may start
+  with `-`, so a task file with `---` front matter works. Don't add `-p` yourself.
+- **Input counts** when it comes from a pipe, a file or a socket (`|`, `<`, `<<<`, Node's `child_process`); a
+  terminal or `/dev/null` doesn't. It is read to its end before the run starts, so a slow producer loses
+  nothing. Next to a prompt, input from a pipe or socket has to start within 3 s (the rule `claude -p` has
+  itself): a caller that leaves stdin open costs those 3 s and a warning, and `</dev/null` skips them. With no
+  prompt the input is the prompt, and nexus waits for it.
+- **Ctrl-C, or a TERM** (e.g. `timeout 30m nexus …`, or the terminal closing), is passed on to the CLI inside
+  the persona, to its process group as a terminal would; plain `docker exec` doesn't pass signals on, and the
+  CLI would keep working. Daemons the run started in a session of their own keep running. nexus prints
+  `nexus: INT: stopping the run in <persona>`, waits for the CLI to stop, and exits 130 (TERM: 143), even though
+  `claude -p` itself exits 0 on Ctrl-C.
+- No `-t`: a tty would turn the output's line endings into CRLF and mix stderr into stdout.
+- Claude reports a run that fails inside, e.g. "Not logged in", on stdout with exit code 1.
+
+`Bash(ddev *)` allows every ddev subcommand, `ddev exec <anything>` included. In a docker-context persona
+allow what the project needs instead, e.g. `Bash(docker compose *)`. Docker access is root on the VM, so keep
+such runs to repos you trust. A headless run doesn't show in `nexus top` (no statusline in one-shot mode).
 
 ## 4. Working in each context
 
@@ -360,6 +391,11 @@ The next `nexus claude-ddev` starts it fresh, seeded from the image.
 | ddev rebuilds its web image on every start | ddev run alternately from the VM and the persona | run ddev only inside the persona |
 | `ddev: command not found` inside | a docker-context persona | change it to context `ddev` with config.sh |
 | No statusline in Claude | workspace not trusted yet, or statusline off for this persona | accept the trust prompt (section 7); else turn it on with config.sh and restart |
+| `nexus: headless: give the prompt first …` | no prompt, and nothing piped in (or the first argument is a one-word flag) | `nexus <persona> headless "PROMPT" [FLAGS…]`, or pipe the prompt in |
+| `nexus: warning: headless: no input on stdin within 3 s …` | the caller (a CI runner, an agent's shell) left stdin open with nothing in it | give `</dev/null`; or, if input was meant, start it sooner |
+| A headless run with no prompt never starts | it waits for its input to end, and the pipe stays open | close the pipe, or give the prompt as the first argument |
+| `nexus: headless: … is outside <persona>'s projects root` | headless runs only in a project of that persona | `cd` to a directory in its root (`config.sh --list` shows the roots) |
+| A headless run prints `Not logged in · Please run /login` | the persona isn't signed in | `nexus <persona> -- claude`, then `/login` (or set the key in its env file) |
 | `nexus top` shows a Claude Code session with `-` everywhere | statusline off for that persona, or it hasn't drawn yet in that pane | turn it on with config.sh (section 7); else work in the session once |
 | `nexus top` lists no session for a running persona | no pane runs its CLI (`no claude running`) | start one: `nexus <persona> <session> -- claude` |
 | config.sh: `'top' is not a usable name` | `ls` and `top` are nexus commands, and `all` and `start` are reserved too | pick another name |

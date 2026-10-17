@@ -136,9 +136,9 @@ figures are what `nexus top` shows, so a persona without the statusline shows it
   APM's `apm self-update` is switched off in the image the same way.
 - **The ssh-agent socket path is fixed when the container is created.** A forwarded agent (`ssh -A`) dies
   with that login, so after reconnecting run `nexus <persona> restart`. After a VM reboot the persona
-  stays stopped until the next `nexus <persona>` if that socket is gone; run `nexus <persona> start`
-  before headless jobs. An agent that outlives logins avoids both; when your shell has no agent, the
-  launcher tries `/run/user/<uid>/ssh-agent.sock` first.
+  stays stopped until the next `nexus <persona>` if that socket is gone; `nexus <persona> start` (or a
+  headless run) starts it, given an agent. An agent that outlives logins avoids both; when your shell has
+  no agent, the launcher tries `/run/user/<uid>/ssh-agent.sock` first.
 - **The socket is root on the VM.** Treat the dev VM as the blast radius: snapshot before an
   unattended `--dangerously-skip-permissions` run, no production secrets on dev VMs, egress
   allowlist at the hypervisor or router level (host networking rules out an in-container firewall).
@@ -146,12 +146,20 @@ figures are what `nexus top` shows, so a persona without the statusline shows it
 
 ## Headless / pipeline use
 
-Same container, no tmux. The persona must be running: `nexus claude-ddev start` starts it without attaching.
+One prompt, no tmux. `nexus <persona> headless` runs the persona's CLI in its one-shot mode (`claude -p`, or
+grok's) in the directory you're in, and starts the persona if it isn't running. You give the prompt and the
+CLI's own flags; its output and exit code are the command's.
 
 ```bash
-docker exec -w ~/projects/billing agent-claude-ddev \
-  claude -p "$(cat task.md)" --output-format json --allowedTools "Edit,Bash(ddev *)"
+cd ~/projects/billing
+nexus claude-ddev headless "$(cat task.md)" --output-format json --allowedTools "Edit,Bash(ddev *)"
+git diff | nexus claude-ddev headless "review this diff"     # piped input goes with the prompt
+nexus grok-docker headless "list the TODOs" --output-format json
 ```
+
+The prompt comes first, then the flags. Piped input is added after the prompt, for grok as for Claude, and
+without a prompt it is the prompt (runbook §3 has the details). Ctrl-C, or a `timeout` around the command,
+stops the run inside the persona too; a plain `docker exec` would leave it running.
 
 `Bash(ddev *)` allows every ddev subcommand, `ddev exec <anything>` included; in a docker-context persona
 allow what the project needs instead, e.g. `Bash(docker compose *)`. Docker access is root on the VM, so
@@ -246,6 +254,20 @@ nexus top [-n SECONDS]               redraws every 5s; q quits
   ├─ docker ps, docker stats ─────► state, CPU, memory per persona
   ├─ docker exec <persona> ──────► its panes running claude (or grok), each with its saved figures
   └─ one row per pane              SEEN = since Claude Code last drew; grok panes come without figures
+```
+
+### One prompt, headless
+
+```text
+git diff | nexus claude-max headless "review this diff" --output-format json
+  ├─ in the persona's projects root? ── no ──► refuses
+  ├─ persona running? ── no ──► docker compose up -d             (progress on stderr)
+  ├─ piped input: read to its end first (next to a prompt, only if it starts within 3 s)
+  ├─ claude: claude -p --output-format json -- "review this diff"   the diff follows the prompt
+  │  grok:   grok --single="…" …, or with input piped in: grok --prompt-file /dev/stdin, fed prompt + input
+  ├─ docker exec -w <this dir> (-i only for piped input; never -t), no tmux, in a session of its own
+  ├─ Ctrl-C / TERM / hangup ──► passed on to the CLI's process group inside ──► exit 130 / 143
+  └─ stdout, stderr and exit code: the CLI's
 ```
 
 ### A new release

@@ -10,6 +10,9 @@
 #   nexus <persona> ls                       that persona's sessions
 #   nexus <persona> stop|logs|build|pull [args]
 #                                            args go to compose, e.g. build --no-cache
+#   nexus <persona> headless [PROMPT] [FLAGS…]
+#                                            one prompt, no tmux: claude -p or grok -p with FLAGS, in this
+#                                            dir; piped input goes with the prompt; output and exit code are its
 #   nexus <persona> start                    start it if it isn't running, without attaching (scripts, cron)
 #   nexus <persona> restart                  recreate the container: picks up a rebuilt/pulled image
 #   nexus <persona> upgrade [VERSION|CHANNEL] [-y]
@@ -21,6 +24,7 @@
 #   cd ~/projects/billing && nexus claude-ddev            # session "billing", shell at that dir
 #   nexus claude-ddev review -- claude --resume           # new session "review", straight into Claude Code
 #   nexus grok-docker                                     # same project, other persona
+#   git diff | nexus claude-ddev headless "review it"     # the review on stdout, no session
 #   nexus claude-ddev upgrade                             # the newest Claude Code, for every Claude persona
 set -euo pipefail
 
@@ -301,6 +305,98 @@ container="agent-$persona"
 mgmt() { export SSH_AUTH_SOCK="${SSH_AUTH_SOCK:-/dev/null}"; exec "${COMPOSE[@]}" --profile "$persona" "$@"; }
 running() { [[ "$(docker inspect -f '{{.State.Running}}' "$container" 2>/dev/null || true)" == true ]]; }
 
+# --- headless --------------------------------------------------------------------------------------
+# nexus <persona> headless [PROMPT] [FLAGS…]: one prompt through the persona's CLI in its one-shot mode,
+# in this directory, without tmux; the CLI's stdout, stderr and exit code are this command's. PROMPT is
+# the first argument unless that is a flag (-x, --opt or --opt=value), so a task file may start with
+# "---". Input piped or redirected in goes with it, after the prompt as `claude -p` takes it; without a
+# PROMPT it is the prompt. Only then does docker exec get -i: given a terminal, the CLI would wait for it.
+
+# headless_argv FLAVOUR PROMPT PIPED FLAGS…: the CLI's command line in H_ARGV, and in H_FEED a prompt
+# to send ahead of the piped input (for a CLI that ignores that input next to a prompt). The prompt goes
+# where the CLI can't take it for an option. Another flavour is one more entry.
+H_ARGV=() H_FEED=""
+headless_argv() {
+  local fl="$1" prompt="$2" piped="$3"; shift 3
+  H_FEED=""
+  case "$fl" in
+    claude) H_ARGV=(claude -p "$@")
+            if [[ -n "$prompt" ]]; then H_ARGV+=(-- "$prompt"); fi ;;
+    grok)   if (( piped )); then H_ARGV=(grok --prompt-file /dev/stdin "$@"); H_FEED="$prompt"
+            else H_ARGV=(grok "--single=$prompt" "$@"); fi ;;
+    *)      return 1 ;;
+  esac
+}
+
+# docker exec doesn't pass signals on, and its client runs in a session of its own (setsid), so Ctrl-C
+# or a timeout's TERM reach nexus only. hl_signal SIG sends SIG on, inside the persona, to the CLI's
+# process group, as a terminal's Ctrl-C would: the CLI is the marked process docker exec started (parent
+# 0), and daemons the run detached, in groups of their own, are left alone. The kill goes first, and its
+# own setsid keeps a second Ctrl-C from cancelling it; the notice after it can't fail.
+HL_RUN="" HL_SIG="" HL_SPOOL=""
+hl_signal() {
+  local notice=""
+  [[ -n "$HL_SIG" ]] || notice=1
+  HL_SIG="$1"
+  trap '' PIPE   # a stderr reader that died of the same Ctrl-C mustn't end nexus here
+  # shellcheck disable=SC2016  # expanded by sh inside the persona
+  setsid docker exec "$container" sh -c 'for f in $(grep -lsxz "NEXUS_RUN=$1" /proc/[0-9]*/environ); do
+      p="${f#/proc/}"; p="${p%/environ}"
+      while read -r k v; do if [ "$k" = PPid: ] && [ "$v" = 0 ]; then kill -"$2" "-$p"; fi; done < "/proc/$p/status"
+    done 2>/dev/null' sh "$HL_RUN" "$1" >/dev/null 2>&1 || true
+  if [[ -n "$notice" ]]; then { echo "nexus: $1: stopping the run in $persona" >&3; } 3>&2 2>/dev/null || true; fi
+}
+
+cmd_headless() {
+  local flavour prompt="" piped=0 first="" pid rc
+  local -a dx
+  flavour="$(meta_get flavour)"
+  [[ "${1:-}" != -- ]] || shift
+  if (( $# )) && [[ ! "$1" =~ ^-[^[:space:]=]*(=.*)?$ ]]; then prompt="$1"; shift; fi
+  if [[ -p /dev/stdin || -f /dev/stdin || -S /dev/stdin ]]; then piped=1; fi   # a socket: Node's child_process
+  [[ -n "$prompt" ]] || (( piped )) \
+    || die "headless: give the prompt first, e.g. nexus $persona headless \"list the TODOs\" --output-format json; or pipe it in"
+  # Next to a PROMPT the input is extra: from a pipe or socket it counts if it starts within 3 s, as
+  # claude -p decides for itself, so a caller that leaves stdin open doesn't hold the run. Without one,
+  # the input is the prompt and is waited for.
+  if (( piped )) && [[ -n "$prompt" && ! -f /dev/stdin ]]; then
+    rc=0; IFS= read -r -t 3 -N 1 first || rc=$?
+    if (( rc > 128 )); then
+      warn "headless: no input on stdin within 3 s, so running without it (</dev/null skips the wait)"; piped=0
+    elif (( rc )); then
+      piped=0   # it ended at once: nothing piped
+    fi
+  fi
+  headless_argv "$flavour" "$prompt" "$piped" "$@" || die "headless: no one-shot mode known for $persona's flavour '$flavour'"
+
+  # Piped input is read to its end first, into a file the CLI then reads at once (H_FEED goes ahead of it).
+  if (( piped )); then
+    HL_SPOOL="$(mktemp)" || die "headless: can't make a temp file for the input"
+    trap 'rm -f -- "$HL_SPOOL"' EXIT
+    { if [[ -n "$H_FEED" ]]; then printf '%s\n' "$H_FEED"; fi; printf '%s' "$first"; cat; } > "$HL_SPOOL"
+    exec < "$HL_SPOOL"
+    rm -f -- "$HL_SPOOL"; trap - EXIT
+    [[ -n "$prompt" || -s /dev/stdin ]] || die "headless: no prompt, and the input piped in was empty"
+  fi
+
+  HL_RUN="nexus-$$-$RANDOM$RANDOM"
+  dx=(setsid -w docker exec -e "NEXUS_RUN=$HL_RUN" -w "$dir")
+  if (( piped )); then dx+=(-i); fi
+  trap 'hl_signal INT' INT
+  trap 'hl_signal TERM' TERM HUP
+  # In the background, so the traps run while it does; <&0, or a background job reads /dev/null.
+  "${dx[@]}" "$container" "${H_ARGV[@]}" <&0 &
+  pid=$!
+  while :; do
+    rc=0; wait "$pid" || rc=$?
+    kill -0 "$pid" 2>/dev/null || break   # a trapped signal ends wait early; the CLI may still be stopping
+  done
+  trap - INT TERM HUP
+  # Interrupted: say so in the exit code, whatever the CLI returned (claude -p exits 0 on SIGINT).
+  case "$HL_SIG" in INT) exit 130 ;; TERM) exit 143 ;; esac
+  exit "$rc"
+}
+
 # --- upgrade ---------------------------------------------------------------------------------------
 # compose_q PERSONA ARGS…: compose for that persona; nothing here mounts the ssh-agent, so the socket may
 # be a placeholder, as in mgmt.
@@ -482,7 +578,7 @@ cmd_upgrade() {
   fi
 }
 
-restart=0 start_only=0 upgrade=0 up_args=()
+restart=0 start_only=0 upgrade=0 up_args=() headless=0
 case "${1:-}" in
   ls)      running || die "$persona isn't running; start it with: nexus $persona"
            exec docker exec "$container" tmux list-sessions ;;
@@ -493,6 +589,7 @@ case "${1:-}" in
   pull)    shift; mgmt pull --policy always "$@" "$service" ;;   # compose.yml never pulls on its own
   restart) restart=1 ;;
   upgrade) shift; upgrade=1 up_args=("$@") ;;
+  headless) shift; headless=1 ;;
 esac
 
 # Preflight: mount sources must exist, or Docker creates them root-owned.
@@ -526,20 +623,30 @@ if (( restart )) || ! running; then
     esac
   fi
   (( restart )) && exec "${COMPOSE[@]}" --profile "$persona" up -d --force-recreate "$service"
-  "${COMPOSE[@]}" --profile "$persona" up -d "$service"
+  "${COMPOSE[@]}" --profile "$persona" up -d "$service" >&2   # progress only: a headless run's stdout is the CLI's
 fi
 (( start_only )) && exit 0
+
+dir="$here"
+case "$dir/" in
+  "$root"/*) [[ -d "$dir" ]] || die "$dir no longer exists; cd to a project dir" ;;
+  *) # The same place by another path (a symlink on either side)? Then the root's spelling of it: that is
+     # the path mounted inside. Truly outside: a session starts in the root, a headless run refuses.
+     rr="$(realpath -e -- "$root" 2>/dev/null || true)" rh="$(realpath -e -- "$here" 2>/dev/null || true)"
+     if [[ -n "$rr" && -n "$rh" && "$rh/" == "$rr"/* ]]; then
+       dir="$root${rh#"$rr"}"
+     elif (( headless )); then
+       die "headless: $here is outside $persona's projects root ($root); cd to a project in it"
+     else
+       echo "nexus: $here is outside $persona's projects root; starting in $root" >&2; dir="$root"
+     fi ;;
+esac
+(( headless )) && cmd_headless "$@"
 
 # Session name + command.
 session=""; cmd=()
 if [[ $# -gt 0 && "$1" != "--" ]]; then session="$1"; shift; fi
 if [[ "${1:-}" == "--" ]]; then shift; cmd=("$@"); fi
-
-dir="$here"
-case "$dir/" in
-  "$root"/*) [[ -d "$dir" ]] || die "$dir no longer exists; cd to a project dir" ;;
-  *) echo "nexus: $here is outside $persona's projects root; starting in $root" >&2; dir="$root" ;;
-esac
 session="${session:-$(basename "$dir")}"
 session="${session//[.:]/_}"   # tmux rewrites '.' and ':' in session names; do the same up front
 
