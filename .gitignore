@@ -4,6 +4,6 @@
 personas/*.env
 personas/*.env.*
 !personas/*.env.example
-# written by ./install.sh
+# written by ./config.sh
 compose.personas.yml
 compose.personas.yml.*

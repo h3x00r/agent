@@ -1,5 +1,5 @@
 # /opt/agents/compose.yml — templates for the persona containers, one long-lived container per
-# persona per VM. No personas here: ./install.sh writes them to compose.personas.yml, and the nexus
+# persona per VM. No personas here: ./config.sh writes them to compose.personas.yml, and the nexus
 # launcher always loads both files.
 #
 # Each persona container holds a tmux server; every project you work on gets a tmux
@@ -131,5 +131,5 @@ services:
       # ddev global state (config, router, ssh-agent container, downloaded binaries) shared
       # with the VM user, so both sides agree on which global containers exist.
       - ${HOME}/.ddev:/home/dev/.ddev
-      # mkcert CA (see CAROOT above): `mkcert -install` once on the VM (install.sh offers it).
+      # mkcert CA (see CAROOT above): `mkcert -install` once on the VM (config.sh offers it).
       - ${HOME}/.local/share/mkcert:${HOME}/.local/share/mkcert:ro

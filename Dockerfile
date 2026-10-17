@@ -1,6 +1,6 @@
 # Agent persona image. One Dockerfile, two flavours x two contexts:
 #   --target claude (the default) | grok        --build-arg CONTEXT=docker (the default) | ddev
-# compose.personas.yml (written by ./install.sh) passes both for each persona.
+# compose.personas.yml (written by ./config.sh) passes both for each persona.
 #
 # Deliberately NO project toolchains (php, go, java; python3 is there for the statusline and APM only).
 # The agent is an orchestrator: it runs `ddev exec …` / `docker compose exec …` and the project

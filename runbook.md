@@ -20,7 +20,7 @@ A **persona** is one long-lived container with its own login, settings and histo
       and log in again.
 - [ ] An ssh-agent holding your key: `ssh-add -l` lists it (connect with `ssh -A`, or run an agent on the VM).
 - [ ] For ddev-context personas: ddev from pkg.ddev.com on the VM (it also provides `mkcert`).
-- [ ] About 3 GB free for Docker for the first build: `df -h /var/lib/docker` (install.sh checks it too).
+- [ ] About 3 GB free for Docker for the first build: `df -h /var/lib/docker` (config.sh checks it too).
 - [ ] Credentials: for Claude an Anthropic API key, a `claude setup-token` token or a Claude subscription to
       log in with; for grok an xAI API key.
 - [ ] Network for building: Docker Hub (the `debian:bookworm-slim` base), the Debian, Docker, NodeSource and
@@ -37,17 +37,17 @@ sudo git clone <this repo> /opt/agents && sudo chown -R "$USER" /opt/agents
 
 **Step 2: run the setup**
 ```bash
-/opt/agents/install.sh
+/opt/agents/config.sh
 ```
 It checks Docker and your ssh-agent, then asks, in this order:
 
 1. **Personas**, one at a time: flavour, context (the default is `ddev` if the VM has ddev), a name (suggested
    `<flavour>-<context>`: `claude-ddev` on a VM with ddev, `claude-docker` without), for Claude whether to
    show the statusline, and its projects root: `-` (the default) for the VM's, or a directory of its own.
-   Personas can share a root. On a re-run it first lists the personas and asks for each: keep, change or
-   remove.
-2. **Per VM**: the projects root (default `~/projects`; every persona without its own uses it), the image registry (`local` = build here) and, if a
-   persona is Claude, the Claude Code version (`latest`, `stable` or `X.Y.Z`). For ddev personas, the ddev
+   Personas can share a root. On a re-run it shows the personas and a menu instead: add, change or remove
+   one at a time (it asks which), then done; personas you don't pick aren't asked about.
+2. **Per VM**, under "VM settings": the projects root (default `~/projects`; every persona without its own
+   uses it), the image registry (`local` = build here) and, if a persona is Claude, the Claude Code version (`latest`, `stable` or `X.Y.Z`). For ddev personas, the ddev
    version is taken from the VM's `ddev version`.
 3. **Per persona without a `personas/<name>.env` yet, its sign-in and identity**:
    - Claude: log in interactively later, an API key, or a `claude setup-token` token.
@@ -59,7 +59,7 @@ It checks Docker and your ssh-agent, then asks, in this order:
    to run `mkcert -install` (ddev contexts, if the VM has no CA yet), and whether to build the images now (or
    pull them, with a registry).
 
-Nothing is written unless it all checks out: install.sh keeps the new `.env`, `compose.personas.yml` and
+Nothing is written unless it all checks out: config.sh keeps the new `.env`, `compose.personas.yml` and
 `personas/<name>.env` files staged until every question is answered and `docker compose config` accepts them,
 then puts them in place together, before it links the launcher and builds. Stopping it earlier (Ctrl-C, a dropped
 ssh session, the end of piped input) leaves the setup as it was; only the projects roots (the VM's, and any
@@ -70,28 +70,31 @@ plus a line for anything still to do (a missing key or git identity, the mkcert 
 `compose.personas.yml` and `personas/<name>.env` (mode 600).
 
 **If it fails:** the message says what's missing, e.g. Docker access, and nothing has been written: fix the cause
-and run install.sh again. A failed launcher link, `mkcert -install` or image build comes after the setup is in
+and run config.sh again. A failed launcher link, `mkcert -install` or image build comes after the setup is in
 place, so it only adds a closing line with the command to retry (a failed build or pull also makes the exit
 status non-zero).
 
 Without questions, e.g. for a script:
 ```bash
-/opt/agents/install.sh --yes --persona claude-ddev:claude:ddev --persona claude-docker:claude:docker \
+/opt/agents/config.sh --yes --persona claude-ddev:claude:ddev --persona claude-docker:claude:docker \
   --projects-root ~/projects --claude-version 2.1.302
 ```
 Its closing lines list what is still missing, e.g. a grok persona's `XAI_API_KEY`, or the git identity when
-`git config` has none; add that to `personas/<name>.env`. `install.sh --help` lists every flag. On a re-run,
+`git config` has none; add that to `personas/<name>.env`. `config.sh --help` lists every flag. On a re-run,
 `--yes` keeps what `.env` has unless a flag sets it. `--statusline` / `--no-statusline` turn the statusline on or
 off for the Claude personas given with `--persona`; without either, a new Claude persona gets it and an existing
 one keeps its setting.
 
-**The launcher used to be called `agent`.** After `git pull`, re-run install.sh: it links `nexus` and removes
+**The setup script used to be called `install.sh`;** it is `config.sh` now, with the same flags. On a re-run
+it shows the current VM settings and asks only whether to keep them.
+
+**The launcher used to be called `agent`.** After `git pull`, re-run config.sh: it links `nexus` and removes
 the old `agent` link into this checkout, which dangles once the script is renamed. Everything else keeps its
 name (containers `agent-<persona>`, images, home volumes), so nothing is recreated.
 
 **Upgrading a VM set up with the earlier fixed layout** (the personas were defined in compose.yml, their env
 files are already in `personas/`): after `git pull`, the launcher says `no personas set up yet` until you run
-install.sh interactively. It offers each `personas/<name>.env` that has no persona, one by one:
+config.sh interactively. It offers each `personas/<name>.env` that has no persona, one by one:
 `Found personas/<name>.env (flavour <f>): set it up as persona <name>? [Y/n]`. When the file doesn't show its
 flavour (a subscription persona has no key line), it asks the flavour; then the context and, for Claude, the
 statusline. The env file is reused as it is, and keeping the name keeps the home volume
@@ -101,7 +104,7 @@ container on the new image. With `--yes` nothing is offered: give the old names,
 
 **Step 3: first start**
 ```bash
-cd ~/projects/billing && nexus claude-ddev       # the name install.sh printed (claude-docker on a VM without ddev)
+cd ~/projects/billing && nexus claude-ddev       # the name config.sh printed (claude-docker on a VM without ddev)
 ```
 **Expected:** the container is created, and you are attached to tmux session `billing` in that directory. The
 status bar shows the persona's name and VM (`claude-ddev @ <vm>`) in its own colour.
@@ -117,7 +120,7 @@ persona; it is kept in the home volume too. Then `apm install` deploys to this p
 (section 2).
 
 **Verification**
-- [ ] `nexus ls` shows `== agent-claude-ddev  (healthy)` and your session.
+- [ ] `nexus ls` shows `== claude-ddev  (claude, ddev)  running (healthy)` and your session.
 - [ ] Inside: `claude --version` prints the version, `docker ps` lists the VM's containers, `ssh-add -l` lists
       your key, and `git var GIT_AUTHOR_IDENT` shows the persona's identity.
 - [ ] ddev context: `ddev version` inside matches the VM's.
@@ -134,11 +137,11 @@ persona; it is kept in the home volume too. Then `apm install` deploys to this p
 | Pick a session from a list | `Prefix+s` (Prefix is tmux's default, `Ctrl-b`) |
 | New window in this project | `Prefix+c` |
 | Leave, keeping everything running | `Prefix+d` |
-| What is running | `nexus ls` (all personas), `nexus <persona> ls` (one persona) |
+| What is set up and running | `nexus ls`: every persona and its state (running, stopped, not started yet), the sessions of the running ones, and containers no persona has any more; `nexus <persona> ls`: one persona's sessions |
 | Persona logs | `nexus <persona> logs` (follows; `Ctrl-c` to stop) |
 | Start without attaching / stop | `nexus <persona> start` / `nexus <persona> stop` |
 | New Claude Code or grok release | `nexus <persona> upgrade` (section 6) |
-| Personas set up on this VM | `/opt/agents/install.sh --list` |
+| Personas set up on this VM | `/opt/agents/config.sh --list` |
 
 Sessions are named after the directory (`.` and `:` become `_`). Two projects with the same directory name
 share one session, so give one an explicit name: `nexus claude-ddev api-b`. A persona sees only its projects
@@ -198,28 +201,29 @@ Either context:
 
 ## 5. Add, change or remove a persona
 
-Re-run `/opt/agents/install.sh`. It lists the personas and asks for each whether to keep, change (flavour,
-context, statusline, projects root) or remove it, then offers to add more. Without questions:
+Re-run `/opt/agents/config.sh`. It shows the personas and a menu: add one, change one (flavour, context,
+statusline, projects root), remove one, or done; for change and remove it asks which. After done it offers
+to keep the VM settings as they are. Without questions:
 ```bash
-/opt/agents/install.sh --yes --persona grok-docker:grok:docker  # add, or update flavour/context
-/opt/agents/install.sh --yes --persona grok-docker:grok:docker:/srv/work   # with a projects root of its own
-/opt/agents/install.sh --yes --persona grok-docker:grok:docker:            # back to the VM's projects root
-/opt/agents/install.sh --yes --remove grok-docker               # drop it from compose.personas.yml
+/opt/agents/config.sh --yes --persona grok-docker:grok:docker            # add, or update flavour/context
+/opt/agents/config.sh --yes --persona grok-docker:grok:docker:/srv/work  # with a projects root of its own
+/opt/agents/config.sh --yes --persona grok-docker:grok:docker:           # back to the VM's projects root
+/opt/agents/config.sh --yes --remove grok-docker                         # drop it from compose.personas.yml
 ```
 - A persona's own projects root is kept in its `# persona:` line in `compose.personas.yml` (`root=`), so it
   can't contain spaces or `:`. Given without `:ROOT`, an existing persona keeps its root. Changing the root
   takes `nexus <persona> restart`; its sessions in the old root end.
-- After a change, `nexus <persona> restart` applies it (that ends its tmux sessions); install.sh says so for
+- After a change, `nexus <persona> restart` applies it (that ends its tmux sessions); config.sh says so for
   each persona it changed.
 - Its build (or pull) covers every persona's image, not only a new one's: adding a grok persona also re-runs the
   claude image's build, which takes seconds from the cache when nothing changed. A running persona keeps the
   image it started with until `nexus <persona> restart`.
-- An existing `personas/<name>.env` is kept. When the flavour changes, install.sh offers a new one (with `--yes`
+- An existing `personas/<name>.env` is kept. When the flavour changes, config.sh offers a new one (with `--yes`
   it writes one) and keeps the old as `.env.bak`. A new persona whose name has a leftover env file is treated the
   same way: one of its flavour is reused, one of the other flavour is replaced (the old one to `.env.bak`).
 - `--statusline` / `--no-statusline` with `--persona` turn a Claude persona's statusline on or off; without
   either, an existing Claude persona keeps its setting, and a new one (or one switched from grok) gets it.
-- Removing keeps the env file and the home volume; install.sh prints the commands that delete them. While that
+- Removing keeps the env file and the home volume; config.sh prints the commands that delete them. While that
   `personas/<name>.env` stays, an interactive run offers to set the persona up again; delete it to stop that.
 
 ## 6. Upgrade Claude Code (or grok, APM, or ddev)
@@ -245,12 +249,12 @@ upgrades every persona of that flavour, whichever persona you name:
 4. It removes the old images, unless a container still uses them.
 
 Run it from a shell with an ssh-agent (recreating needs one), and when no agent is mid-task. One upgrade at
-a time: it shares install.sh's lock. Check: `docker exec agent-<persona> claude --version` (`grok --version`
+a time: it shares config.sh's lock. Check: `docker exec agent-<persona> claude --version` (`grok --version`
 in a grok persona). A version exported in your shell beats `.env`, so `upgrade` refuses until you unset it.
-Coming from a checkout older than `upgrade`, re-run install.sh once, so the grok image tags follow
+Coming from a checkout older than `upgrade`, re-run config.sh once, so the grok image tags follow
 `GROK_VERSION` (`upgrade` warns until then).
 
-By hand, the same for Claude: set `CLAUDE_VERSION=X.Y.Z` in `.env` (or `install.sh --yes --claude-version X.Y.Z
+By hand, the same for Claude: set `CLAUDE_VERSION=X.Y.Z` in `.env` (or `config.sh --yes --claude-version X.Y.Z
 --no-build`), `nexus <persona> build` once per context, then `nexus <persona> restart` for every Claude persona.
 Left on a channel (`latest`, `stable`), a build is cached once made and needs `nexus <persona> build --no-cache`,
 which rebuilds every layer; `upgrade` pins an exact version instead.
@@ -259,7 +263,7 @@ which rebuilds every layer; `upgrade` pins an exact version instead.
   `curl -fsSL https://pypi.org/pypi/apm-cli/json | jq -r .info.version`), build one persona of each flavour and
   context, and restart all personas. Only the APM stage reruns. `apm self-update` is off in the image and says
   so.
-- ddev: set `DDEV_VERSION` to the VM's `ddev version` (re-running install.sh does), build one persona of each
+- ddev: set `DDEV_VERSION` to the VM's `ddev version` (re-running config.sh does), build one persona of each
   ddev-context flavour, and restart all ddev personas.
 - Don't run `claude update` or `claude install` inside a persona. The image refuses them ("Updates are disabled
   by your administrator"), because a copy in the home volume would shadow the image's binary.
@@ -273,7 +277,7 @@ Claude personas set up with the statusline show `statusline/statusline.sh` as Cl
 directory, git branch, context use, cost and rate limits. The directory is mounted read-only, so an edit (or a
 `git pull`) shows up at the next refresh, without a restart. `statusline/settings.json` is mounted as a managed
 setting, so it wins over a `statusLine` in a persona's own settings; after changing that file,
-`nexus <persona> restart`. To turn it on or off for a persona, re-run install.sh and change that persona.
+`nexus <persona> restart`. To turn it on or off for a persona, re-run config.sh and change that persona.
 
 - The line stays blank in a project until you accept Claude Code's workspace trust prompt there (once per
   project per persona).
@@ -296,8 +300,8 @@ The next `nexus claude-ddev` starts it fresh, seeded from the image.
 
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
-| `no personas set up yet: run …/install.sh` | fresh checkout | run install.sh |
-| `no persona '<name>' (set up: …)` | typo, or not added yet | use a listed name, or add it with install.sh |
+| `no personas set up yet: run …/config.sh` | fresh checkout | run config.sh |
+| `no persona '<name>' (set up: …)` | typo, or not added yet | use a listed name, or add it with config.sh |
 | `required variable SSH_AUTH_SOCK is missing a value` | no ssh-agent found | start one / `ssh -A`, `ssh-add`, then retry |
 | `warning: the ssh-agent at … holds no keys` | agent without your key (often gpg-agent's) | `ssh-add`, then `nexus <persona> restart` |
 | `warning: nothing answers at … (stale ssh-agent socket)` | the agent behind that socket is gone | reconnect with `ssh -A`, then `nexus <persona> restart` |
@@ -305,17 +309,18 @@ The next `nexus claude-ddev` starts it fresh, seeded from the image.
 | Persona not running after a VM reboot | its ssh-agent socket didn't exist at boot | `nexus <persona>` (or `nexus <persona> start`) |
 | `the input device is not a TTY` | `nexus <persona>` attaches; a script has no tty | `nexus <persona> start` |
 | `<persona> isn't running` | `nexus <persona> ls` on a stopped persona | `nexus <persona>` or `nexus <persona> start` |
-| `env file …/personas/<persona>.env not found` | deleted, or the persona was added by hand | re-run install.sh (it writes a new one) |
-| `the projects root must be an absolute path` / `can't create the projects root …` | a bad `PROJECTS_ROOT` in `.env` or your shell, or a bad own root | the message says which: fix it, or re-run install.sh |
+| `env file …/personas/<persona>.env not found` | deleted, or the persona was added by hand | re-run config.sh (it writes a new one) |
+| `the projects root must be an absolute path` / `can't create the projects root …` | a bad `PROJECTS_ROOT` in `.env` or your shell, or a bad own root | the message says which: fix it, or re-run config.sh |
 | `… is outside <persona>'s projects root; starting in …` | you ran `nexus` from a directory that persona doesn't mount | `cd` into its root, or give the persona that root (section 5) |
 | `no Docker socket at /var/run/docker.sock` | Docker isn't installed or running | install / start Docker |
 | `permission denied … docker.sock` | your user isn't in the `docker` group | `sudo usermod -aG docker "$USER"`, log in again |
-| `range of CPUs is from 0.01 to N` | `AGENT_CPUS` above the VM's vCPUs | set `AGENT_CPUS` ≤ `nproc` (install.sh caps it) |
+| `range of CPUs is from 0.01 to N` | `AGENT_CPUS` above the VM's vCPUs | set `AGENT_CPUS` ≤ `nproc` (config.sh caps it) |
 | `pull access denied for local/agent-…` | `REGISTRY=local` means "build here" | `nexus <persona> build`, or set `REGISTRY` |
 | `At least one invalid signature was encountered` (apt, during a build) | Docker's disk is full | `docker system df`; free space with `docker builder prune` / `docker image prune`, then build again |
-| After `git pull`: `nexus: command not found`, or `…/agent: No such file or directory` | the launcher was renamed `agent` → `nexus` | re-run install.sh (it links `nexus`), or run `<checkout>/nexus` |
+| After `git pull`: `install.sh: No such file or directory` | the setup script was renamed `install.sh` → `config.sh` | run `config.sh` (same flags) |
+| After `git pull`: `nexus: command not found`, or `…/agent: No such file or directory` | the launcher was renamed `agent` → `nexus` | re-run config.sh (it links `nexus`), or run `<checkout>/nexus` |
 | New Claude version not showing after a build | container not recreated, or a cached channel build | `nexus <persona> restart`; or `nexus <persona> upgrade <that version>`, which pins, builds and recreates (plain `upgrade` moves to the newest) |
-| `install.sh or another upgrade is running in …` (nexus), `another install.sh, or a … upgrade, is running in …` (install.sh) | an install.sh or `nexus <persona> upgrade` is still running in that checkout; they share one lock | let it finish, then run it again |
+| `config.sh or another upgrade is running in …` (nexus), `another config.sh, or a … upgrade, is running in …` (config.sh) | a config.sh or `nexus <persona> upgrade` is still running in that checkout; they share one lock | let it finish, then run it again |
 | `CLAUDE_VERSION is exported in this shell and beats …/.env` (or `GROK_VERSION`) | `CLAUDE_VERSION` or `GROK_VERSION` exported in your shell | `unset CLAUDE_VERSION` (or `GROK_VERSION`), then upgrade |
 | `Updates are disabled by your administrator` | expected: the image is the updater | upgrade via section 6 |
 | `claude doctor`: `~/.local/bin is not in your PATH` | expected with the image's layout | nothing to do |
@@ -327,8 +332,8 @@ The next `nexus claude-ddev` starts it fresh, seeded from the image.
 | `curl: (60) SSL certificate problem` for `*.ddev.site` | curl uses the system store, not the mkcert CA | `curl --cacert "$NODE_EXTRA_CA_CERTS" …` |
 | `-- cmd` didn't run | the session already existed | use a new session name |
 | ddev rebuilds its web image on every start | ddev run alternately from the VM and the persona | run ddev only inside the persona |
-| `ddev: command not found` inside | a docker-context persona | change it to context `ddev` with install.sh |
-| No statusline in Claude | workspace not trusted yet, or statusline off for this persona | accept the trust prompt (section 7); else turn it on with install.sh and restart |
+| `ddev: command not found` inside | a docker-context persona | change it to context `ddev` with config.sh |
+| No statusline in Claude | workspace not trusted yet, or statusline off for this persona | accept the trust prompt (section 7); else turn it on with config.sh and restart |
 
 ## Environment variables
 
@@ -336,11 +341,11 @@ Precedence: a variable exported in your shell beats `.env`, except that a person
 both. `.env` feeds compose, and the launcher reads `PROJECTS_ROOT`, `REGISTRY` and the version pins from it
 (`upgrade` writes the pins); the persona env files go into the container's environment.
 
-### Per VM — `/opt/agents/.env` (written by install.sh)
+### Per VM — `/opt/agents/.env` (written by config.sh)
 
 | Variable | Required | Default | What it does |
 |----------|----------|---------|--------------|
-| `PROJECTS_ROOT` | no | `$HOME/projects` | The VM's projects root, mounted at the same path inside every persona that has no root of its own (install.sh) |
+| `PROJECTS_ROOT` | no | `$HOME/projects` | The VM's projects root, mounted at the same path inside every persona that has no root of its own (config.sh) |
 | `REGISTRY` | no | `local` | Image name prefix. `local` = build on this VM; a registry host enables `nexus <persona> pull` |
 | `CLAUDE_VERSION` | no | `latest` | Claude Code build: `latest`, `stable` or `X.Y.Z`. Pins below 2.1.118 ignore the update lock |
 | `CLAUDE_TAG` | no | `CLAUDE_VERSION` | Tag of the Claude images |
@@ -348,7 +353,7 @@ both. `.env` feeds compose, and the launcher reads `PROJECTS_ROOT`, `REGISTRY` a
 | `GROK_VERSION` | no | `latest` | Grok Build build: `latest` (newest on xAI's stable channel) or `X.Y.Z`; `upgrade` pins it |
 | `GROK_TAG` | no | `GROK_VERSION` | Tag of the grok images |
 | `DDEV_VERSION` | no | latest in the apt repo | ddev in ddev-context images; the VM's `ddev version` (leading `v` optional) |
-| `AGENT_CPUS` | no | `4`, capped at `nproc` by install.sh | CPU limit per persona; must not exceed `nproc` |
+| `AGENT_CPUS` | no | `4`, capped at `nproc` by config.sh | CPU limit per persona; must not exceed `nproc` |
 | `AGENT_MEMORY` | no | `8g` | Memory limit per persona |
 
 ### Derived by the launcher — don't set them
@@ -369,7 +374,7 @@ Without the launcher, export them yourself and use both compose files, e.g. from
 home volumes). For a ddev persona, first `mkdir -p ~/.ddev ~/.local/share/mkcert` (or Docker creates them
 root-owned), and add `AGENT_CA_CERTS=` (empty) if the VM has no mkcert CA.
 
-### Per persona — `personas/<persona>.env` (written by install.sh from `personas/<flavour>.env.example`)
+### Per persona — `personas/<persona>.env` (written by config.sh from `personas/<flavour>.env.example`)
 
 | Variable | Flavour | Required | Notes |
 |----------|---------|----------|-------|

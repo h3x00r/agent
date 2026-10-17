@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# nexus — launcher for persona containers. ./install.sh sets up the personas and links this script,
+# nexus — launcher for persona containers. ./config.sh sets up the personas and links this script,
 # e.g. to /usr/local/bin/nexus.
 #
 #   nexus <persona> [session] [-- cmd ...]   attach to (or create) a tmux session in that persona,
 #                                            named after $PWD unless given; cmd runs only on create
-#   nexus ls                                 running personas and their sessions
+#   nexus ls                                 every persona and its state; the sessions of the running ones
 #   nexus <persona> ls                       that persona's sessions
 #   nexus <persona> stop|logs|build|pull [args]
 #                                            args go to compose, e.g. build --no-cache
@@ -15,7 +15,7 @@
 #                                            release (of CHANNEL), build or pull the images, recreate every
 #                                            persona of that flavour (asks first; -y doesn't), drop the old ones
 #
-# Examples, with personas named claude-ddev and grok-docker (the names install.sh suggests):
+# Examples, with personas named claude-ddev and grok-docker (the names config.sh suggests):
 #   cd ~/projects/billing && nexus claude-ddev            # session "billing", shell at that dir
 #   nexus claude-ddev review -- claude --resume           # new session "review", straight into Claude Code
 #   nexus grok-docker                                     # same project, other persona
@@ -37,7 +37,7 @@ here="$PWD"
 pwd -P >/dev/null 2>&1 || warn "this shell sits in a deleted directory; leave it, e.g. cd $(printf %q "$here")"
 cd "$AGENTS_DIR" 2>/dev/null || die "can't cd to $AGENTS_DIR"
 AGENTS_DIR="$PWD"
-# The personas, written by install.sh. Its "# persona: <name> key=value …" lines are read here too.
+# The personas, written by config.sh. Its "# persona: <name> key=value …" lines are read here too.
 PERSONAS_FILE="$AGENTS_DIR/compose.personas.yml"
 # -p: an exported COMPOSE_PROJECT_NAME would otherwise switch to fresh, empty home volumes.
 COMPOSE=(docker compose -p agents -f "$AGENTS_DIR/compose.yml" -f "$PERSONAS_FILE")
@@ -50,7 +50,7 @@ export DOCKER_GID="${DOCKER_GID:-$(stat -c %g /var/run/docker.sock)}"
 
 # env_get KEY: KEY's value in ./.env as compose reads it: the last KEY= line, in the dotenv forms
 # compose takes (export prefix, CRLF, '…', "…" with its escapes, trailing comment), but not ${VAR}
-# references. install.sh's get_kv reads it the same way.
+# references. config.sh's get_kv reads it the same way.
 env_get() {
   [[ -f "$AGENTS_DIR/.env" ]] || return 0
   sed -nE "s/\r\$//; s/^[[:space:]]*(export[[:space:]]+)?$1[[:space:]]*=[[:space:]]*//p" "$AGENTS_DIR/.env" | tail -n 1 \
@@ -59,7 +59,7 @@ env_get() {
               :dq; s/\\\\/\x01/g; s/\\n/\n/g; s/\\t/\t/g; s/\\r/\r/g; s/\\([$"])/\1/g; s/\x01/\\/g'
 }
 # env_set KEY VALUE: rewrite the KEY= line compose reads, else the first "# KEY=", else append one;
-# install.sh's set_kv, for values that need no quoting. Written through, as install.sh writes .env: a
+# config.sh's set_kv, for values that need no quoting. Written through, as config.sh writes .env: a
 # symlinked .env keeps its link, and the file keeps its owner, mode and inode.
 env_set() {
   local f="$AGENTS_DIR/.env" tmp
@@ -78,7 +78,7 @@ env_set() {
 }
 
 # The VM's projects root: shell, else ./.env, else ~/projects. A persona with its own (root= in its
-# "# persona:" line, set by install.sh) uses that instead. Compose gets it per call (COMPOSE, below) and
+# "# persona:" line, set by config.sh) uses that instead. Compose gets it per call (COMPOSE, below) and
 # this process's environment keeps the shell's value, so a nexus run from here works out its own.
 vm_root="${PROJECTS_ROOT:-$(env_get PROJECTS_ROOT)}"
 vm_root="${vm_root:-$HOME/projects}"
@@ -93,24 +93,40 @@ if [[ ! -S "${SSH_AUTH_SOCK:-}" ]]; then
 fi
 export SSH_AUTH_SOCK   # empty = none found; compose.yml then says what to do
 
+# Every persona set up here and its state, with the tmux sessions of the running ones; then any persona
+# container this checkout started that no persona has any more (compose labels each with its directory).
 cmd_ls_all() {
-  local c
-  for c in $(docker ps --filter label=agent.persona --format '{{.Names}}'); do
-    echo "== $c  ($(docker inspect -f '{{.State.Health.Status}}' "$c" 2>/dev/null || echo running))"
+  local name rest c st fl cx
+  local -A known=()
+  [[ -f "$PERSONAS_FILE" ]] || die "no personas set up yet: run $AGENTS_DIR/config.sh"
+  while read -r name rest; do
+    c="agent-$name"; known[$c]=1
+    fl="${rest#*flavour=}"; fl="${fl%% *}"; cx="${rest#*context=}"; cx="${cx%% *}"
+    st="$(docker inspect -f '{{.State.Status}}{{if .State.Health}} ({{.State.Health.Status}}){{end}}' "$c" 2>/dev/null || true)"
+    case "$st" in
+      "")       st="not started yet: \`nexus $name\` starts it" ;;
+      exited*)  st="stopped: \`nexus $name\` starts it" ;;
+    esac
+    echo "== $name  ($fl, $cx)  $st"
+    [[ "$st" == running* ]] || continue
     docker exec "$c" tmux list-sessions \
       -F '   #{session_name}  #{session_windows}w  #{?session_attached,attached,detached}  #{pane_current_path}' 2>/dev/null \
       || echo "   (no sessions)"
+  done < <(sed -n 's/\r$//; s/^# persona: //p' "$PERSONAS_FILE")
+  for c in $(docker ps -a --filter label=agent.persona --filter "label=com.docker.compose.project.working_dir=$AGENTS_DIR" --format '{{.Names}}'); do
+    [[ -n "${known[$c]:-}" ]] && continue
+    echo "== $c  $(docker inspect -f '{{.State.Status}}' "$c"): no persona has it any more (docker rm -f $c removes it)"
   done
 }
 
 persona="$1"; shift
 [[ "$persona" == ls ]] && { cmd_ls_all; exit 0; }
 
-[[ -f "$PERSONAS_FILE" ]] || die "no personas set up yet: run $AGENTS_DIR/install.sh"
+[[ -f "$PERSONAS_FILE" ]] || die "no personas set up yet: run $AGENTS_DIR/config.sh"
 [[ "$persona" =~ ^[a-z0-9][a-z0-9-]*$ ]] || die "not a persona name: '$persona'"
-meta=" $(sed -n "s/\r\$//; s/^# persona: $persona //p" "$PERSONAS_FILE" | head -n 1) "   # CRLF-safe, as install.sh
+meta=" $(sed -n "s/\r\$//; s/^# persona: $persona //p" "$PERSONAS_FILE" | head -n 1) "   # CRLF-safe, as config.sh
 [[ "$meta" != "  " ]] \
-  || die "no persona '$persona' (set up: $(sed -n 's/^# persona: \([^ ]*\).*/\1/p' "$PERSONAS_FILE" | paste -sd ' ')); add it with $AGENTS_DIR/install.sh"
+  || die "no persona '$persona' (set up: $(sed -n 's/^# persona: \([^ ]*\).*/\1/p' "$PERSONAS_FILE" | paste -sd ' ')); add it with $AGENTS_DIR/config.sh"
 
 meta_get() { local v="${meta#* "$1"=}"; [[ "$v" == "$meta" ]] || echo "${v%% *}"; }
 root="$(meta_get root)"; root="${root:-$vm_root}"; root="${root%/}"
@@ -170,11 +186,11 @@ cmd_upgrade() {
   [[ -n "$flavour" && -n "${CLI_PIN[$flavour]:-}" ]] || die "upgrade: no CLI known for $persona's flavour '$flavour'"
   cli="${CLI_CMD[$flavour]}"
   local pin="${CLI_PIN[$flavour]}" tagvar="${CLI_TAG[$flavour]}" channels="${CLI_CHANNELS[$flavour]}"
-  [[ -f "$AGENTS_DIR/.env" ]] || die "no $AGENTS_DIR/.env yet: run $AGENTS_DIR/install.sh"
+  [[ -f "$AGENTS_DIR/.env" ]] || die "no $AGENTS_DIR/.env yet: run $AGENTS_DIR/config.sh"
   ! printenv "$pin" >/dev/null || die "$pin is exported in this shell and beats $AGENTS_DIR/.env: unset it, then upgrade"
-  # One upgrade or install.sh at a time per checkout: they share install.sh's lock.
-  exec 8< "$AGENTS_DIR/install.sh"
-  flock -n 8 || die "install.sh or another upgrade is running in $AGENTS_DIR; let it finish first"
+  # One upgrade or config.sh at a time per checkout: they share config.sh's lock.
+  exec 8< "$AGENTS_DIR/config.sh"
+  flock -n 8 || die "config.sh or another upgrade is running in $AGENTS_DIR; let it finish first"
 
   # The version: the one given, or the newest of a channel.
   local version="${want#v}"
@@ -244,7 +260,7 @@ cmd_upgrade() {
   r="${ref_new[${builders[0]}]}"
   if [[ "${r##*:}" != "$version" ]]; then
     if [[ -z "$tag" || ( "$flavour" == grok && "$tag" == latest ) ]]; then   # a personas file or .env from before upgrade
-      warn "$r is still tagged ${r##*:}: re-run $AGENTS_DIR/install.sh once, and the tags follow $pin from then on"
+      warn "$r is still tagged ${r##*:}: re-run $AGENTS_DIR/config.sh once, and the tags follow $pin from then on"
     elif [[ "$tag" == latest ]]; then
       warn "$r is tagged by $tagvar=latest in $AGENTS_DIR/.env, not by the version: remove that line, and the tags follow $pin"
     fi
@@ -328,7 +344,7 @@ case "${1:-}" in
 esac
 
 # Preflight: mount sources must exist, or Docker creates them root-owned.
-if [[ -n "$(meta_get root)" ]]; then where="$persona's own, in $PERSONAS_FILE; change it with install.sh"
+if [[ -n "$(meta_get root)" ]]; then where="$persona's own, in $PERSONAS_FILE; change it with config.sh"
 else where="PROJECTS_ROOT from your shell or $AGENTS_DIR/.env; fix it, or unset it for ~/projects"; fi
 [[ "$root" == /?* ]] || die "the projects root must be an absolute path, not '$root' ($where)"
 mkdir -p "$root" 2>/dev/null || die "can't create the projects root $root ($where)"

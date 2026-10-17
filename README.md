@@ -7,7 +7,7 @@ the VM's Docker daemon, so `docker compose …` (and `ddev …`) typed inside it
 ## Quick start
 
 ```bash
-bash install.sh                # once, in this checkout: add a persona, e.g. claude-team (flavour claude)
+bash config.sh                 # once, in this checkout: add a persona, e.g. claude-team (flavour claude)
 cd ~/projects/billing          # a project under the projects root
 nexus claude-team -- claude    # first time: session "billing", straight into Claude Code (log in once)
 ```
@@ -25,16 +25,16 @@ How the pieces fit together, as diagrams: [Annex: how it works](#annex-how-it-wo
 
 ## What's in the checkout
 
-The checkout is generic. `./install.sh` decides which personas a VM runs, the flavour of each
+The checkout is generic. `./config.sh` decides which personas a VM runs, the flavour of each
 (Claude Code or Grok Build), and the context each one works in:
 
 - **ddev**: ddev projects. ddev runs inside the persona, sharing the VM's ddev state and mkcert CA.
 - **docker**: projects run with docker compose / Dockerfiles, a Go API say. No ddev at all.
 
 ```
-install.sh              setup CLI: personas, flavours, contexts, .env, launcher link, images
+config.sh               setup CLI: personas, flavours, contexts, .env, launcher link, images
 compose.yml             templates only: _agent (context docker) and _agent-ddev
-compose.personas.yml    the personas, written by install.sh (gitignored)
+compose.personas.yml    the personas, written by config.sh (gitignored)
 Dockerfile              targets claude | grok, build arg CONTEXT=docker | ddev; no project toolchains on purpose
 entrypoint.sh           keeps the tmux server alive, paints the persona into the status bar
 tmux.conf               session-per-project ergonomics
@@ -56,7 +56,7 @@ directory and you're in. Detach, and the agents keep working. Reconnect from any
 they are.
 
 - **One command, any project.** `nexus <persona>` opens, or reattaches to, the session for the directory
-  you're in. `nexus ls` shows everything running.
+  you're in. `nexus ls` shows every persona, running or not, and its sessions.
 - **Personas, not just containers.** Each has its own account, git author, token and persistent home. Run
   several side by side on one project, a team account next to a personal plan or Claude next to Grok, each
   in its own colour in the status bar (*persona @ VM*).
@@ -82,26 +82,26 @@ ssh-agent holding your key (`ssh-add -l`). For ddev-context personas also ddev f
 
 ```bash
 sudo git clone <this repo> /opt/agents && sudo chown -R "$USER" /opt/agents
-/opt/agents/install.sh                     # asks: personas (flavour, context, name, root), VM settings, sign-in
+/opt/agents/config.sh                      # asks: personas (flavour, context, name, root), VM settings, sign-in
 cd ~/projects/billing && nexus claude-ddev # e.g. a persona named claude-ddev: opens session "billing"
 ```
 
-`install.sh` suggests `<flavour>-<context>` names: with the default answers you get `claude-ddev` on a VM
+`config.sh` suggests `<flavour>-<context>` names: with the default answers you get `claude-ddev` on a VM
 with ddev, `claude-docker` without. It writes `.env`, `personas/<name>.env` (mode 600) and
 `compose.personas.yml`, all together and only once `docker compose config` accepts them. Each persona mounts
 the VM's projects root, or a root of its own; several personas can share one. It links the
 launcher (`/usr/local/bin/nexus`, via sudo if needed), offers `mkcert -install` for ddev contexts, and
 builds the images (or pulls them with a registry). Re-run it to add, change or remove personas.
-`./install.sh --help` lists flags that do the same without questions, e.g.
-`./install.sh --yes --persona claude-docker:claude:docker`.
+`./config.sh --help` lists flags that do the same without questions, e.g.
+`./config.sh --yes --persona claude-docker:claude:docker`.
 
 Inside: `claude`, or open a new session straight into it with `nexus claude-ddev review -- claude`
 (the command only runs when the session is created; an existing session is just attached).
 `Shift+←/→` hops between project sessions, `Prefix+s` lists them, `Prefix+d` detaches and leaves
-everything running. `nexus ls` shows every running persona and its sessions.
+everything running. `nexus ls` shows every persona and its state, and the sessions of the running ones.
 Every persona also has `apm` ([Agent Package Manager](https://microsoft.github.io/apm/)): `apm install`
 in a project deploys its skills, prompts, agents and MCP servers to that persona's tool (runbook §2).
-In Claude personas with the statusline on (install.sh asks), Claude Code's statusline is
+In Claude personas with the statusline on (config.sh asks), Claude Code's statusline is
 `statusline/statusline.sh` (model, dir, branch, context, cost, limits); edit it here and the next
 refresh picks it up. A change to `statusline/settings.json` needs `nexus <persona> restart`.
 
@@ -113,7 +113,7 @@ refresh picks it up. A change to `statusline/settings.json` needs `nexus <person
   (its `agent.uid` label). After a uid change, also remove the persona's volume (`agents_<persona>-home`).
 - **ddev context: run ddev from inside the persona, not from the VM shell.** DDEV bakes username/uid
   into its web image; alternating between host user and container user forces a rebuild each time.
-- **ddev context: pin DDEV_VERSION to the VM's `ddev version`** (install.sh does). The router and
+- **ddev context: pin DDEV_VERSION to the VM's `ddev version`** (config.sh does). The router and
   ssh-agent are global containers; a version mismatch makes each side recreate them.
 - **Upgrading a CLI = a new image + recreating the containers on it.** `nexus <persona> upgrade [VERSION]`
   does all of it for Claude Code and grok: it pins `CLAUDE_VERSION` or `GROK_VERSION` (the newest release by
@@ -180,7 +180,7 @@ VM
 │   └── /home/local/work   a root of its own: claude-team
 ├── ssh-agent              its socket is mounted; no private keys inside
 ├── ~/.ddev + mkcert CA    shared with ddev-context personas
-└── ~/agent                checkout: install.sh, nexus, .env, compose files, personas/*.env
+└── ~/agent                checkout: config.sh, nexus, .env, compose files, personas/*.env
 ```
 
 ### Inside one persona
@@ -200,10 +200,11 @@ agent-claude-max                        image: local/agent-claude-ddev:<version>
 ### Setup, once per VM (re-run it to change anything)
 
 ```text
-bash install.sh
-  │  asks: personas: flavour, context, name, statusline, projects root (- = the VM's)
-  │        VM:       projects root, registry, Claude Code version
-  │        new ones: sign-in key/token, git identity, GH_TOKEN
+bash config.sh
+  │  personas:  first run: add one (flavour, context, name, statusline, projects root; - = the VM's)
+  │             re-run:    the list and a menu: add · change · remove · done (it asks which persona)
+  │  VM:        projects root, registry, Claude Code version (a re-run asks only whether to keep them)
+  │  new ones:  sign-in key/token, git identity, GH_TOKEN
   ▼
 writes .env, compose.personas.yml, personas/<name>.env    all together, or nothing
   ▼
@@ -233,7 +234,7 @@ working in Claude Code
 
 ```text
 nexus claude-max upgrade [VERSION | stable] [-y]
-  ├─ takes the lock (one install.sh or upgrade at a time)
+  ├─ takes the lock (one config.sh or upgrade at a time)
   ├─ looks up the newest version (downloads.claude.ai; x.ai/cli for grok)
   ├─ pins CLAUDE_VERSION in .env ─────────── on a failure or Ctrl-C, the old pin goes back
   ├─ builds each context's image, checks `claude --version`

@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# install.sh — set this checkout up for one dev VM: which personas it runs, the flavour of each
+# config.sh — set this checkout up for one dev VM: which personas it runs, the flavour of each
 # (claude | grok), and the context each one works in:
 #   ddev     ddev projects: ddev inside, sharing the VM's ~/.ddev and mkcert CA
 #   docker   projects run with docker compose / Dockerfiles: no ddev at all
 #
-#   ./install.sh                  interactive; re-run it any time to add, change or remove personas
-#   ./install.sh --list           the personas set up so far
-#   ./install.sh --yes [options]  no questions, for scripts: current settings are kept, and the
+#   ./config.sh                  interactive; re-run it any time to add, change or remove personas
+#   ./config.sh --list           the personas set up so far
+#   ./config.sh --yes [options]  no questions, for scripts: current settings are kept, and the
 #                                 defaults below apply to new ones
 #     --persona NAME:FLAVOUR:CONTEXT[:ROOT]
 #                                      add or update a persona; repeatable. ROOT: its own projects root
@@ -33,8 +33,9 @@ MIN_FREE_GB=3   # for Docker, before building or pulling the images
 COLOURS=(colour25 colour28 colour90 colour130 colour31 colour124 colour166 colour61)   # tmux status bars
 
 say()   { printf '%s\n' "$*"; }
-warn()  { printf 'install: warning: %s\n' "$*" >&2; }
-die()   { printf 'install: %s\n' "$*" >&2; exit 1; }
+section() { (( YES )) || { say ""; say "== $*"; }; }   # a heading over a group of questions
+warn()  { printf 'config: warning: %s\n' "$*" >&2; }
+die()   { printf 'config: %s\n' "$*" >&2; exit 1; }
 usage() { awk 'NR > 1 && !/^#/ { exit } NR > 1 { sub(/^# ?/, ""); print }' "$SELF"; }
 
 # Staged files (temp files next to their targets, mode 600) can hold secrets: removed on any exit.
@@ -113,9 +114,10 @@ fi
 # At the end of input a prompt stops the run instead of taking defaults; a last line without a
 # newline still counts as an answer.
 eof() { [[ -n "$1" ]] || { echo >&2; die "input ended; answer on a terminal or use --yes"; }; }
+DEFAULTS=0   # 1 while a block of questions takes its defaults (the VM settings, kept on a re-run)
 ask() {    # ask VAR "question" [default]
   local _a=""
-  if (( YES )); then _a="${3-}"; else read -r -p "$2${3:+ [$3]}: " _a || eof "$_a"; _a="${_a:-${3-}}"; fi
+  if (( YES || DEFAULTS )); then _a="${3-}"; else read -r -p "$2${3:+ [$3]}: " _a || eof "$_a"; _a="${_a:-${3-}}"; fi
   printf -v "$1" '%s' "$_a"
 }
 yesno() {  # yesno "question" y|n
@@ -301,6 +303,31 @@ change_interactive() {
   ask_root r "$1" "${P_ROOT[i]}"
   put "$1" "$f" "$c" "${P_COLOUR[i]}" "$sl" "$r"
 }
+# A re-run asks only about what you pick: add, change or remove one persona at a time, then done.
+persona_menu() {
+  local act n
+  while :; do
+    say ""; list
+    choose act "What next?" "done" \
+      "add      a new persona" \
+      "change   one persona's flavour, context, statusline or projects root" \
+      "remove   one persona (its env file and home volume stay)" \
+      "done     go on with the rest of the setup"
+    case "$act" in
+      add)    add_interactive ;;
+      change) if pick n change; then change_interactive "$n"; fi ;;
+      remove) if pick n remove; then drop "$n"; fi ;;
+      "done") return 0 ;;
+    esac
+  done
+}
+pick() {   # pick VAR VERB: one of the personas, or false for "-" (none)
+  local _o=() _i
+  if (( ! ${#P_NAME[@]} )); then say "  no persona to $2"; return 1; fi
+  for _i in "${!P_NAME[@]}"; do _o+=("$(printf '%-31s %s, %s' "${P_NAME[_i]}" "${P_FLAVOUR[_i]}" "${P_CONTEXT[_i]}")"); done
+  choose "$1" "Which persona to $2?" - "${_o[@]}" "-        none: back to the menu"
+  [[ "${!1}" != - ]]
+}
 # personas/<name>.env files without a persona, e.g. from the earlier fixed layout. The same name
 # means the same home volume (agents_<name>-home), so logins and history carry over.
 adopt_interactive() {
@@ -340,8 +367,8 @@ write_personas() {  # write_personas FILE [staged]: the compose file for every p
                     # "staged" points env_file at the staged env files, for the check before commit
   local i n f c tag base env
   {
-    say "# compose.personas.yml — written by ./install.sh; re-run it to add, change or remove personas."
-    say "# install.sh and the nexus launcher read the \"# persona:\" lines back: keep them in step with"
+    say "# compose.personas.yml — written by ./config.sh; re-run it to add, change or remove personas."
+    say "# config.sh and the nexus launcher read the \"# persona:\" lines back: keep them in step with"
     say "# the services below if you edit this by hand."
     for i in "${!P_NAME[@]}"; do
       say "# persona: ${P_NAME[i]} flavour=${P_FLAVOUR[i]} context=${P_CONTEXT[i]} colour=${P_COLOUR[i]} statusline=${P_STATUSLINE[i]}${P_ROOT[i]:+ root=${P_ROOT[i]}}"
@@ -386,7 +413,7 @@ EOF
 
 write_env_file() {  # write_env_file NAME FLAVOUR: a staged personas/NAME.env from personas/FLAVOUR.env.example
   local n="$1" f="$2" tmp auth key name email gh
-  say "-- personas/$n.env"
+  if (( YES )); then say "-- personas/$n.env"; else section "$n: sign-in and identity (personas/$n.env)"; fi
   stage tmp "personas/$n.env" "personas/$f.env.example"
   STAGED[$n]="$tmp"
   if [[ "$f" == claude ]]; then
@@ -419,7 +446,7 @@ write_env_file() {  # write_env_file NAME FLAVOUR: a staged personas/NAME.env fr
 (( EUID != 0 )) || die "run this as the VM user who will use the personas, not as root (it asks for sudo only to link the launcher)"
 if (( ! LIST )); then
   exec 9< "$SELF"   # one run at a time per checkout: a lock on this script, no lock file
-  flock -n 9 || die "another install.sh, or a \`nexus <persona> upgrade\`, is running in $AGENTS_DIR; let it finish first"
+  flock -n 9 || die "another config.sh, or a \`nexus <persona> upgrade\`, is running in $AGENTS_DIR; let it finish first"
 fi
 FIRST=1; [[ -f "$PERSONAS_FILE" ]] && FIRST=0   # no registry yet: a first setup, or one from the fixed layout
 load
@@ -441,25 +468,18 @@ DEFAULT_CONTEXT=docker; [[ -n "$VM_DDEV" ]] && DEFAULT_CONTEXT=ddev
 
 # Nothing below writes a file until the commit step: answers go into staged temp files.
 # --- personas --------------------------------------------------------------------------------
-say "agents setup in $AGENTS_DIR${VM_DDEV:+ (ddev $VM_DDEV on this VM)}"
+say "config.sh: setting up $AGENTS_DIR${VM_DDEV:+ (ddev $VM_DDEV on this VM)}"
 VM_ROOT_HINT="${OPT_ROOT:-$(get_kv .env PROJECTS_ROOT)}"   # for ask_root; the VM's root is asked after the personas
 if [[ -n "$VM_ROOT_HINT" ]]; then VM_ROOT_HINT="now $VM_ROOT_HINT"; else VM_ROOT_HINT="asked below"; fi
 for n in "${REMOVE[@]}"; do idx "$n" >/dev/null || die "--remove $n: no such persona"; drop "$n"; done
 for p in "${ADD[@]}"; do add_flag "$p"; done
 if (( ! YES )); then
-  if (( ${#P_NAME[@]} )); then
-    say "Personas:"; list
-    act=""
-    for n in "${P_NAME[@]}"; do
-      choose act "$n:" keep "keep" "change   flavour, context, statusline, projects root" "remove"
-      case "$act" in change) change_interactive "$n" ;; remove) drop "$n" ;; esac
-    done
-  fi
+  section "Personas"
   adopt_interactive
-  more=y; (( ${#P_NAME[@]} )) && more=n
-  while yesno "Add a persona?" "$more"; do add_interactive; more=n; done
+  if (( ! ${#P_NAME[@]} )); then say "No personas yet; the first one:"; add_interactive; fi
+  persona_menu
 fi
-(( ${#P_NAME[@]} )) || warn "no personas configured; add some with ./install.sh (or --persona NAME:FLAVOUR:CONTEXT)"
+(( ${#P_NAME[@]} )) || warn "no personas configured; add some with ./config.sh (or --persona NAME:FLAVOUR:CONTEXT)"
 for i in "${!P_NAME[@]}"; do
   n="${P_NAME[i]}"
   if [[ -n "${LOADED[$n]+x}" && "${LOADED[$n]}" != "${P_FLAVOUR[i]} ${P_CONTEXT[i]} ${P_STATUSLINE[i]} ${P_ROOT[i]}" ]]; then
@@ -477,8 +497,15 @@ stage ENV_NEW .env "$([[ -e .env ]] && echo .env || echo .env.example)"
 # The old template set GROK_TAG=latest; emptied, the grok tag follows GROK_VERSION as Claude's follows CLAUDE_VERSION.
 [[ "$(get_kv "$ENV_NEW" GROK_TAG)" != latest ]] || set_kv "$ENV_NEW" GROK_TAG ""
 root="${OPT_ROOT:-$(get_kv "$ENV_NEW" PROJECTS_ROOT)}"; root="${root:-$HOME/projects}"
+registry="${OPT_REGISTRY:-$(get_kv "$ENV_NEW" REGISTRY)}"; registry="${registry:-local}"
+cv="${OPT_CLAUDE:-$(get_kv "$ENV_NEW" CLAUDE_VERSION)}"; cv="${cv:-latest}"
+section "VM settings, shared by every persona"
+if (( ! YES && ! FIRST )) && [[ -e .env ]] \
+   && yesno "Keep them? projects root $root, image registry $registry$(has claude && echo ", Claude Code $cv")" y; then
+  DEFAULTS=1   # still checked below, just not asked
+fi
 while :; do
-  ask root "Projects root (mounted at the same path inside)" "$root"
+  ask root "The VM's projects root, for personas without their own (mounted at the same path inside)" "$root"
   norm_dir root
   if ! root_ok "$root"; then
     why="the projects root must be an absolute directory other than /, without ':', not '$root'"
@@ -491,7 +518,6 @@ while :; do
   say "  $why"; root="$HOME/projects"
 done
 set_kv "$ENV_NEW" PROJECTS_ROOT "$root"
-registry="${OPT_REGISTRY:-$(get_kv "$ENV_NEW" REGISTRY)}"; registry="${registry:-local}"
 while :; do
   ask registry "Image registry (local = build on this VM)" "$registry"
   [[ "$registry" != ?*/ ]] || registry="${registry%/}"
@@ -502,7 +528,6 @@ while :; do
 done
 set_kv "$ENV_NEW" REGISTRY "$registry"
 if has claude; then
-  cv="${OPT_CLAUDE:-$(get_kv "$ENV_NEW" CLAUDE_VERSION)}"; cv="${cv:-latest}"
   while :; do
     ask cv "Claude Code version, for the claude personas: latest | stable | X.Y.Z" "$cv"
     cv="${cv:-latest}"
@@ -519,6 +544,7 @@ if has ddev; then
   [[ -n "$dv" ]] || warn "ddev isn't installed on this VM: the ddev personas get the newest ddev; install the same on the VM (pkg.ddev.com) so both agree, and for mkcert"
   set_kv "$ENV_NEW" DDEV_VERSION "$dv"
 fi
+DEFAULTS=0
 cpus="$(get_kv "$ENV_NEW" AGENT_CPUS)"; n="$(nproc)"
 if ! [[ "$cpus" =~ ^([0-9]+(\.[0-9]+)?|\.[0-9]+)$ ]] || awk -v c="$cpus" -v n="$n" 'BEGIN { exit !(c + 0 <= 0 || c + 0 > n + 0) }'; then
   set_kv "$ENV_NEW" AGENT_CPUS "$(( n < 4 ? n : 4 ))"
@@ -563,6 +589,9 @@ if ! err="$(env -u PROJECTS_ROOT AGENT_UID="$(id -u)" AGENT_GID="$(id -g)" DOCKE
 fi
 
 # --- the rest of the questions: launcher link, mkcert, images ---------------------------------
+if [[ "$LINK" != none ]] || (( BUILD && ${#P_NAME[@]} )) || { has ddev && [[ ! -f "$HOME/.local/share/mkcert/rootCA.pem" ]]; }; then
+  section "Launcher and images"
+fi
 if (( ! YES )) && [[ "$LINK" != none ]]; then
   while :; do
     ask LINK "Link the launcher as <dir>/nexus (none: skip)" "$LINK"
