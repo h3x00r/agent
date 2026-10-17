@@ -865,7 +865,8 @@ for n in "${!GSTAGED[@]}"; do
   t="personas/$n.grok.toml"
   i="$(idx "$n")"
   if [[ -n "${LOADED[$n]+x}" && ! -e "$t" ]]; then
-    LATER+=("$n: its grok settings$([[ ${P_STATUSLINE[i]} == yes ]] && echo " and statusline") come through $t now; \`nexus $n restart\` brings them in")
+    what="grok settings"; if [[ "${P_STATUSLINE[i]}" == yes ]]; then what+=" and statusline"; fi   # not $(… && …): set -e
+    LATER+=("$n: its $what come through $t now; \`nexus $n restart\` brings them in")
   elif [[ -n "${LOADED[$n]+x}" && "${LOADED[$n]}" == "${P_FLAVOUR[i]} ${P_CONTEXT[i]} ${P_STATUSLINE[i]} ${P_ROOT[i]} ${P_SSH[i]}" ]] \
        && ! cmp -s "${GSTAGED[$n]}" "$t"; then
     LATER+=("$n: its grok settings changed; the next grok started in it reads them")   # else: changed, and told to restart

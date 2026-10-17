@@ -225,6 +225,12 @@ check "  the grok one's managed config: personas/grok.toml, then its statusline;
       'grep -qx "theme = \"grokday\"" "$G" && grep -qx "command = \"/etc/grok/statusline/statusline.sh\"" "$G" \
        && [[ $(grep -c "^\[ui.status_line\]" "$G") == 1 && $(stat -c %a "$G") == 600 ]]'
 check "  and with --no-statusline: the settings alone" 'grep -qx "theme = \"grokday\"" "$GN" && ! grep -q "status_line" "$GN"'
+# An existing grok persona without the statusline, whose managed config config.sh hasn't written yet (one
+# set up before it did): a re-run writes it, and says to restart.
+mv "$GN" "$T/gn.toml"
+t cfg --yes --no-link --no-build </dev/null
+check "  a grok persona without statusline or managed config yet: a re-run writes it, and says to restart" \
+      'rc 0 && [[ -f $GN ]] && out_has "$PN: its grok settings come through personas/$PN.grok.toml now"'
 t compose_t --profile "$PG" config "$PG"
 check "  the grok one's service: its statusline, through grok's managed config" \
       'rc 0 && out_has "source: $A/statusline/grok" && out_has "target: /etc/grok/statusline" \
