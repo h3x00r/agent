@@ -202,7 +202,8 @@ done
 check "  a refused run writes nothing" '[[ ! -e $A/.env && ! -e $P && ! -e $A/personas/$PG.key ]]'
 
 # Settings for every Claude and every grok persona, in place of the committed ones.
-printf '{"model": "sonnet", "effortLevel": "low"}\n' > "$A/personas/claude.json"
+printf '{"model": "opus", "modelSettings": {"opus": {"effortLevel": "low"}}}\n' > "$A/personas/claude.json"
+printf '{"env": {"NXT_MANAGED": "1"}}\n' > "$A/personas/claude.managed.json"
 printf '[models]\ndefault_reasoning_effort = "xhigh"\n\n[ui]\ntheme = "grokday"\n' > "$A/personas/grok.toml"
 t cfg --yes --no-link --no-build --projects-root "$ROOT" --registry "$REG" \
       --persona "$PC:claude:docker" --persona "$PG:grok:docker" --persona "$PX:claude:docker:$T/own" \
@@ -240,8 +241,9 @@ t compose_t --profile "$PC" config "$PC"
 check "  the Claude one's: statusline/claude, at the path it always had" \
       'rc 0 && out_has "source: $A/statusline/claude" && out_has "target: /etc/claude-code/statusline" \
        && out_has "source: $A/statusline/claude/settings.json" && ! out_has "statusline/grok"'
-check "  and personas/claude.json as a managed drop-in" \
-      'out_has "source: $A/personas/claude.json" && out_has "target: /etc/claude-code/managed-settings.d/15-personas.json"'
+check "  and personas/claude.managed.json as the managed drop-in; the defaults aren't mounted" \
+      'out_has "source: $A/personas/claude.managed.json" && out_has "target: /etc/claude-code/managed-settings.d/15-personas.json" \
+       && ! out_has "personas/claude.json"'
 check "  an agent persona's: the agent's socket, no key" \
       'rc 0 && grep -B 1 -x "        target: /ssh-agent" <<< "$OUT" | grep -qxF "        source: $SOCK" && ! out_has "nexus/ssh-key"'
 check "  .env: the projects root and the registry" 'grep -qxF "PROJECTS_ROOT=$ROOT" "$A/.env" && grep -qxF "REGISTRY=$REG" "$A/.env"'
@@ -303,13 +305,14 @@ else
   check "a personas/claude.json Claude Code couldn't read: refused, nothing written" \
         'rc 1 && err_has "JSON Claude Code can read" && cmp -s "$P" "$T/p.before"'
 fi
-rm "$A/personas/claude.json"; cfg --yes --no-link --no-build </dev/null >/dev/null 2>&1
-t compose_t --profile "$PC" config "$PC"
-check "without personas/claude.json: no drop-in" 'rc 0 && ! out_has "15-personas"'
 cp "$T/claude.json" "$A/personas/claude.json"
+mv "$A/personas/claude.managed.json" "$T/claude.managed.json"; cfg --yes --no-link --no-build </dev/null >/dev/null 2>&1
+t compose_t --profile "$PC" config "$PC"
+check "without personas/claude.managed.json: no drop-in" 'rc 0 && ! out_has "15-personas"'
+mv "$T/claude.managed.json" "$A/personas/claude.managed.json"
 t cfg --yes --no-link --no-build </dev/null
 check "  and with it back: it is mounted again, and the persona is told to restart for it" \
-      'rc 0 && grep -qF "./personas/claude.json," "$P" && out_has "$PC: it gets personas/claude.json as managed settings now"'
+      'rc 0 && grep -qF "./personas/claude.managed.json," "$P" && out_has "$PC: it gets personas/claude.managed.json as managed settings now"'
 
 # --- nexus, nothing started ------------------------------------------------------------------------
 stage "nexus, before any persona runs"
@@ -348,10 +351,15 @@ t nx "$PC" start </dev/null
 check "a start from a personas file from before the statusline split: refused, saying what to do" \
       'rc 1 && err_has "from before statusline/ was split" && err_has "config.sh"'
 cp "$T/personas.yml" "$P"
-mv "$A/personas/claude.json" "$T/claude.json"
+printf '      - { type: bind, source: ./personas/claude.json, target: /etc/claude-code/managed-settings.d/15-personas.json }\n' >> "$P"
 t nx "$PC" start </dev/null
-check "a start with personas/claude.json gone: refused, saying how to bring it back" 'rc 1 && err_has "personas/claude.json isn" && err_has "git checkout"'
-mv "$T/claude.json" "$A/personas/claude.json"
+check "  and from before the Claude settings split: refused too" 'rc 1 && err_has "from before personas/claude.json was split" && err_has "config.sh"'
+cp "$T/personas.yml" "$P"
+mv "$A/personas/claude.managed.json" "$T/claude.managed.json"
+t nx "$PC" start </dev/null
+check "a start with personas/claude.managed.json gone: refused, saying how to bring it back" \
+      'rc 1 && err_has "personas/claude.managed.json isn" && err_has "git checkout"'
+mv "$T/claude.managed.json" "$A/personas/claude.managed.json"
 mv "$A/personas/$PG.key" "$T/keys/moved"
 t nx "$PG" start </dev/null
 check "a start with its ssh key gone: refused" 'rc 1 && err_has "ssh key $A/personas/$PG.key isn'"'"'t there"'
@@ -446,7 +454,11 @@ stage "headless with Claude ($PC, the stand-in API)"
 t nx "$PC" headless "nxt say hi" </dev/null
 check "starts the persona; only the reply on stdout" 'rc 0 && out_is FAKE-REPLY && err_has "agent-$PC"'
 check "  the prompt reached the API" 'api_got "nxt say hi"'
-check "  with the model and effort from personas/claude.json" 'api_got "\"model\":\"claude-sonnet" && api_got "\"effort\":\"low\""'
+check "  with the defaults from personas/claude.json, merged into its own settings as it started" \
+      'err_has "Claude defaults from personas/claude.json: model, modelSettings.opus.effortLevel" && api_got "\"model\":\"claude-opus" && api_got "\"effort\":\"low\""'
+t docker exec "agent-$PC" sh -c 'cat ~/.claude/settings.json; cat /etc/claude-code/managed-settings.d/15-personas.json'
+check "  its own settings.json holds them (Claude may have made opus opus[1m]); the drop-in is claude.managed.json" \
+      'rc 0 && out_re "\"model\": \"opus(\[1m\])?\"" && out_has "NXT_MANAGED"'
 printf 'line one\nline two\n' | t nx "$PC" headless "nxt review"
 check "a prompt and piped input: both, the prompt first" 'rc 0 && out_is FAKE-REPLY && api_got "nxt review\\nline one\\nline two"'
 printf 'nxt piped only' | t nx "$PC" headless
@@ -460,6 +472,20 @@ if wait_for 60 'api_got "nxt HOLD"'; then printf '\003' >&7; fi
 pty_end 30
 check "Ctrl-C: exit 130, and a notice" 'rc 130 && out_has "nexus: INT: stopping the run in $PC"'
 check "  no claude left in the persona" 'no_claude_left'
+# Both defaults change; a restart merges them again. The model follows, though Claude's own migration may
+# have made the "opus" nexus wrote "opus[1m]".
+printf '{"model": "sonnet", "modelSettings": {"opus": {"effortLevel": "high"}}}\n' > "$A/personas/claude.json"
+t nx "$PC" restart </dev/null
+ERR2="$ERR"; t docker exec "agent-$PC" cat /home/dev/.claude/settings.json
+check "restart: defaults the persona left as nexus wrote them follow the new ones" \
+      'out_has "\"model\": \"sonnet\"" && out_has "\"effortLevel\": \"high\"" \
+       && grep -qx "nexus: $PC: Claude defaults from personas/claude.json: model, modelSettings.opus.effortLevel" <<< "$ERR2"'
+# The persona sets its own model; the default model changes again; the persona's stands.
+docker exec "agent-$PC" python3 -c 'import json, os; p = os.path.expanduser("~/.claude/settings.json"); d = json.load(open(p)); d["model"] = "haiku"; json.dump(d, open(p, "w"))'
+printf '{"model": "opus", "modelSettings": {"opus": {"effortLevel": "high"}}}\n' > "$A/personas/claude.json"
+t nx "$PC" restart </dev/null
+ERR2="$ERR"; t docker exec "agent-$PC" cat /home/dev/.claude/settings.json
+check "  and a model the persona set itself stands" 'out_has "\"model\": \"haiku\"" && [[ $ERR2 != *"Claude defaults from"* ]]'
 
 stage "headless with grok ($PG, the stand-in grok)"
 # SSH_AUTH_SOCK pointing nowhere: nexus may still find an agent of yours in /run/user/<uid>, but a persona with

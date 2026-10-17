@@ -1,16 +1,13 @@
 {
-  "permissions": {
-    "defaultMode": "bypassPermissions"
-  },
-  "env": {
-    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
-  },
   "model": "opus",
-  "effortLevel": "xhigh",
-  "tui": "fullscreen",
-  "skipDangerousModePermissionPrompt": true,
+  "modelSettings": {
+    "opus": {
+      "effortLevel": "xhigh"
+    }
+  },
   "theme": "auto",
   "outputStyle": "Concise",
+  "tui": "fullscreen",
   "teammateMode": "tmux",
   "worktree": {
     "baseRef": "head"

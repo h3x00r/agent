@@ -29,7 +29,8 @@
 # at once and only after `docker compose config` accepts them: a run that stops early changes nothing,
 # except the projects roots (the VM's and a persona's own), which are created as they are named. Then
 # it makes the ssh keys asked for (personas/<name>.key) that don't exist yet. Every Claude persona gets
-# personas/claude.json (committed) as a managed settings drop-in. A grok persona gets
+# personas/claude.managed.json (committed) as a managed settings drop-in; nexus merges the defaults in
+# personas/claude.json into its own settings when it starts it. A grok persona gets
 # personas/<name>.grok.toml, its grok managed config: personas/grok.toml (the grok settings for every
 # grok persona, committed) and, with the statusline on, statusline/grok/settings.toml.
 set -euo pipefail
@@ -513,12 +514,12 @@ write_personas() {  # write_personas FILE [staged]: the compose file for every p
     volumes:
       - $n-home:/home/dev
 EOF
-      if [[ "$f" == claude && -f personas/claude.json ]]; then
+      if [[ "$f" == claude && -f personas/claude.managed.json ]]; then
         cat <<'EOF'
-      # Claude Code settings for every Claude persona, personas/claude.json, as a managed drop-in: they
-      # win over the persona's own settings. A single-file mount, so a change to it (a git pull too)
-      # needs `nexus <persona> restart`.
-      - { type: bind, source: ./personas/claude.json, target: /etc/claude-code/managed-settings.d/15-personas.json, read_only: true, bind: { create_host_path: false } }
+      # The Claude Code settings that hold in every Claude persona, personas/claude.managed.json, as a
+      # managed drop-in: they win over its own settings (the defaults in personas/claude.json don't: nexus
+      # merges those into them). A single-file mount, so a change (a git pull too) needs a restart.
+      - { type: bind, source: ./personas/claude.managed.json, target: /etc/claude-code/managed-settings.d/15-personas.json, read_only: true, bind: { create_host_path: false } }
 EOF
       fi
       if [[ "$f" == claude && "${P_STATUSLINE[i]}" == yes ]]; then
@@ -740,10 +741,12 @@ done
 # on (unless personas/grok.toml has one). A key in the persona's own ~/.grok/config.toml wins. Each is
 # checked before anything is written; written in place, it reaches a running persona's next grok.
 declare -A GSTAGED=()
-if has claude && [[ -f personas/claude.json ]]; then
-  settings_problem personas/claude.json json personas/claude.json
-  [[ -z "$WHY" ]] || die "personas/claude.json isn't JSON Claude Code can read, so nothing was written: $WHY"
-fi
+for f in personas/claude.json personas/claude.managed.json; do
+  if has claude && [[ -f "$f" ]]; then
+    settings_problem "$f" json "$f"
+    [[ -z "$WHY" ]] || die "$f isn't JSON Claude Code can read, so nothing was written: $WHY"
+  fi
+done
 if has grok && [[ -f personas/grok.toml ]]; then   # on its own first, so a message's line numbers are the file's
   settings_problem personas/grok.toml toml personas/grok.toml
   [[ -z "$WHY" ]] || die "personas/grok.toml isn't TOML grok can read, so nothing was written (grok would stop on it): $WHY"
@@ -848,11 +851,12 @@ for n in "${!STAGED[@]}"; do
   bak=""; [[ "$BACKUP" != *" $n "* ]] || bak="$(bakname "personas/$n.env")"
   commit "${STAGED[$n]}" "personas/$n.env" ${bak:+"$bak"}
 done
-# Claude personas whose service had no personas/claude.json mount yet get it with their next (re)create.
-if [[ -f personas/claude.json ]] && ! grep -qF './personas/claude.json,' "$PERSONAS_FILE" 2>/dev/null; then
+# Claude personas whose service had no personas/claude.managed.json mount yet get it with their next
+# (re)create, and the defaults in personas/claude.json with it.
+if [[ -f personas/claude.managed.json ]] && ! grep -qF './personas/claude.managed.json,' "$PERSONAS_FILE" 2>/dev/null; then
   for i in "${!P_NAME[@]}"; do
     if [[ "${P_FLAVOUR[i]}" == claude && -n "${LOADED[${P_NAME[i]}]+x}" ]]; then
-      LATER+=("${P_NAME[i]}: it gets personas/claude.json as managed settings now; \`nexus ${P_NAME[i]} restart\` brings them in")
+      LATER+=("${P_NAME[i]}: it gets personas/claude.managed.json as managed settings now; \`nexus ${P_NAME[i]} restart\` brings them in")
     fi
   done
 fi

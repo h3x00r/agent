@@ -421,6 +421,107 @@ container="agent-$persona"
 mgmt() { export SSH_AUTH_SOCK="${SSH_AUTH_SOCK:-/dev/null}"; exec "${COMPOSE[@]}" --profile "$persona" "$@"; }
 running() { [[ "$(docker inspect -f '{{.State.Running}}' "$container" 2>/dev/null || true)" == true ]]; }
 
+# --- Claude defaults -------------------------------------------------------------------------------
+# personas/claude.json holds defaults for every Claude persona (personas/claude.managed.json, mounted as a
+# managed drop-in, the settings that hold). Claude Code has no layer below a user's own settings, so when
+# nexus creates or starts a Claude persona's container, before any Claude runs there, CLAUDE_DEFAULTS
+# merges them into its ~/.claude/settings.json. ~/.claude/.nexus-defaults.json records the keys nexus owns
+# there: those it wrote and the persona left as they were, and those it wrote and the persona took out.
+# - a key the persona doesn't have, and never took out, gets the default;
+# - a key nexus owns follows a changed default, and goes when it is no longer a default;
+# - a key the persona set or changed (/model, /config) is its own, and stays as it is; so does one it took out.
+# Claude Code's own migrations rewrite some values (a model "opus" becomes "opus[1m]"): such a value is still
+# the one nexus wrote. A settings.json that isn't JSON, or can't be written, is left alone (exit 3). It
+# prints the keys it set or took out.
+# shellcheck disable=SC2016  # python, run inside the persona
+CLAUDE_DEFAULTS='import json, os, sys, tempfile
+home = os.path.join(os.path.expanduser("~"), ".claude")
+path, ledger = os.path.join(home, "settings.json"), os.path.join(home, ".nexus-defaults.json")
+GONE = object()
+def fail(why):
+    print(why); sys.exit(3)
+def load(p):
+    try:
+        with open(p, "rb") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return None
+new = json.load(sys.stdin.buffer)
+try:
+    user = load(path)
+except ValueError:
+    fail("its ~/.claude/settings.json is not valid JSON, so the defaults stayed out of it")
+if user is None:
+    user = {}
+if not isinstance(user, dict) or not isinstance(new, dict):
+    fail("its ~/.claude/settings.json or personas/claude.json is not a JSON object, so nothing was merged")
+if os.path.exists(path) and not os.access(path, os.W_OK):
+    fail("its ~/.claude/settings.json can not be written, so the defaults stayed out of it")
+try:
+    old = load(ledger)
+except ValueError:
+    old = None
+old = old if isinstance(old, dict) else {}
+def same(k, uv, ov):   # still what nexus wrote, also after a migration of Claude Code s own
+    return uv == ov or k == "model" and isinstance(ov, str) and uv == ov + "[1m]"
+done = []
+def merge(u, d, o, at):   # merges d into u, given o (what nexus owned); returns what nexus owns now
+    own = {}
+    for k in sorted(set(d) | set(o)):
+        dv, ov, uv, p = d.get(k, GONE), o.get(k, GONE), u.get(k, GONE), at + k
+        if isinstance(dv, dict) and not (uv is not GONE and not isinstance(uv, dict)) and not (uv is GONE and ov is not GONE and not isinstance(ov, dict)):
+            if uv is GONE:
+                u[k] = uv = {}
+            sub = merge(uv, dv, ov if isinstance(ov, dict) else {}, p + ".")
+            if sub:
+                own[k] = sub
+            if not uv:
+                del u[k]
+        elif dv is not GONE:
+            if uv is GONE and ov is GONE:                 # new to the persona: the default
+                u[k] = own[k] = dv; done.append(p)
+            elif uv is GONE:                              # nexus wrote it, the persona took it out
+                own[k] = ov
+            elif ov is not GONE and same(k, uv, ov):      # still as nexus wrote it: follows the default
+                if uv != dv:
+                    u[k] = dv; done.append(p)
+                own[k] = dv
+        elif ov is not GONE and uv is not GONE and not isinstance(ov, dict) and same(k, uv, ov):
+            del u[k]; done.append(p + " (no longer a default)")
+        elif isinstance(ov, dict) and isinstance(uv, dict):
+            merge(uv, {}, ov, p + ".")
+            if not uv:
+                del u[k]
+    return own
+owned = merge(user, new, old, "")
+def put(p, data, mode):   # through a symlink, to its target; replaced whole, so never half written
+    real = os.path.realpath(p)
+    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(real), prefix=".nexus.")
+    try:
+        with os.fdopen(fd, "w") as f:
+            json.dump(data, f, indent=2); f.write("\n")
+        os.chmod(tmp, mode); os.replace(tmp, real)
+    except OSError as e:
+        os.unlink(tmp); fail("writing %s failed (%s), so it is as it was" % (p.replace(os.path.expanduser("~"), "~"), e.strerror))
+os.makedirs(home, exist_ok=True)
+if done:
+    put(path, user, os.stat(path).st_mode & 0o777 if os.path.exists(path) else 0o644)
+    print("Claude defaults from personas/claude.json: " + ", ".join(done))
+if owned != old:
+    put(ledger, owned, 0o644)'
+
+# claude_defaults: CLAUDE_DEFAULTS in this persona, if it is a Claude one and personas/claude.json is there.
+claude_defaults() {
+  local src="$AGENTS_DIR/personas/claude.json" out rc=0
+  [[ "$meta" == *" flavour=claude "* && -f "$src" ]] || return 0
+  out="$(timeout 20 docker exec -i "$container" python3 -c "$CLAUDE_DEFAULTS" < "$src" 2>&1)" || rc=$?
+  case $rc in
+    0) [[ -z "$out" ]] || echo "nexus: $persona: $out" >&2 ;;
+    3) warn "$persona: $out" ;;
+    *) warn "$persona: the defaults in personas/claude.json couldn't be merged (exit $rc): $out" ;;
+  esac
+}
+
 # --- headless --------------------------------------------------------------------------------------
 # nexus <persona> headless [PROMPT] [FLAGS…]: one prompt through the persona's CLI in its one-shot mode,
 # in this directory, without tmux; the CLI's stdout, stderr and exit code are this command's. PROMPT is
@@ -748,10 +849,15 @@ if (( restart )) || ! running; then
   if grep -qE '\./statusline(:|/settings\.json:)' "$PERSONAS_FILE"; then
     die "$PERSONAS_FILE is from before statusline/ was split into claude/ and grok/: re-run $AGENTS_DIR/config.sh (--yes keeps every setting), then start $persona again"
   fi
-  # So would the settings files a persona's service mounts: personas/claude.json (committed) and a grok
-  # persona's managed config, which config.sh writes.
-  if grep -qF "./personas/claude.json," "$PERSONAS_FILE" && [[ "$meta" == *" flavour=claude "* && ! -f "$AGENTS_DIR/personas/claude.json" ]]; then
-    die "$AGENTS_DIR/personas/claude.json isn't there: restore it (git checkout personas/claude.json), or re-run $AGENTS_DIR/config.sh without it"
+  # A personas file from before the Claude settings were split mounts the defaults as the managed drop-in,
+  # and the settings meant to hold not at all.
+  if grep -qF './personas/claude.json,' "$PERSONAS_FILE"; then
+    die "$PERSONAS_FILE is from before personas/claude.json was split into defaults and claude.managed.json: re-run $AGENTS_DIR/config.sh (--yes keeps every setting), then start $persona again"
+  fi
+  # So would the settings files a persona's service mounts: personas/claude.managed.json (committed) and a
+  # grok persona's managed config, which config.sh writes.
+  if grep -qF "./personas/claude.managed.json," "$PERSONAS_FILE" && [[ "$meta" == *" flavour=claude "* && ! -f "$AGENTS_DIR/personas/claude.managed.json" ]]; then
+    die "$AGENTS_DIR/personas/claude.managed.json isn't there: restore it (git checkout personas/claude.managed.json), or re-run $AGENTS_DIR/config.sh without it"
   fi
   if grep -qF "./personas/$persona.grok.toml," "$PERSONAS_FILE" && [[ ! -f "$AGENTS_DIR/personas/$persona.grok.toml" ]]; then
     die "$AGENTS_DIR/personas/$persona.grok.toml isn't there: re-run $AGENTS_DIR/config.sh, which writes it"
@@ -766,8 +872,12 @@ if (( restart )) || ! running; then
       2) warn "nothing answers at $SSH_AUTH_SOCK (stale ssh-agent socket); git over ssh will fail inside" ;;
     esac
   fi
-  (( restart )) && exec "${COMPOSE[@]}" --profile "$persona" up -d --force-recreate "$service"
+  if (( restart )); then
+    "${COMPOSE[@]}" --profile "$persona" up -d --force-recreate "$service"
+    claude_defaults; exit 0
+  fi
   "${COMPOSE[@]}" --profile "$persona" up -d "$service" >&2   # progress only: a headless run's stdout is the CLI's
+  claude_defaults
 fi
 (( start_only )) && exit 0
 
@@ -786,6 +896,11 @@ case "$dir/" in
      fi ;;
 esac
 (( headless )) && cmd_headless "$@"
+
+# Attaching to a running persona whose personas file is from before a split: say what to do (a start refuses).
+if grep -qE '\./statusline(:|/settings\.json:)|\./personas/claude\.json,' "$PERSONAS_FILE"; then
+  warn "$PERSONAS_FILE is from before a split (statusline/, or the Claude settings): re-run $AGENTS_DIR/config.sh --yes, then nexus $persona restart"
+fi
 
 # Session name + command.
 session=""; cmd=()

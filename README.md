@@ -47,7 +47,8 @@ runbook.md              setup, day-to-day use, upgrades, troubleshooting, every 
 LICENSE                 MIT, for the files in this repo (not the software the images download)
 .env.example            per-VM settings template → .env (gitignored)
 personas/*.env.example  per-flavour templates → personas/<persona>.env: secrets + git identity (gitignored)
-personas/claude.json    Claude Code settings for every Claude persona, on every VM (a managed drop-in)
+personas/claude.json    Claude Code defaults for every Claude persona, on every VM (merged into its own settings)
+personas/claude.managed.json  Claude Code settings that hold in every Claude persona (a managed drop-in)
 personas/grok.toml      grok settings for every grok persona, on every VM (its managed config, with the statusline)
 ```
 
@@ -114,8 +115,8 @@ In personas with the statusline on (config.sh asks), the CLI's statusline is `st
 or `statusline/grok/statusline.sh` (model, dir, branch, context, cost; Claude's also its plan limits); edit it
 here and the next refresh picks it up. A change to `statusline/claude/settings.json` needs
 `nexus <persona> restart`. The same figures are what `nexus top` shows, so a persona without the statusline
-shows its sessions without them. Every persona also gets its flavour's settings, `personas/claude.json` or
-`personas/grok.toml`, mounted read-only as the CLI's managed settings (runbook §5, "Settings for every persona").
+shows its sessions without them. Every persona also gets its flavour's settings from `personas/`, as defaults or
+enforced ([Settings for every persona](#settings-for-every-persona)).
 
 ## Rules that keep it working
 
@@ -160,6 +161,32 @@ shows its sessions without them. Every persona also gets its flavour's settings,
   unattended `--dangerously-skip-permissions` run, no production secrets on dev VMs, egress
   allowlist at the hypervisor or router level (host networking rules out an in-container firewall).
   Building needs the hosts in the runbook's [prerequisites](runbook.md#prerequisites) on that allowlist.
+
+## Settings for every persona
+
+Three committed files hold the settings every persona of a flavour gets, on every VM that pulls the repo. Each
+is either **defaults**, which a persona's own settings override key by key, or **enforced**, which win over
+them. Nothing is copied by hand; the two that are mounted are read-only, and the one written into a persona's
+home goes in through a merge that keeps the persona's own choices.
+
+| File | Kind | How it reaches each persona of its flavour | A change applies |
+|---|---|---|---|
+| `personas/claude.json` | defaults: `model`, effort per model, `theme`, `outputStyle`, `tui`, … | nexus merges it into the persona's own `~/.claude/settings.json` each time it creates or starts the container, before any Claude runs: Claude Code has no defaults layer of its own | at `nexus <persona> restart` |
+| `personas/claude.managed.json` | enforced: `permissions.defaultMode`, `skipDangerousModePermissionPrompt`, `env` | compose mounts it read-only as the managed drop-in `/etc/claude-code/managed-settings.d/15-personas.json`, which outranks every other layer | at `nexus <persona> restart`: a single-file mount keeps the version the container started with |
+| `personas/grok.toml` | defaults: all of it | config.sh writes it, with the statusline's `[ui.status_line]` where that's on, to `personas/<name>.grok.toml`; compose mounts that read-only as grok's `/etc/grok/managed_config.toml`, a layer below the persona's own `~/.grok/config.toml` | once config.sh has re-run, at the next grok started in the persona: the file is rewritten in place, so no restart |
+
+- The merge records in `~/.claude/.nexus-defaults.json` the keys nexus owns. A key the persona doesn't have gets the
+  default; one nexus owns follows a changed default (also after Claude's own migrations, such as `opus` to
+  `opus[1m]`); one the persona had, set, changed (`/model`, `/config`) or took out stays its own; and a default
+  dropped from `personas/claude.json` goes where nexus owned it. A `settings.json` that isn't JSON, or can't be
+  written, is left alone, with a warning. nexus says which keys it set.
+- config.sh checks the files first (JSON; TOML with tomllib) and writes nothing if one wouldn't parse: a broken
+  one would stop the CLI in every persona it reaches.
+- Effort as a Claude default goes per model (`modelSettings.opus.effortLevel`): Claude Code ignores a top-level
+  `effortLevel` in a user's own settings.
+- As committed, they make every persona run its tools without asking: Claude in `bypassPermissions`, grok in
+  `always-approve`. Change that there if a persona should ask.
+- Details, and how to see what a persona got: runbook §5, [Settings for every persona](runbook.md#settings-for-every-persona).
 
 ## Headless / pipeline use
 
@@ -224,6 +251,22 @@ agent-claude-max                        image: local/agent-claude-ddev:<version>
 ├── /home/local/src     its projects root (same path as on the VM)
 ├── /ssh-agent          your agent (with a key of its own: /run/nexus/ssh-key and no agent; with none: neither)
 └── claude, apm, docker, ddev, gh   from the image, so a new image upgrades them
+```
+
+### Settings into a persona
+
+```text
+on the VM, in the checkout                         inside a Claude persona
+personas/claude.json ───── nexus, as it starts ──► ~/.claude/settings.json            merged: the persona's own keys stand
+                                                   ~/.claude/.nexus-defaults.json     what nexus wrote, for the next merge
+personas/claude.managed.json ───── mount (ro) ───► /etc/claude-code/managed-settings.d/15-personas.json   wins
+statusline/claude/settings.json ── mount (ro) ───► /etc/claude-code/managed-settings.d/20-statusline.json
+                                  (the image's own 10-agent-image.json: its update lock)
+
+                                                   inside a grok persona
+personas/grok.toml ──────┐
+statusline/grok/         ├─ config.sh ─► personas/<name>.grok.toml ─ mount (ro) ─► /etc/grok/managed_config.toml
+  settings.toml ─────────┘  (statusline on)                                         below ~/.grok/config.toml, which wins
 ```
 
 ### Setup, once per VM (re-run it to change anything)

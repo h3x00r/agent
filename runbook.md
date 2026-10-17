@@ -314,32 +314,53 @@ key it started with until then. The same goes for a key file you named and then 
 
 ### Settings for every persona
 
-Two committed files hold the settings every persona of a flavour gets, on every VM that pulls the repo:
-`personas/claude.json` (Claude Code's settings.json format) and `personas/grok.toml` (grok's config.toml format).
-Neither is copied into a persona's home: compose mounts them, read-only, into each persona of that flavour, and
-the persona's own `~/.claude/settings.json` or `~/.grok/config.toml` stays as it is.
+Committed files hold the settings every persona of a flavour gets, on every VM that pulls the repo. Each is
+either **defaults**, which a persona's own settings override key by key, or **enforced**, which win over them:
 
-| | Claude Code | grok |
-|---|---|---|
-| Committed file | `personas/claude.json` | `personas/grok.toml` |
-| What the persona gets | that file itself | `personas/<name>.grok.toml`, which config.sh writes: `personas/grok.toml`, then, with the statusline on, `statusline/grok/settings.toml`'s `[ui.status_line]` (grok reads one managed file, and the statusline is per persona) |
-| Mounted at | `/etc/claude-code/managed-settings.d/15-personas.json`, a managed drop-in, next to the image's `10-agent-image.json` (its update lock) and the statusline's `20-statusline.json` | `/etc/grok/managed_config.toml`, grok's managed config |
-| Against the persona's own settings | they **win**: managed settings outrank every other layer. A change inside the persona (`/model`, `/config`) holds for that session only | they are **defaults**: a key in `~/.grok/config.toml`, which grok writes as you change settings there, wins |
-| After an edit, or a `git pull` that changes it | `nexus <persona> restart`: the file is mounted on its own, so a running container keeps the version it started with | re-run config.sh: it rewrites `personas/<name>.grok.toml` in place, so the next grok started in a running persona reads it, with no restart |
-| Checked | config.sh checks the JSON | config.sh checks the TOML, on its own and with the statusline added |
+| File | For | Kind | How it reaches the persona |
+|---|---|---|---|
+| `personas/claude.json` | Claude Code: preferences (`model`, effort per model, `theme`, `outputStyle`, `tui`, …) | defaults | merged into the persona's own `~/.claude/settings.json` by nexus, each time it creates or starts the container (below) |
+| `personas/claude.managed.json` | Claude Code: policy (`permissions.defaultMode`, `skipDangerousModePermissionPrompt`, `env`) | enforced | mounted read-only as the managed drop-in `/etc/claude-code/managed-settings.d/15-personas.json`, next to the image's `10-agent-image.json` (its update lock) and the statusline's `20-statusline.json` |
+| `personas/grok.toml` | grok: everything | defaults | config.sh writes it, with the statusline's `[ui.status_line]` where that's on, to `personas/<name>.grok.toml`, mounted read-only as grok's `/etc/grok/managed_config.toml` |
+
+Claude Code has no layer of its own below a user's settings, hence the merge. When nexus creates or starts a
+Claude persona's container, before any Claude runs there, it merges `personas/claude.json` into the persona's
+`~/.claude/settings.json`. `~/.claude/.nexus-defaults.json` records the keys nexus owns there. So:
+- a key the persona doesn't have, and never took out, gets the default, and nexus owns it;
+- a key nexus owns follows a changed default, and goes when it is no longer one. A value Claude Code's own
+  migration made of it (a model `opus` becomes `opus[1m]`) still counts as nexus's;
+- a key the persona had before, set, changed (`/model`, `/config`) or took out is its own, and stays as it is;
+- a `settings.json` that isn't JSON, or can't be written, is left alone, with a warning. A symlinked one is written
+  through. nexus says which keys it set.
+- To have a default again where the persona had its own value: take the key out of the persona's
+  `~/.claude/.nexus-defaults.json` too (or delete that file to apply every default again), then restart it.
+- Effort as a default goes per model, `"modelSettings": {"opus": {"effortLevel": "xhigh"}}`: Claude Code 2.1.302
+  ignores a top-level `effortLevel` in a user's own settings (managed settings, project ones and `--settings` take it).
+
+grok's managed config is itself a layer of defaults: a key in the persona's `~/.grok/config.toml`, which grok
+writes as you change settings there, wins.
+
+| After an edit, or a `git pull` that changes one | Do |
+|---|---|
+| `personas/claude.json` | `nexus <persona> restart` (the merge runs as the container starts) |
+| `personas/claude.managed.json` | `nexus <persona> restart`: it is mounted on its own, so a running container keeps the version it started with |
+| `personas/grok.toml` | re-run config.sh: it rewrites `personas/<name>.grok.toml` in place, so the next grok started in a running persona reads it |
 
 - config.sh writes nothing if a file wouldn't parse, since a broken one stops the CLI in every persona it reaches.
   It checks with python3 on the VM (3.11 for TOML) or in a persona image already there; with neither, it warns.
+- config.sh checks each file before it writes anything (JSON for Claude; TOML for grok, on its own and with the
+  statusline added).
 - A persona that had no such mount yet gets it when it is next created: config.sh says `nexus <persona> restart`.
-- Without the file, there is nothing to mount. A persona's service that names it while it's missing won't start:
-  nexus says to restore it (`git checkout personas/claude.json`) or to re-run config.sh.
-- As committed, `personas/claude.json` starts Claude Code in `bypassPermissions` mode without its warning, and
-  `personas/grok.toml` sets grok to `always-approve`: every persona runs its tools without asking. Change them
-  there if a persona should ask.
+- Without a file, there is nothing to mount or merge. A persona's service that names a mounted one while it's
+  missing won't start: nexus says to restore it (`git checkout personas/claude.managed.json`) or re-run config.sh.
+- As committed, `personas/claude.managed.json` starts Claude Code in `bypassPermissions` mode without its warning,
+  and `personas/grok.toml` sets grok to `always-approve`: every persona runs its tools without asking. Change
+  them there if a persona should ask.
 - Leave out of `personas/grok.toml` what grok records for itself, such as `[privacy]` and the `[marketplace]`
   install flags: grok keeps those in each persona's own file, and reads `[privacy]` from no other.
-- To see what a persona got: inside it, `claude` shows "(from managed settings)" for the model, and `grok inspect`
-  lists "System Managed: /etc/grok/managed_config.toml" and any warnings.
+- To see what a persona got: inside it, `claude`'s banner shows the model and effort, `~/.claude/settings.json`
+  the defaults nexus merged, and `grok inspect` lists "System Managed: /etc/grok/managed_config.toml" and any
+  warnings.
 
 ## 6. Upgrade Claude Code (or grok, APM, or ddev)
 
@@ -507,8 +528,11 @@ included, on throwaway personas. Nothing of your setup is read or changed, and w
 | `ddev: command not found` inside | a docker-context persona | change it to context `ddev` with config.sh |
 | `nexus: …compose.personas.yml is from before statusline/ was split into claude/ and grok/` | a personas file written before `git pull` brought that change | `./config.sh --yes` (keeps every setting), then `nexus <persona> restart` for each persona; running Claude sessions show no statusline until then |
 | config.sh: `personas/grok.toml isn't TOML grok can read` | a typo in your grok settings (the message names line and column) | fix it and re-run; nothing was written |
-| config.sh: `personas/claude.json isn't JSON Claude Code can read` | a typo in the Claude settings (the message names line and column) | fix it and re-run; nothing was written |
-| A change to `personas/claude.json` doesn't show in a persona | the file is mounted on its own, so a running container keeps the version it started with | `nexus <persona> restart` |
+| config.sh: `personas/claude.json isn't JSON Claude Code can read` (or `claude.managed.json`) | a typo in the Claude settings (the message names line and column) | fix it and re-run; nothing was written |
+| A change to `personas/claude.json` or `claude.managed.json` doesn't show in a persona | the defaults merge as the container starts, and the managed file is mounted on its own | `nexus <persona> restart` |
+| A default from `personas/claude.json` doesn't reach a persona | the persona has its own value for that key in `~/.claude/settings.json` (set there, by `/config`, or there before), or took the key out | set it there; or take it out of `~/.claude/.nexus-defaults.json` too (or delete that file), then `nexus <persona> restart`, and the default comes back |
+| `nexus: …compose.personas.yml is from before personas/claude.json was split into defaults and claude.managed.json` | a personas file written between the two changes, which mounts the defaults as the enforced drop-in | `./config.sh --yes`, then `nexus <persona> restart` for each Claude persona |
+| `nexus: warning: <persona>: its ~/.claude/settings.json is not valid JSON` | that file is broken | fix it inside the persona; nexus merges the defaults at the next restart |
 | grok's status line row stays empty | grok shows its welcome screen (the row comes with the first prompt), statusline off, or the persona's own `~/.grok/config.toml` sets `[ui.status_line]` | start a session; turn it on with config.sh; or remove that section there |
 | No statusline in Claude | workspace not trusted yet, or statusline off for this persona | accept the trust prompt (section 7); else turn it on with config.sh and restart |
 | `nexus: headless: give the prompt first …` | no prompt, and nothing piped in (or the first argument is a one-word flag) | `nexus <persona> headless "PROMPT" [FLAGS…]`, or pipe the prompt in |
