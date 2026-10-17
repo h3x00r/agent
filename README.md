@@ -39,7 +39,7 @@ Dockerfile              targets claude | grok, build arg CONTEXT=docker | ddev; 
 entrypoint.sh           keeps the tmux server alive, paints the persona into the status bar
 tmux.conf               session-per-project ergonomics
 nexus                   launcher: `nexus <persona>` from any project dir
-statusline/             Claude Code statusline + its setting, mounted into Claude personas that have it on
+statusline/             Claude Code statusline + its setting, for Claude personas with it on; feeds `nexus top`
 runbook.md              setup, day-to-day use, upgrades, troubleshooting, every environment variable
 LICENSE                 MIT, for the files in this repo (not the software the images download)
 .env.example            per-VM settings template → .env (gitignored)
@@ -57,6 +57,8 @@ they are.
 
 - **One command, any project.** `nexus <persona>` opens, or reattaches to, the session for the directory
   you're in. `nexus ls` shows every persona, running or not, and its sessions.
+- **See them all at once.** `nexus top` is a live view: CPU and memory per persona, and per Claude Code
+  session the model, context use, 5-hour and 7-day plan limits and cost.
 - **Personas, not just containers.** Each has its own account, git author, token and persistent home. Run
   several side by side on one project, a team account next to a personal plan or Claude next to Grok, each
   in its own colour in the status bar (*persona @ VM*).
@@ -98,12 +100,14 @@ builds the images (or pulls them with a registry). Re-run it to add, change or r
 Inside: `claude`, or open a new session straight into it with `nexus claude-ddev review -- claude`
 (the command only runs when the session is created; an existing session is just attached).
 `Shift+←/→` hops between project sessions, `Prefix+s` lists them, `Prefix+d` detaches and leaves
-everything running. `nexus ls` shows every persona and its state, and the sessions of the running ones.
+everything running. `nexus ls` shows every persona and its state, and the sessions of the running ones;
+`nexus top` keeps a live view of them (`q` quits), with Claude Code's own figures for each session.
 Every persona also has `apm` ([Agent Package Manager](https://microsoft.github.io/apm/)): `apm install`
 in a project deploys its skills, prompts, agents and MCP servers to that persona's tool (runbook §2).
 In Claude personas with the statusline on (config.sh asks), Claude Code's statusline is
 `statusline/statusline.sh` (model, dir, branch, context, cost, limits); edit it here and the next
-refresh picks it up. A change to `statusline/settings.json` needs `nexus <persona> restart`.
+refresh picks it up. A change to `statusline/settings.json` needs `nexus <persona> restart`. The same
+figures are what `nexus top` shows, so a persona without the statusline shows its sessions without them.
 
 ## Rules that keep it working
 
@@ -228,6 +232,20 @@ nexus claude-max -- claude
 working in Claude Code
   ├─ Ctrl-b d  detach: Claude keeps running ──► later, plain `nexus claude-max` reattaches
   └─ /exit     Claude quits and the session ends ──► next time, `-- claude` again
+```
+
+### Watching them
+
+```text
+inside a persona, in each tmux pane running Claude Code:
+  Claude Code redraws its statusline ─► statusline.sh draws the line
+                                        └─ and saves model, context, 5h/7d limits, cost
+                                           to ~/.cache/nexus/status/<pane>
+on the VM:
+nexus top [-n SECONDS]               redraws every 5s; q quits
+  ├─ docker ps, docker stats ─────► state, CPU, memory per persona
+  ├─ docker exec <persona> ──────► its panes running claude (or grok), each with its saved figures
+  └─ one row per pane              SEEN = since Claude Code last drew; grok panes come without figures
 ```
 
 ### A new release

@@ -138,6 +138,7 @@ persona; it is kept in the home volume too. Then `apm install` deploys to this p
 | New window in this project | `Prefix+c` |
 | Leave, keeping everything running | `Prefix+d` |
 | What is set up and running | `nexus ls`: every persona and its state (running, stopped, not started yet), the sessions of the running ones, and containers no persona has any more; `nexus <persona> ls`: one persona's sessions |
+| Live usage, all personas | `nexus top`: CPU and memory per persona; model, context, 5h/7d limits and cost per Claude Code session (section 7). `q` quits, `-n 10` redraws every 10 s, `--once` prints one screen |
 | Persona logs | `nexus <persona> logs` (follows; `Ctrl-c` to stop) |
 | Start without attaching / stop | `nexus <persona> start` / `nexus <persona> stop` |
 | New Claude Code or grok release | `nexus <persona> upgrade` (section 6) |
@@ -287,6 +288,31 @@ setting, so it wins over a `statusLine` in a persona's own settings; after chang
   Claude Code uses those instead of file-based ones and skips this drop-in. From v2.1.223 the image's update
   lock still applies (managed `env` merges across sources); older pins lose it too.
 
+**`nexus top`** shows those figures for every persona at once. Each time the statusline draws in a tmux pane,
+the script also saves them to `~/.cache/nexus/status/<pane>` in the persona's home. `nexus top` reads them
+from each running persona, next to `docker stats`, one row per pane running Claude Code (or grok):
+
+```text
+PERSONA / SESSION      MODEL       CONTEXT       5H   7D    COST  SEEN
+claude-team  healthy  cpu 1.69%  mem 610MiB
+  api                  Opus 5.5    112k/200k    41%  18%   $3.20   12s
+  web:1.2              Sonnet 5.5  38k/200k     41%  18%   $0.85    3m
+grok  healthy  cpu 0.02%  mem 300MiB
+  api                  grok        -              -    -       -     -
+```
+
+- **CONTEXT** is used/size, coloured as on the statusline (yellow from 50%, red from 80%). **5H** and **7D** are
+  the plan's limits used: per account, so personas on one account show the same. They are `-` with an API key.
+- **COST** is the session's at API prices, as Claude Code reports it; on a plan it isn't a bill.
+- **SEEN** is the time since Claude Code last drew the statusline. It draws as the session works, so an idle
+  session's figures are as old as SEEN says.
+- A session with two Claude Code panes shows each as `session:window.pane`. A pane where Claude Code has quit
+  drops out; so does a closed one.
+- No figures (`-`) for a persona with the statusline off, for grok (no statusline), and for a session that
+  hasn't drawn one yet (e.g. before the trust prompt is accepted).
+- A frame takes about 2 s, most of it `docker stats`. Whatever a persona writes is only displayed: numbers are
+  checked, control characters dropped.
+
 ## 8. Reset a persona's home
 
 ```bash
@@ -334,6 +360,9 @@ The next `nexus claude-ddev` starts it fresh, seeded from the image.
 | ddev rebuilds its web image on every start | ddev run alternately from the VM and the persona | run ddev only inside the persona |
 | `ddev: command not found` inside | a docker-context persona | change it to context `ddev` with config.sh |
 | No statusline in Claude | workspace not trusted yet, or statusline off for this persona | accept the trust prompt (section 7); else turn it on with config.sh and restart |
+| `nexus top` shows a Claude Code session with `-` everywhere | statusline off for that persona, or it hasn't drawn yet in that pane | turn it on with config.sh (section 7); else work in the session once |
+| `nexus top` lists no session for a running persona | no pane runs its CLI (`no claude running`) | start one: `nexus <persona> <session> -- claude` |
+| config.sh: `'top' is not a usable name` | `ls` and `top` are nexus commands, and `all` and `start` are reserved too | pick another name |
 
 ## Environment variables
 

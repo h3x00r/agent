@@ -68,8 +68,8 @@ while [[ $# -gt 0 ]]; do
 done
 
 # --- values ----------------------------------------------------------------------------------
-NAME_RULE="a lowercase letter, then lowercase letters, digits or -; at most 31, not ending in -; not ls, all or start"
-valid_name() { [[ "$1" =~ ^[a-z][a-z0-9-]{0,30}$ && "$1" != *- && ! "$1" =~ ^(ls|all|start)$ ]]; }
+NAME_RULE="a lowercase letter, then lowercase letters, digits or -; at most 31, not ending in -; not ls, top, all or start"
+valid_name() { [[ "$1" =~ ^[a-z][a-z0-9-]{0,30}$ && "$1" != *- && ! "$1" =~ ^(ls|top|all|start)$ ]]; }
 valid_cv() { [[ "$1" =~ ^(stable|latest|[0-9]+\.[0-9]+\.[0-9]+(-[^[:space:]]+)?)$ ]]; }
 # local, or what Docker takes in front of an image name: host[:port], then lowercase path segments.
 RE_REGISTRY='^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:[0-9]+)?(/[a-z0-9]+((\.|_|__|-+)[a-z0-9]+)*)*$'

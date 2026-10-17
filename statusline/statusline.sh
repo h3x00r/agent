@@ -12,6 +12,8 @@
 #     Ctx <used>k/<size>k  Limit <5h used>% / <7d used>%
 #   ────────────
 #
+# Inside tmux it also saves those figures to ~/.cache/nexus/status/<pane>, for `nexus top`.
+#
 # JSON is parsed with python3 (jq is not installed on this host; python3 is, and is
 # already used for JSON parsing elsewhere in this workspace). No other dependencies
 # beyond coreutils (tput/seq/awk) and git.
@@ -94,8 +96,11 @@ it = int(num(g(data, 'context_window', 'current_usage', 'input_tokens', default=
 used = cr + cc + it
 pct  = (used * 100 // ctx_size) if ctx_size > 0 else 0
 
-five_pct = round(num(g(data, 'rate_limits', 'five_hour', 'used_percentage', default=0)))
-week_pct = round(num(g(data, 'rate_limits', 'seven_day', 'used_percentage', default=0)))
+# Empty when Claude Code sends none (an API key, or no reply yet): the line shows 0%, nexus top a dash.
+five = g(data, 'rate_limits', 'five_hour', 'used_percentage')
+week = g(data, 'rate_limits', 'seven_day', 'used_percentage')
+five_pct = '' if five is None else round(num(five))
+week_pct = '' if week is None else round(num(week))
 
 sub_type = rate_tier = ''
 try:
@@ -175,7 +180,18 @@ fi
 
 # Context and the 5h / 7d limits — each value coloured by load.
 ctx_str="  ${CY}Ctx${RS} $(loadc "$pct")${used_k}k/${ctx_k}k${RS}"
-limit_str="  ${MG}Limit${RS} $(loadc "$five_pct")${five_pct}%${RS} / $(loadc "$week_pct")${week_pct}%${RS}"
+limit_str="  ${MG}Limit${RS} $(loadc "${five_pct:-0}")${five_pct:-0}%${RS} / $(loadc "${week_pct:-0}")${week_pct:-0}%${RS}"
+
+# --- Snapshot for `nexus top`, in tmux only: one tab-separated line per pane, "-" for a value not sent.
+# Fields: format, time, model, context used, context size, context %, 5h %, 7d %, session cost.
+if [ -n "$TMUX_PANE" ]; then
+  snap="$HOME/.cache/nexus/status"
+  [ -d "$snap" ] || mkdir -p "$snap" 2>/dev/null
+  printf -v now '%(%s)T' -1
+  printf 'v1\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$now" "$mdl" "$used" "$ctx_size" "$pct" \
+    "${five_pct:--}" "${week_pct:--}" "$cost" 2>/dev/null > "$snap/.${TMUX_PANE#%}.$$" \
+    && mv -f "$snap/.${TMUX_PANE#%}.$$" "$snap/${TMUX_PANE#%}" 2>/dev/null
+fi
 
 # --- Line 1: everything ---
 printf "${OR}✳${RS} ${CY}${BD}%s${RS}" "$mdl"

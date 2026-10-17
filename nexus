@@ -5,6 +5,8 @@
 #   nexus <persona> [session] [-- cmd ...]   attach to (or create) a tmux session in that persona,
 #                                            named after $PWD unless given; cmd runs only on create
 #   nexus ls                                 every persona and its state; the sessions of the running ones
+#   nexus top [-n SECONDS] [--once]          live view of every persona: CPU, memory and, per Claude Code
+#                                            session, context, 5h/7d limits and cost (q quits)
 #   nexus <persona> ls                       that persona's sessions
 #   nexus <persona> stop|logs|build|pull [args]
 #                                            args go to compose, e.g. build --no-cache
@@ -93,6 +95,15 @@ if [[ ! -S "${SSH_AUTH_SOCK:-}" ]]; then
 fi
 export SSH_AUTH_SOCK   # empty = none found; compose.yml then says what to do
 
+# Each flavour's CLI: its command, the .env pin its images are built from, the tag that follows the pin,
+# its release channels (the first is the default) and the URL naming a channel's newest version.
+# Another flavour is one more entry.
+declare -A CLI_CMD=([claude]=claude [grok]=grok)
+declare -A CLI_PIN=([claude]=CLAUDE_VERSION [grok]=GROK_VERSION)
+declare -A CLI_TAG=([claude]=CLAUDE_TAG [grok]=GROK_TAG)
+declare -A CLI_CHANNELS=([claude]="latest stable" [grok]="stable alpha")
+declare -A CLI_NEWEST=([claude]="https://downloads.claude.ai/claude-code-releases/{channel}" [grok]="https://x.ai/cli/{channel}")
+
 # Every persona set up here and its state, with the tmux sessions of the running ones; then any persona
 # container this checkout started that no persona has any more (compose labels each with its directory).
 cmd_ls_all() {
@@ -119,8 +130,158 @@ cmd_ls_all() {
   done
 }
 
+# --- top -------------------------------------------------------------------------------------------
+# Every persona at a glance, redrawn every few seconds: its container's state, CPU and memory, and each
+# pane running its CLI. A Claude Code pane in a persona with the statusline on comes with the model,
+# context, 5-hour and 7-day limits and session cost: statusline.sh saves them to
+# ~/.cache/nexus/status/<pane> each time it draws, and SEEN is how long ago that was. grok has no
+# statusline, so its panes come without figures.
+T_B="" T_D="" T_R="" T_Y="" T_G="" T_0="" T_EVERY=""   # bold dim red yellow green reset; set by cmd_top
+
+# Run in each running persona with its CLI as $1: the panes running it, typed into a shell or started
+# with `-- <cli>`, each with its snapshot ("-" if none), tab-separated. tmux prints a tab as "_", but no
+# session name holds a ":" (tmux rewrites it), so that splits its fields; the start command, last, may.
+# shellcheck disable=SC2016  # expanded by sh inside the persona
+TOP_PROBE='tmux list-panes -a -F "#{pane_id}:#{window_index}.#{pane_index}:#{pane_current_command}:#{session_name}:#{pane_start_command}" 2>/dev/null |
+while IFS=: read -r id wp cur sess start; do
+  [ "$cur" = "$1" ] || case "$start" in "$1"|"$1 "*|\""$1 "*) ;; *) continue ;; esac
+  s=-; f="$HOME/.cache/nexus/status/${id#%}"
+  [ -f "$f" ] && read -r s < "$f"
+  printf "%s\t%s\t%s\t%s\n" "$id" "$wp" "$sess" "$s"
+done'
+
+top_tok() {   # top_tok VAR TOKENS: 640, 38k, 1.2M
+  local n="$2" d
+  if (( n >= 1000000 )); then
+    d=$(( (n + 50000) / 100000 ))
+    if (( d % 10 )); then printf -v "$1" '%d.%dM' $(( d / 10 )) $(( d % 10 )); else printf -v "$1" '%dM' $(( d / 10 )); fi
+  elif (( n >= 1000 )); then printf -v "$1" '%dk' $(( (n + 500) / 1000 ))
+  else printf -v "$1" '%d' "$n"; fi
+}
+top_age() {   # top_age VAR SECONDS: 12s, 3m, 2h, 4d
+  local s=$(( $2 < 0 ? 0 : $2 ))
+  if (( s < 60 )); then printf -v "$1" '%ds' "$s"
+  elif (( s < 3600 )); then printf -v "$1" '%dm' $(( s / 60 ))
+  elif (( s < 86400 )); then printf -v "$1" '%dh' $(( s / 3600 ))
+  else printf -v "$1" '%dd' $(( s / 86400 )); fi
+}
+top_load() {  # top_load VAR PERCENT: the statusline's colour for it: green, yellow from 50, red from 80
+  if [[ ! "$2" =~ ^[0-9]+$ ]]; then printf -v "$1" '%s' ""
+  elif (( $2 >= 80 )); then printf -v "$1" '%s' "$T_R"
+  elif (( $2 >= 50 )); then printf -v "$1" '%s' "$T_Y"
+  else printf -v "$1" '%s' "$T_G"; fi
+}
+
+# top_frame: one screen.
+top_frame() {
+  local now hms name rest fl sl c cli st sp cpu mem note lc lab i a b ctx c5 c7 grok=0
+  local id wp sess ver ts model used size pct five week cost seen
+  local -A state=() up=() usage=() count=()
+  local -a run=() rows=()
+  printf -v now '%(%s)T' -1
+  printf -v hms '%(%H:%M:%S)T' "$now"
+  echo "${T_B}nexus top${T_0}  ${HOSTNAME:-}  $hms${T_EVERY:+  ${T_D}every ${T_EVERY}s, q quits, any other key redraws${T_0}}"
+  echo
+  # The containers of this checkout, and the CPU and memory of the running ones (one docker stats call).
+  while IFS=$'\t' read -r c st sp; do
+    if [[ "$st" == running ]]; then
+      run+=("$c"); up[$c]=1
+      case "$sp" in *"(healthy)"*) st=healthy ;; *"(unhealthy)"*) st=unhealthy ;; *"(health: starting)"*) st=starting ;; esac
+    elif [[ "$st" == exited || "$st" == created || "$st" == dead ]]; then
+      st=stopped
+    fi
+    state[$c]="$st"
+  done < <(docker ps -a --filter label=agent.persona --filter "label=com.docker.compose.project.working_dir=$AGENTS_DIR" \
+             --format '{{.Names}}\t{{.State}}\t{{.Status}}')
+  if (( ${#run[@]} )); then
+    while IFS=$'\t' read -r c cpu mem; do usage[$c]="  cpu $cpu  mem ${mem%% /*}"; done \
+      < <(timeout 20 docker stats --no-stream --format '{{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}' "${run[@]}" 2>/dev/null)
+  fi
+  printf '%s%-22s %-11s %-11s %4s %4s %7s %5s%s\n' "$T_D" "PERSONA / SESSION" MODEL CONTEXT 5H 7D COST SEEN "$T_0"
+
+  while read -r name rest; do
+    rest=" $rest "
+    fl="${rest#* flavour=}"; fl="${fl%% *}"; sl="${rest#* statusline=}"; sl="${sl%% *}"
+    c="agent-$name"; cli="${CLI_CMD[$fl]:-$fl}"; st="${state[$c]:-not started}"
+    case "$st" in healthy|running) lc="$T_G" ;; unhealthy) lc="$T_R" ;; starting|restarting) lc="$T_Y" ;; *) lc="$T_D" ;; esac
+    note=""
+    if [[ "$fl" == claude && "$sl" != yes ]]; then note="  ${T_D}statusline off, so no figures${T_0}"; fi
+    if [[ "$fl" == grok ]]; then grok=1; fi
+    echo "${T_B}${name}${T_0}  ${lc}${st}${T_0}${usage[$c]:-}${note}"
+    [[ -n "${up[$c]:-}" ]] || continue
+
+    # Its panes running the CLI. A session with more than one is shown per pane, as session:window.pane.
+    rows=() count=()
+    while IFS= read -r i; do
+      sess="${i#*$'\t'*$'\t'}"; sess="${sess%%$'\t'*}"
+      rows+=("$i"); count[$sess]=$(( ${count[$sess]:-0} + 1 ))
+    done < <(timeout 10 docker exec "$c" sh -c "$TOP_PROBE" sh "$cli" 2>/dev/null)   # a hung persona can't hang this
+    if (( ! ${#rows[@]} )); then echo "  ${T_D}no $cli running${T_0}"; continue; fi
+    # What a persona sends is printed, never evaluated: numbers are checked before any arithmetic, and
+    # control characters dropped, so a pane can't drive this terminal.
+    for i in "${rows[@]}"; do
+      IFS=$'\t' read -r id wp sess ver ts model used size pct five week cost <<< "$i"
+      a="${count[$sess]}"
+      sess="${sess//[[:cntrl:]]/}"; model="${model//[[:cntrl:]]/}"; wp="${wp//[^0-9.]/}"
+      lab=""
+      if (( a > 1 )); then lab=":$wp"; fi
+      if (( ${#sess} + ${#lab} > 20 )); then sess="${sess:0:19-${#lab}}~"; fi
+      lab="$sess$lab"
+      if [[ "$ver" != v1 || ! "$ts$used$size" =~ ^[0-9]+$ ]]; then
+        printf '  %-20s %-11s %-11s %4s %4s %7s %5s\n' "$lab" "$cli" - - - - -
+        continue
+      fi
+      top_tok a "$used"; top_tok b "$size"; ctx="$a/$b"
+      top_load lc "$pct"; top_load c5 "$five"; top_load c7 "$week"
+      if [[ "$five" =~ ^[0-9]+$ ]]; then five="$five%"; else five=-; fi
+      if [[ "$week" =~ ^[0-9]+$ ]]; then week="$week%"; else week=-; fi
+      if [[ "$cost" =~ ^[0-9]+\.[0-9]{4}$ ]]; then cost="\$${cost%??}"; else cost=-; fi   # 3.2000 -> $3.20
+      top_age seen $(( now - ts ))
+      printf '  %-20s %-11s %s%-11s%s %s%4s%s %s%4s%s %7s %5s\n' "$lab" "${model:0:11}" \
+        "$lc" "$ctx" "$T_0" "$c5" "$five" "$T_0" "$c7" "$week" "$T_0" "$cost" "$seen"
+    done
+  done < <(sed -n 's/\r$//; s/^# persona: //p' "$PERSONAS_FILE")
+
+  echo
+  echo "${T_D}CONTEXT used/size; 5H, 7D: the plan's limits used; COST: the session's, at API prices${T_0}"
+  echo "${T_D}SEEN: since Claude Code last drew its statusline, which it does as the session works${T_0}"
+  if (( grok )); then echo "${T_D}grok has no statusline: its panes come without figures${T_0}"; fi
+}
+
+cmd_top() {
+  local every=5 once=0 rc k frame
+  while (( $# )); do
+    case "$1" in
+      -n|--interval) [[ "${2:-}" =~ ^[1-9][0-9]*$ ]] || die "top: $1 takes whole seconds, e.g. $1 10"; every="$2"; shift ;;
+      --once)        once=1 ;;
+      *)             die "top: unknown argument '$1'; it takes [-n SECONDS] [--once]" ;;
+    esac
+    shift
+  done
+  [[ -f "$PERSONAS_FILE" ]] || die "no personas set up yet: run $AGENTS_DIR/config.sh"
+  if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then
+    T_B=$'\033[1m' T_D=$'\033[90m' T_R=$'\033[31m' T_Y=$'\033[33m' T_G=$'\033[32m' T_0=$'\033[0m'
+  fi
+  if (( once )) || [[ ! -t 1 ]]; then top_frame; return; fi
+
+  # As top: the alternate screen, no cursor, and rows cut at the right edge rather than wrapped.
+  T_EVERY="$every"
+  trap 'printf "\033[?7h\033[?25h\033[?1049l"' EXIT
+  trap 'exit 0' INT TERM HUP
+  printf '\033[?1049h\033[?25l\033[?7l'
+  while :; do
+    frame="$(top_frame 2>&1)" || true
+    printf '\033[H%s\033[K\033[J' "${frame//$'\n'/$'\033[K\n'}"
+    if [[ ! -t 0 ]]; then sleep "$every"; continue; fi
+    rc=0; read -rsn1 -t "$every" k || rc=$?
+    if (( rc == 0 )) && [[ "$k" == [qQ] ]]; then break; fi
+    (( rc == 0 || rc > 128 )) || break   # end of input: no q can come any more
+  done
+}
+
 persona="$1"; shift
 [[ "$persona" == ls ]] && { cmd_ls_all; exit 0; }
+[[ "$persona" == top ]] && { cmd_top "$@"; exit 0; }
 
 [[ -f "$PERSONAS_FILE" ]] || die "no personas set up yet: run $AGENTS_DIR/config.sh"
 [[ "$persona" =~ ^[a-z0-9][a-z0-9-]*$ ]] || die "not a persona name: '$persona'"
@@ -141,15 +302,6 @@ mgmt() { export SSH_AUTH_SOCK="${SSH_AUTH_SOCK:-/dev/null}"; exec "${COMPOSE[@]}
 running() { [[ "$(docker inspect -f '{{.State.Running}}' "$container" 2>/dev/null || true)" == true ]]; }
 
 # --- upgrade ---------------------------------------------------------------------------------------
-# Each flavour's CLI: its command, the .env pin its images are built from, the tag that follows the pin,
-# its release channels (the first is the default) and the URL naming a channel's newest version.
-# Another flavour is one more entry.
-declare -A CLI_CMD=([claude]=claude [grok]=grok)
-declare -A CLI_PIN=([claude]=CLAUDE_VERSION [grok]=GROK_VERSION)
-declare -A CLI_TAG=([claude]=CLAUDE_TAG [grok]=GROK_TAG)
-declare -A CLI_CHANNELS=([claude]="latest stable" [grok]="stable alpha")
-declare -A CLI_NEWEST=([claude]="https://downloads.claude.ai/claude-code-releases/{channel}" [grok]="https://x.ai/cli/{channel}")
-
 # compose_q PERSONA ARGS…: compose for that persona; nothing here mounts the ssh-agent, so the socket may
 # be a placeholder, as in mgmt.
 compose_q()   { local p="$1"; shift; SSH_AUTH_SOCK="${SSH_AUTH_SOCK:-/dev/null}" "${COMPOSE[@]}" --profile "$p" "$@"; }
