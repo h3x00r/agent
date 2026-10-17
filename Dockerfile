@@ -2,15 +2,16 @@
 #   --target claude (the default) | grok        --build-arg CONTEXT=docker (the default) | ddev
 # compose.personas.yml (written by ./install.sh) passes both for each persona.
 #
-# Deliberately NO project toolchains (php, go, java; python3 is there only as a nodejs dependency).
+# Deliberately NO project toolchains (php, go, java; python3 is there for the statusline and APM only).
 # The agent is an orchestrator: it runs `ddev exec …` / `docker compose exec …` and the project
 # containers own the runtimes.
 # That is what keeps the image stack-agnostic and stops its tool versions drifting from the project's.
 #
 # Stages:  tools → ctx-docker | ctx-ddev (adds ddev) → base (user, tmux, entrypoint) → claude | grok.
-# The vendor installers run in claude-cli and grok-cli, on a bare fetch stage, and only their output
-# is copied on. So each flavour sees only its own pins (CLAUDE_VERSION never touches grok), and a
-# version bump re-runs one installer stage, while a uid, context, node or ddev change re-runs neither.
+# The vendor installers run in claude-cli, grok-cli and apm-cli, on a bare fetch stage, and only their
+# output is copied on. So each flavour sees only its own pins (CLAUDE_VERSION never touches grok), and a
+# version bump re-runs one installer stage, while a uid, context, node or ddev change re-runs none.
+# APM goes into both flavours.
 
 # Context: "docker" for projects run with docker compose / Dockerfiles, "ddev" adds ddev.
 ARG CONTEXT=docker
@@ -21,10 +22,10 @@ FROM debian:bookworm-slim AS tools
 SHELL ["/bin/bash", "-eo", "pipefail", "-c"]
 ARG DEBIAN_FRONTEND=noninteractive
 
-# --- base tooling -----------------------------------------------------------------------
+# --- base tooling (python3: the statusline script, and APM's venv runs on it) -------------
 RUN apt-get update && apt-get install -y --no-install-recommends \
       ca-certificates curl gnupg git openssh-client tmux ncurses-term \
-      jq ripgrep less procps tar unzip xz-utils make bash-completion \
+      jq ripgrep less procps tar unzip xz-utils make bash-completion python3 \
  && install -m 0755 -d /etc/apt/keyrings \
  && rm -rf /var/lib/apt/lists/*
 
@@ -37,7 +38,6 @@ RUN curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /
  && rm -rf /var/lib/apt/lists/*
 
 # --- node (for MCP servers via npx; Claude Code itself is a self-contained binary) --------
-# NodeSource's nodejs depends on python3, which the statusline script uses.
 ARG NODE_MAJOR=22
 RUN curl -fsSL https://deb.nodesource.com/setup_${NODE_MAJOR}.x | bash - \
  && apt-get install -y --no-install-recommends nodejs \
@@ -134,14 +134,42 @@ RUN curl -fsSL -o grok-install.sh https://x.ai/cli/install.sh \
  && chmod -R a+rX /opt/grok \
  && test -x /opt/grok/.grok/bin/grok
 
+# --- APM (Agent Package Manager): Microsoft's PyPI package -------------------------------
+# Its release binary needs glibc 2.38 and bookworm has 2.36, so apm-cli goes into a venv on python3.
+# This stage and tools are both bookworm, so /opt/apm/bin/python -> /usr/bin/python3 resolves the same.
+# Self-update goes off through the hook APM keeps for packagers (apm_cli/update_policy.py), which also
+# silences its "new version" notice: the image is the updater, as for Claude Code.
+# APM_VERSION = latest | X.Y.Z; latest is resolved once and then cached, like a Claude channel.
+FROM fetch AS apm-cli
+SHELL ["/bin/bash", "-eo", "pipefail", "-c"]
+ARG DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends python3 python3-venv \
+ && rm -rf /var/lib/apt/lists/*
+ARG APM_VERSION=latest
+RUN v="${APM_VERSION#v}" \
+ && case "$v" in \
+      latest) spec=apm-cli ;; \
+      *) printf '%s\n' "$v" | grep -Eqx '[0-9]+\.[0-9]+\.[0-9]+' \
+           || { echo "APM_VERSION must be latest or X.Y.Z, not '$APM_VERSION'" >&2; exit 1; }; \
+         spec="apm-cli==$v" ;; \
+    esac \
+ && python3 -m venv /opt/apm \
+ && /opt/apm/bin/pip install --no-cache-dir --disable-pip-version-check "$spec" \
+ && p="$(/opt/apm/bin/python -c 'import apm_cli.update_policy as u; print(u.__file__)')" \
+ && sed -i -e 's/^SELF_UPDATE_ENABLED = True$/SELF_UPDATE_ENABLED = False/' \
+      -e 's/^SELF_UPDATE_DISABLED_MESSAGE = .*/SELF_UPDATE_DISABLED_MESSAGE = "The agent image is the APM updater: set APM_VERSION in the agents .env, then agent <persona> build and restart."/' "$p" \
+ && /opt/apm/bin/python -c 'import apm_cli.update_policy as u; assert not u.is_self_update_enabled()'
+
 
 # =========================================================================================
 FROM base AS grok
 COPY --from=grok-cli /opt/grok /opt/grok
+COPY --from=apm-cli /opt/apm /opt/apm
 # xAI's `agent` binary goes on PATH as grok-agent: a bare `agent` would read as this repo's launcher.
 RUN ln -s /opt/grok/.grok/bin/grok /usr/local/bin/grok \
  && ln -s /opt/grok/.grok/bin/agent /usr/local/bin/grok-agent \
- && test -x /usr/local/bin/grok && test -x /usr/local/bin/grok-agent
+ && ln -s /opt/apm/bin/apm /usr/local/bin/apm \
+ && test -x /usr/local/bin/grok && test -x /usr/local/bin/grok-agent && apm --version && rm -rf /root/.apm
 LABEL agent.flavour="grok"
 USER dev
 
@@ -149,5 +177,8 @@ USER dev
 FROM base AS claude
 COPY --from=claude-cli /usr/local/bin/claude /usr/local/bin/claude
 COPY --from=claude-cli /etc/claude-code /etc/claude-code
+COPY --from=apm-cli /opt/apm /opt/apm
+# apm --version: APM runs on this image's python3 and git (it leaves a /root/.apm behind).
+RUN ln -s /opt/apm/bin/apm /usr/local/bin/apm && apm --version && rm -rf /root/.apm
 LABEL agent.flavour="claude"
 USER dev

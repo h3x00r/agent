@@ -48,6 +48,8 @@ Inside: `claude`, or open a new session straight into it with `agent claude-ddev
 (the command only runs when the session is created; an existing session is just attached).
 `Shift+←/→` hops between project sessions, `Prefix+s` lists them, `Prefix+d` detaches and leaves
 everything running. `agent ls` shows every running persona and its sessions.
+Every persona also has `apm` ([Agent Package Manager](https://microsoft.github.io/apm/)): `apm install`
+in a project deploys its skills, prompts, agents and MCP servers to that persona's tool (runbook §2).
 In Claude personas with the statusline on (install.sh asks), Claude Code's statusline is
 `statusline/statusline.sh` (model, dir, branch, context, cost, limits); edit it here and the next
 refresh picks it up. A change to `statusline/settings.json` needs `agent <persona> restart`.
@@ -66,13 +68,14 @@ refresh picks it up. A change to `statusline/settings.json` needs `agent <person
   current image, which ends its tmux sessions (`claude --resume` picks conversations back up). Personas
   with the same flavour and context share an image, so restart each of them. The CLIs live outside the
   home volume, so a new image is enough; auth, settings and sessions in the volume are untouched. Pin
-  `CLAUDE_VERSION` and bump it: a `latest`/`stable` channel is cached once built and needs
-  `agent <persona> build --no-cache` instead. Grok has no pin, so `--no-cache` is the only way to upgrade it.
+  `CLAUDE_VERSION` and `APM_VERSION` and bump them: `latest` (or a `stable` channel) is cached once built and
+  needs `agent <persona> build --no-cache` instead. Grok has no pin, so `--no-cache` is the only way to upgrade it.
 - **The image is the only Claude Code updater.** Claude Code comes from Anthropic's native installer at
   build time, and the image locks self-updates (`/etc/claude-code/managed-settings.d/`). `claude update` or
   `claude install` would put a copy in the home volume that shadows the image's binary in login shells
   and never upgrades. If an older volume has one, run `rm -rf ~/.local/bin/claude ~/.local/share/claude`
   inside the persona. `claude doctor` still notes "~/.local/bin is not in your PATH"; that is expected.
+  APM's `apm self-update` is switched off in the image the same way.
 - **The ssh-agent socket path is fixed when the container is created.** A forwarded agent (`ssh -A`) dies
   with that login, so after reconnecting run `agent <persona> restart`. After a VM reboot the persona
   stays stopped until the next `agent <persona>` if that socket is gone; run `agent <persona> start`

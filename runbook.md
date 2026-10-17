@@ -23,8 +23,8 @@ A **persona** is one long-lived container with its own login, settings and histo
 - [ ] Credentials: for Claude an Anthropic API key, a `claude setup-token` token or a Claude subscription to
       log in with; for grok an xAI API key.
 - [ ] Network for building: Docker Hub (the `debian:bookworm-slim` base), the Debian, Docker, NodeSource and
-      GitHub package hosts, pkg.ddev.com (ddev context), plus claude.ai and downloads.claude.ai (Claude Code)
-      and x.ai (grok).
+      GitHub package hosts, pkg.ddev.com (ddev context), plus claude.ai and downloads.claude.ai (Claude Code),
+      x.ai (grok), and pypi.org and files.pythonhosted.org (APM).
 
 ## 1. First-time setup on a VM
 
@@ -104,6 +104,10 @@ Run `claude` and follow the login. With no browser in the container it shows a U
 workstation and paste the code back. The login is kept in the persona's home volume, across restarts and
 rebuilds.
 
+**Optional: APM's default target.** `apm config set target claude` (`grok-build` in a grok persona), once per
+persona; it is kept in the home volume too. Then `apm install` deploys to this persona's tool in any project
+(section 2).
+
 **Verification**
 - [ ] `agent ls` shows `== agent-claude-ddev  (healthy)` and your session.
 - [ ] Inside: `claude --version` prints the version, `docker ps` lists the VM's containers, `ssh-add -l` lists
@@ -130,6 +134,16 @@ rebuilds.
 Sessions are named after the directory (`.` and `:` become `_`). Two projects with the same directory name
 share one session, so give one an explicit name: `agent claude-ddev api-b`. When a session's command exits,
 tmux moves you to another session instead of dropping you out; `Prefix+d` leaves.
+
+**APM** ([Agent Package Manager](https://microsoft.github.io/apm/)) is in every persona. In a project,
+`apm install` installs what its `apm.yml` declares (skills, prompts, agents, MCP servers) and
+`apm install <owner>/<repo>` adds a package. Where it deploys: `--target` if given, else the persona's default
+from `apm config set target …` (setup step 4), else the folders the project has: `.claude/` (Claude Code),
+`.grok/` (Grok Build), `.github/` (Copilot). With none of these it stops and asks for `--target claude` or
+`--target grok-build`. `apm install -g` deploys to the persona's home (`~/.claude`, `~/.grok`), so to that
+persona only. Public GitHub packages need no token; for private ones run `gh auth login` inside the persona,
+or set `GH_TOKEN` or `GITHUB_APM_PAT` in its env file. MCP servers set up through APM run with what the image
+has: `npx` and `docker` work, `uvx` (Python) doesn't.
 
 ## 3. Headless runs
 
@@ -158,7 +172,7 @@ docker compose logs -f api
 curl -s localhost:8080/healthz          # published ports are on the VM's loopback (host networking)
 ```
 With no compose file, run the toolchain in a throwaway container on the same daemon. The image deliberately
-carries no project toolchains (no Go, PHP or Java; python3 is there only as a Node dependency), so versions
+carries no project toolchains (no Go, PHP or Java; python3 is there only for the statusline and APM), so versions
 come from the project:
 ```bash
 docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD:$PWD" -w "$PWD" golang:1 go test ./...
@@ -190,7 +204,7 @@ context, statusline) or remove it, then offers to add more. Without questions:
 - Removing keeps the env file and the home volume; install.sh prints the commands that delete them. While that
   `personas/<name>.env` stays, an interactive run offers to set the persona up again; delete it to stop that.
 
-## 6. Upgrade Claude Code (or grok, or ddev)
+## 6. Upgrade Claude Code (or grok, APM, or ddev)
 
 1. Find the version: `curl -fsSL https://downloads.claude.ai/claude-code-releases/latest` (or `…/stable`).
 2. Set it: `install.sh --yes --claude-version X.Y.Z --no-build`, or `CLAUDE_VERSION=X.Y.Z` in `.env`. The image
@@ -203,6 +217,10 @@ context, statusline) or remove it, then offers to add more. Without questions:
 - On a channel (`CLAUDE_VERSION=latest` or `stable`) the build is cached once made: use
   `agent <persona> build --no-cache`, which rebuilds every layer.
 - grok has no pin: `agent <grok-persona> build --no-cache && agent <grok-persona> restart`.
+- APM is in every image: set `APM_VERSION=X.Y.Z` in `.env` (current:
+  `curl -fsSL https://pypi.org/pypi/apm-cli/json | jq -r .info.version`), build one persona of each flavour and
+  context, and restart all personas. Only the APM stage reruns. `apm self-update` is off in the image and says
+  so.
 - ddev: set `DDEV_VERSION` to the VM's `ddev version` (re-running install.sh does), build one persona of each
   ddev-context flavour, and restart all ddev personas.
 - Don't run `claude update` or `claude install` inside a persona. The image refuses them ("Updates are disabled
@@ -258,6 +276,8 @@ The next `agent claude-ddev` starts it fresh, seeded from the image.
 | New Claude version not showing after a build | container not recreated, or a cached channel build | `agent <persona> restart`; with `latest`/`stable` add `--no-cache` to the build |
 | `Updates are disabled by your administrator` | expected: the image is the updater | upgrade via section 6 |
 | `claude doctor`: `~/.local/bin is not in your PATH` | expected with the image's layout | nothing to do |
+| `The agent image is the APM updater: …` | `apm self-update` is off in the image | upgrade via section 6 |
+| `apm install` stops and lists `--target` options | the project has no `.claude/`, `.grok/` or `.github/` yet | `--target claude` (or `grok-build`), or set a default once (setup step 4) |
 | `Permission denied` under `~/.claude` after a uid change | the home volume was seeded for the old uid | reset the persona's home (section 8) |
 | `warning: no mkcert CA on this VM yet` | ddev context, `mkcert -install` not run | `mkcert -install` on the VM, then `agent <persona> restart` |
 | `https://*.ddev.site` untrusted in Claude or node | the container predates the CA | `agent <persona> restart` |
@@ -280,6 +300,7 @@ Precedence: a variable exported in your shell beats `.env`. `.env` only feeds co
 | `REGISTRY` | no | `local` | Image name prefix. `local` = build on this VM; a registry host enables `agent <persona> pull` |
 | `CLAUDE_VERSION` | no | `latest` | Claude Code build: `latest`, `stable` or `X.Y.Z`. Pins below 2.1.118 ignore the update lock |
 | `CLAUDE_TAG` | no | `CLAUDE_VERSION` | Tag of the Claude images |
+| `APM_VERSION` | no | `latest` | APM in every image: `latest` or `X.Y.Z` (PyPI's `apm-cli`); `latest` is cached once built |
 | `GROK_TAG` | no | `latest` | Tag of the grok images |
 | `DDEV_VERSION` | no | latest in the apt repo | ddev in ddev-context images; the VM's `ddev version` (leading `v` optional) |
 | `AGENT_CPUS` | no | `4`, capped at `nproc` by install.sh | CPU limit per persona; must not exceed `nproc` |
@@ -311,7 +332,8 @@ root-owned), and add `AGENT_CA_CERTS=` (empty) if the VM has no mkcert CA.
 | (neither) | claude | one sign-in | Log in interactively inside the persona (setup step 4) |
 | `XAI_API_KEY` | grok | yes | Must match `env_key` in `~/.grok/config.toml` in the persona's home |
 | `GIT_AUTHOR_NAME`, `GIT_AUTHOR_EMAIL`, `GIT_COMMITTER_NAME`, `GIT_COMMITTER_EMAIL` | both | recommended | Identity of commits made in that persona |
-| `GH_TOKEN` | both | no | gh CLI as that account |
+| `GH_TOKEN` | both | no | gh CLI as that account; APM uses it for private GitHub packages too |
+| `GITHUB_APM_PAT` | both | no | A token for APM only; wins over `GH_TOKEN` there |
 | `DDEV_NONINTERACTIVE` | both, ddev context | no | `true`: never block an unattended run on a ddev prompt |
 | `ANTHROPIC_MODEL` | claude | no | Default model for that persona |
 
@@ -333,7 +355,7 @@ Keep comments on their own lines: after an empty value, compose reads an inline 
 ### Build: targets and arguments
 
 compose.personas.yml sets only the target (`claude` or `grok`, the flavour) and `CONTEXT` for each persona;
-`CLAUDE_VERSION`, `DDEV_VERSION`, `UID` and `GID` come from compose.yml's `_agent` template, which takes them from
+`CLAUDE_VERSION`, `APM_VERSION`, `DDEV_VERSION`, `UID` and `GID` come from compose.yml's `_agent` template, which takes them from
 `.env` and the launcher. The Default column is what a plain `docker build` uses; with no `--target` you get
 `claude`.
 
@@ -341,6 +363,7 @@ compose.personas.yml sets only the target (`claude` or `grok`, the flavour) and 
 |-----|---------|---------|
 | `CONTEXT` | every target: `docker` or `ddev` | `docker` |
 | `CLAUDE_VERSION` | the `claude` target | `latest` |
+| `APM_VERSION` | every target | `latest` |
 | `DDEV_VERSION` | `CONTEXT=ddev` | empty (latest) |
 | `UID` / `GID` | every target | `1000` / `1000` |
 | `NODE_MAJOR` | every target (Dockerfile only) | `22` |

@@ -40,6 +40,7 @@ services:
       context: .
       args:
         CLAUDE_VERSION: ${CLAUDE_VERSION:-latest}
+        APM_VERSION: ${APM_VERSION:-latest}
         DDEV_VERSION: ${DDEV_VERSION:-}
         UID: ${AGENT_UID:-1000}     # must equal the VM user's uid: the home volume is seeded from the image
         GID: ${AGENT_GID:-1000}
