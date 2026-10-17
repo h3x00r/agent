@@ -201,6 +201,9 @@ context, statusline) or remove it, then offers to add more. Without questions:
 ```
 - After a change, `nexus <persona> restart` applies it (that ends its tmux sessions); install.sh says so for
   each persona it changed.
+- Its build (or pull) covers every persona's image, not only a new one's: adding a grok persona also re-runs the
+  claude image's build, which takes seconds from the cache when nothing changed. A running persona keeps the
+  image it started with until `nexus <persona> restart`.
 - An existing `personas/<name>.env` is kept. When the flavour changes, install.sh offers a new one (with `--yes`
   it writes one) and keeps the old as `.env.bak`. A new persona whose name has a leftover env file is treated the
   same way: one of its flavour is reused, one of the other flavour is replaced (the old one to `.env.bak`).

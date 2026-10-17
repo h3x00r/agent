@@ -462,7 +462,7 @@ set_kv "$ENV_NEW" REGISTRY "$registry"
 if has claude; then
   cv="${OPT_CLAUDE:-$(get_kv "$ENV_NEW" CLAUDE_VERSION)}"; cv="${cv:-latest}"
   while :; do
-    ask cv "Claude Code version: latest | stable | X.Y.Z" "$cv"
+    ask cv "Claude Code version, for the claude personas: latest | stable | X.Y.Z" "$cv"
     cv="${cv:-latest}"
     valid_cv "$cv" && break
     (( ! YES )) || die "the Claude Code version must be latest, stable or X.Y.Z, not '$cv'"
@@ -629,14 +629,21 @@ if (( mkcert )); then
 fi
 
 # --- images ----------------------------------------------------------------------------------
+# Every persona's image, not only a new one's: an image that is up to date takes seconds (the build
+# cache, or a pull with nothing new), and one whose pins or Dockerfile changed is brought up to date.
 failed=0
 if (( images )); then
+  say "-- ${verb}ing the image of every persona; one that is already up to date takes seconds"
   seen=" "
   for i in "${!P_NAME[@]}"; do
     key="${P_FLAVOUR[i]}-${P_CONTEXT[i]}"
     [[ "$seen" == *" $key "* ]] && continue
     seen+="$key "
-    say "-- $verb agent-$key (via ${P_NAME[i]})"
+    users=""
+    for j in "${!P_NAME[@]}"; do
+      [[ "${P_FLAVOUR[j]}-${P_CONTEXT[j]}" == "$key" ]] && users+="${users:+, }${P_NAME[j]}"
+    done
+    say "-- $verb agent-$key, for $users"
     "$AGENTS_DIR/nexus" "${P_NAME[i]}" "$verb" 9<&- \
       || { failed=1; LATER+=("images: the $verb of agent-$key failed (see above); retry with: $AGENTS_DIR/nexus ${P_NAME[i]} $verb"); }
   done
