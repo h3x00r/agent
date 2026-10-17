@@ -1,0 +1,4 @@
+# hadolint ignores for this Dockerfile.
+ignored:
+  - DL3008   # apt packages float on purpose: the image tracks bookworm's security updates; the CLIs are pinned
+  - DL3066   # USER dev is resolvable: the image creates dev with the uid/gid it is built for

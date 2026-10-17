@@ -1,0 +1,132 @@
+# /opt/agents/compose.yml — templates for the persona containers, one long-lived container per
+# persona per VM. No personas here: ./install.sh writes them to compose.personas.yml, and the agent
+# launcher always loads both files.
+#
+# Each persona container holds a tmux server; every project you work on gets a tmux
+# session inside it (six projects → six sessions in one container, not six containers).
+#
+#   agent <persona>                   attach to / create a session named after $PWD
+#   agent <persona> review -- claude --resume
+#   agent ls                          running personas + their sessions
+#
+# Without the launcher (PROJECTS_ROOT from ./.env, or exported as here; for a ddev persona on a VM
+# without a mkcert CA also AGENT_CA_CERTS= , empty, and mkdir -p ~/.ddev ~/.local/share/mkcert first):
+#   AGENT_UID=$(id -u) AGENT_GID=$(id -g) DOCKER_GID=$(stat -c %g /var/run/docker.sock) \
+#   PROJECTS_ROOT=$HOME/projects docker compose -p agents -f compose.yml -f compose.personas.yml \
+#     --profile <persona> up -d
+#   docker exec -it agent-<persona> tmux new -A -s billing -c "$HOME/projects/billing"
+#
+# Per-VM values live in ./.env (see .env.example); per-persona secrets in ./personas/<persona>.env.
+
+name: agents
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # Templates. Profile "_base" is never selected, so these are never started.
+  # (extends copies "_base" into every persona as well: selecting it would start them all.)
+  # A persona extends _agent (context "docker") or _agent-ddev (context "ddev") and adds its
+  # image, build target (flavour), name, env file, colour and home volume.
+  # ---------------------------------------------------------------------------
+
+  # Everything a persona needs to drive docker compose on *this* VM:
+  # same Docker daemon, same project paths, same loopback, same uid/gid.
+  _agent:
+    profiles: ["_base"]
+    # Never pull implicitly: with REGISTRY=local the name is a Docker Hub one (docker.io/local/…).
+    # A missing image is built here; `agent <persona> pull` pulls explicitly.
+    pull_policy: never
+    build:
+      context: .
+      args:
+        CLAUDE_VERSION: ${CLAUDE_VERSION:-latest}
+        DDEV_VERSION: ${DDEV_VERSION:-}
+        UID: ${AGENT_UID:-1000}     # must equal the VM user's uid: the home volume is seeded from the image
+        GID: ${AGENT_GID:-1000}
+
+    init: true                      # tini as PID 1: reaps zombies left by tmux/claude children, forwards signals
+    # Back after a VM reboot only if its ssh-agent socket exists again by then (see the mount below);
+    # otherwise the next `agent <persona>` starts it. tmux sessions don't survive, `claude --resume` does.
+    restart: unless-stopped
+    network_mode: host              # *.ddev.site → 127.0.0.1 and compose-published ports are reachable as on the VM
+    user: "${AGENT_UID:-1000}:${AGENT_GID:-1000}"
+    group_add:
+      - "${DOCKER_GID:?gid of /var/run/docker.sock on this VM (the agent launcher sets it)}"
+    working_dir: ${PROJECTS_ROOT:?absolute path of your projects root, e.g. /home/you/projects}
+    stop_grace_period: 45s          # entrypoint traps SIGTERM and kills the tmux server cleanly
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          cpus: "${AGENT_CPUS:-4}"
+          memory: ${AGENT_MEMORY:-8g}
+          pids: 4096                # a runaway agent can't fork-bomb the VM
+
+    environment:
+      HOME: /home/dev
+      PROJECTS_ROOT: ${PROJECTS_ROOT}
+      SSH_AUTH_SOCK: /ssh-agent
+      TERM: xterm-256color
+      COLORTERM: truecolor
+      LANG: C.UTF-8
+      # The image is the CLI version; upgrade = rebuild/pull + `agent <persona> restart`.
+      # The Claude image already locks updates (managed settings); this also covers pins too old for that.
+      DISABLE_AUTOUPDATER: "1"
+      GROK_DISABLE_AUTOUPDATER: "1" # grok's own switch; its updates would only pile up in ~/.grok/downloads
+
+    volumes:
+      # The Docker socket: ddev and docker compose inside the container drive the VM's daemon.
+      - /var/run/docker.sock:/var/run/docker.sock
+      # The VM's timezone, for the status-bar clock and commit times.
+      - /etc/localtime:/etc/localtime:ro
+      # Projects at the IDENTICAL path on both sides, so every bind mount that ddev/compose
+      # asks the daemon for resolves on the VM filesystem. Whole root, not one repo, so git
+      # worktrees and cross-repo references keep working.
+      - ${PROJECTS_ROOT}:${PROJECTS_ROOT}
+      # SSH via agent forwarding only: no private keys inside the container. The socket path is
+      # fixed when the container is created; if it is gone at a later start, the start fails
+      # instead of Docker creating a root-owned directory there.
+      # Alternative for VMs without an agent: replace this entry with  - ${HOME}/.ssh:/home/dev/.ssh:ro
+      - type: bind
+        source: ${SSH_AUTH_SOCK:?run an ssh-agent on the VM, or mount ~/.ssh instead (see compose.yml)}
+        target: /ssh-agent
+        bind:
+          create_host_path: false
+
+    healthcheck:
+      test: ["CMD", "tmux", "has-session", "-t", "=main"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+      # To ship straight to Loki (docker plugin `loki` installed on the VM):
+      # driver: loki
+      # options:
+      #   loki-url: "http://loki.lan:3100/loki/api/v1/push"
+      #   loki-external-labels: "job=agents,vm={{.Hostname}},persona={{.Name}}"
+      #   loki-retries: "3"
+
+  # Context "ddev": _agent plus ddev's state, shared with the VM user (the image is built with ddev).
+  _agent-ddev:
+    extends:
+      service: _agent
+    environment:
+      # ddev records its mkcert CA root in ~/.ddev/global_config.yaml as an absolute host path,
+      # so the CA is mounted at the identical path below and pointed at here.
+      CAROOT: ${HOME}/.local/share/mkcert
+      # node / playwright / claude trust https://*.ddev.site. The launcher sets AGENT_CA_CERTS empty
+      # when the VM has no mkcert CA yet, so Claude doesn't warn about a missing file.
+      NODE_EXTRA_CA_CERTS: ${AGENT_CA_CERTS-${HOME}/.local/share/mkcert/rootCA.pem}
+    volumes:
+      # ddev global state (config, router, ssh-agent container, downloaded binaries) shared
+      # with the VM user, so both sides agree on which global containers exist.
+      - ${HOME}/.ddev:/home/dev/.ddev
+      # mkcert CA (see CAROOT above): `mkcert -install` once on the VM (install.sh offers it).
+      - ${HOME}/.local/share/mkcert:${HOME}/.local/share/mkcert:ro

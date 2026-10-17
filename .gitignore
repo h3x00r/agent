@@ -1,0 +1,9 @@
+.env
+.env.*
+!.env.example
+personas/*.env
+personas/*.env.*
+!personas/*.env.example
+# written by ./install.sh
+compose.personas.yml
+compose.personas.yml.*

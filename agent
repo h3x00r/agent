@@ -1,0 +1,153 @@
+#!/usr/bin/env bash
+# agent — launcher for persona containers. ./install.sh sets up the personas and links this script,
+# e.g. to /usr/local/bin/agent.
+#
+#   agent <persona> [session] [-- cmd ...]   attach to (or create) a tmux session in that persona,
+#                                            named after $PWD unless given; cmd runs only on create
+#   agent ls                                 running personas and their sessions
+#   agent <persona> ls                       that persona's sessions
+#   agent <persona> stop|logs|build|pull [args]
+#                                            args go to compose, e.g. build --no-cache
+#   agent <persona> start                    start it if it isn't running, without attaching (scripts, cron)
+#   agent <persona> restart                  recreate the container: picks up a rebuilt/pulled image
+#
+# Examples, with personas named claude-ddev and grok-docker (the names install.sh suggests):
+#   cd ~/projects/billing && agent claude-ddev            # session "billing", shell at that dir
+#   agent claude-ddev review -- claude --resume           # new session "review", straight into Claude Code
+#   agent grok-docker                                     # same project, other persona
+set -euo pipefail
+
+die()   { echo "agent: $*" >&2; exit 1; }
+warn()  { echo "agent: warning: $*" >&2; }
+usage() { awk 'NR > 1 && !/^#/ { exit } NR > 1 { sub(/^# ?/, ""); print }' "$0"; }
+
+[[ $# -ge 1 ]] || { usage; exit 1; }
+[[ "$1" == -h || "$1" == --help ]] && { usage; exit 0; }
+
+# The repo this script lives in, found through the /usr/local/bin symlink.
+AGENTS_DIR="${AGENTS_DIR:-$(dirname "$(readlink -f "$0")")}"
+# The personas, written by install.sh. Its "# persona: <name> key=value …" lines are read here too.
+PERSONAS_FILE="$AGENTS_DIR/compose.personas.yml"
+# -p: an exported COMPOSE_PROJECT_NAME would otherwise switch to fresh, empty home volumes.
+COMPOSE=(docker compose -p agents -f "$AGENTS_DIR/compose.yml" -f "$PERSONAS_FILE")
+
+# Identity + daemon access, derived from the VM user running this. Exported, so they beat ./.env.
+export AGENT_UID="${AGENT_UID:-$(id -u)}"
+export AGENT_GID="${AGENT_GID:-$(id -g)}"
+[[ -S /var/run/docker.sock ]] || die "no Docker socket at /var/run/docker.sock"
+export DOCKER_GID="${DOCKER_GID:-$(stat -c %g /var/run/docker.sock)}"
+
+# Projects root: shell, else ./.env, else ~/projects. Read from .env here, because an exported
+# default would also override .env inside compose. Takes the dotenv forms compose takes (export
+# prefix, CRLF, '…', "…" with its escapes, trailing comment), but not ${VAR} references; install.sh's
+# get_kv reads it the same way.
+if [[ -z "${PROJECTS_ROOT:-}" && -f "$AGENTS_DIR/.env" ]]; then
+  PROJECTS_ROOT="$(sed -nE 's/\r$//; s/^[[:space:]]*(export[[:space:]]+)?PROJECTS_ROOT[[:space:]]*=[[:space:]]*//p' "$AGENTS_DIR/.env" | tail -n 1 \
+    | sed -E 's/^"((\\.|[^"\\])*)".*/\1/; t dq; s/^\x27((\\.|[^\x27\\])*)\x27.*/\1/; t sq; s/[[:space:]]+#.*//; s/[[:space:]]+$//; b
+              :sq; s/\\\x27/\x27/g; b
+              :dq; s/\\\\/\x01/g; s/\\n/\n/g; s/\\t/\t/g; s/\\r/\r/g; s/\\([$"])/\1/g; s/\x01/\\/g')"
+fi
+PROJECTS_ROOT="${PROJECTS_ROOT:-$HOME/projects}"
+export PROJECTS_ROOT="${PROJECTS_ROOT%/}"
+
+# SSH agent forwarding. Ubuntu/Debian user sessions usually have one of these.
+if [[ ! -S "${SSH_AUTH_SOCK:-}" ]]; then
+  SSH_AUTH_SOCK=""
+  rt="${XDG_RUNTIME_DIR:-/run/user/$AGENT_UID}"
+  for s in "/run/user/$AGENT_UID/ssh-agent.sock" "$rt/openssh_agent" "$rt/keyring/ssh" "/run/user/$AGENT_UID/gnupg/S.gpg-agent.ssh"; do
+    [[ -S "$s" ]] && { SSH_AUTH_SOCK="$s"; break; }
+  done
+fi
+export SSH_AUTH_SOCK   # empty = none found; compose.yml then says what to do
+
+cmd_ls_all() {
+  local c
+  for c in $(docker ps --filter label=agent.persona --format '{{.Names}}'); do
+    echo "== $c  ($(docker inspect -f '{{.State.Health.Status}}' "$c" 2>/dev/null || echo running))"
+    docker exec "$c" tmux list-sessions \
+      -F '   #{session_name}  #{session_windows}w  #{?session_attached,attached,detached}  #{pane_current_path}' 2>/dev/null \
+      || echo "   (no sessions)"
+  done
+}
+
+persona="$1"; shift
+[[ "$persona" == ls ]] && { cmd_ls_all; exit 0; }
+
+[[ -f "$PERSONAS_FILE" ]] || die "no personas set up yet: run $AGENTS_DIR/install.sh"
+[[ "$persona" =~ ^[a-z0-9][a-z0-9-]*$ ]] || die "not a persona name: '$persona'"
+meta=" $(sed -n "s/^# persona: $persona //p" "$PERSONAS_FILE" | head -n 1) "
+[[ "$meta" != "  " ]] \
+  || die "no persona '$persona' (set up: $(sed -n 's/^# persona: \([^ ]*\).*/\1/p' "$PERSONAS_FILE" | paste -sd ' ')); add it with $AGENTS_DIR/install.sh"
+
+service="$persona"
+container="agent-$persona"
+
+# Management subcommands. None of them mounts the ssh-agent, so a placeholder keeps compose.yml's
+# required-variable check from blocking e.g. a build on a VM without one.
+mgmt() { export SSH_AUTH_SOCK="${SSH_AUTH_SOCK:-/dev/null}"; exec "${COMPOSE[@]}" --profile "$persona" "$@"; }
+running() { [[ "$(docker inspect -f '{{.State.Running}}' "$container" 2>/dev/null || true)" == true ]]; }
+restart=0 start_only=0
+case "${1:-}" in
+  ls)      running || die "$persona isn't running; start it with: agent $persona"
+           exec docker exec "$container" tmux list-sessions ;;
+  start)   start_only=1 ;;
+  stop)    shift; mgmt stop "$@" "$service" ;;
+  logs)    shift; mgmt logs -f "$@" "$service" ;;
+  build)   shift; mgmt build "$@" "$service" ;;
+  pull)    shift; mgmt pull --policy always "$@" "$service" ;;   # compose.yml never pulls on its own
+  restart) restart=1 ;;
+esac
+
+# Preflight: mount sources must exist, or Docker creates them root-owned.
+[[ "$PROJECTS_ROOT" == /* ]] || die "PROJECTS_ROOT must be an absolute path, not '$PROJECTS_ROOT'"
+mkdir -p "$PROJECTS_ROOT" 2>/dev/null \
+  || die "can't create PROJECTS_ROOT=$PROJECTS_ROOT (from your shell or $AGENTS_DIR/.env); fix it, or unset it for ~/projects"
+# Context "ddev": the VM's ~/.ddev and mkcert CA are mounted, and the CA is trusted inside if it exists.
+no_ca=0
+if [[ "$meta" == *" context=ddev "* ]]; then
+  mkdir -p "$HOME/.ddev" "$HOME/.local/share/mkcert"
+  if [[ -f "$HOME/.local/share/mkcert/rootCA.pem" ]]; then
+    export AGENT_CA_CERTS="$HOME/.local/share/mkcert/rootCA.pem"
+  else
+    export AGENT_CA_CERTS=""; no_ca=1
+  fi
+fi
+
+# (Re)create the persona container if asked or if it isn't running. Its ssh-agent socket path is
+# fixed at creation, for the container's whole life (a new path makes compose recreate it).
+if (( restart )) || ! running; then
+  if (( no_ca )); then
+    warn "no mkcert CA on this VM yet — run 'mkcert -install' here, then \`agent $persona restart\`, or https://*.ddev.site stays untrusted inside"
+  fi
+  if [[ -S "$SSH_AUTH_SOCK" ]] && command -v ssh-add >/dev/null; then
+    rc=0; ssh-add -l >/dev/null 2>&1 || rc=$?
+    case $rc in
+      1) warn "the ssh-agent at $SSH_AUTH_SOCK holds no keys (ssh-add -l); git over ssh will fail inside" ;;
+      2) warn "nothing answers at $SSH_AUTH_SOCK (stale ssh-agent socket); git over ssh will fail inside" ;;
+    esac
+  fi
+  (( restart )) && exec "${COMPOSE[@]}" --profile "$persona" up -d --force-recreate "$service"
+  "${COMPOSE[@]}" --profile "$persona" up -d "$service"
+fi
+(( start_only )) && exit 0
+
+# Session name + command.
+session=""; cmd=()
+if [[ $# -gt 0 && "$1" != "--" ]]; then session="$1"; shift; fi
+if [[ "${1:-}" == "--" ]]; then shift; cmd=("$@"); fi
+
+dir="$PWD"
+case "$dir/" in
+  "$PROJECTS_ROOT"/*) ;;
+  *) echo "agent: $PWD is outside $PROJECTS_ROOT; starting in $PROJECTS_ROOT" >&2; dir="$PROJECTS_ROOT" ;;
+esac
+session="${session:-$(basename "$dir")}"
+session="${session//[.:]/_}"   # tmux rewrites '.' and ':' in session names; do the same up front
+
+# tmux inside needs terminfo for $TERM; terminals the image doesn't know (kitty, ghostty) get a safe one.
+term="${TERM:-xterm-256color}"
+docker exec "$container" infocmp "$term" >/dev/null 2>&1 || term=xterm-256color
+
+# -A: attach if the session exists, else create it (cmd is only used on create).
+exec docker exec -it -e TERM="$term" -w "$dir" "$container" \
+  tmux new-session -A -s "$session" -c "$dir" "${cmd[@]}"
