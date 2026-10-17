@@ -4,6 +4,25 @@ One long-lived container per persona per VM. Each holds a tmux server; each proj
 work on is a tmux session inside it. The container is a sibling of your project stacks on
 the VM's Docker daemon, so `docker compose …` (and `ddev …`) typed inside it act on the VM.
 
+## Quick start
+
+```bash
+bash install.sh                # once, in this checkout: add a persona, e.g. claude-team (flavour claude)
+cd ~/projects/billing          # a project under the projects root
+nexus claude-team -- claude    # first time: session "billing", straight into Claude Code (log in once)
+```
+
+Leave with `Ctrl-b d` (detach): Claude keeps running. From then on, from the same project directory, just:
+
+```bash
+nexus claude-team              # back into the same session
+```
+
+Quitting Claude (`/exit`) ends the session instead; start it again with `-- claude`. A grok persona works
+the same way with `-- grok`.
+
+## What's in the checkout
+
 The checkout is generic. `./install.sh` decides which personas a VM runs, the flavour of each
 (Claude Code or Grok Build), and the context each one works in:
 
@@ -20,9 +39,38 @@ tmux.conf               session-per-project ergonomics
 nexus                   launcher: `nexus <persona>` from any project dir
 statusline/             Claude Code statusline + its setting, mounted into Claude personas that have it on
 runbook.md              setup, day-to-day use, upgrades, troubleshooting, every environment variable
+LICENSE                 MIT, for the files in this repo (not the software the images download)
 .env.example            per-VM settings template → .env (gitignored)
 personas/*.env.example  per-flavour templates → personas/<persona>.env: secrets + git identity (gitignored)
 ```
+
+## Why Nexus
+
+**Your AI coding agents, always on, always in the right project.**
+
+Nexus gives each of your AI agent identities its own long-lived container on your dev VM, with its own login,
+git identity and GitHub token, and a tmux session for every project. Type `nexus <persona>` in any project
+directory and you're in. Detach, and the agents keep working. Reconnect from any terminal and pick up where
+they are.
+
+- **One command, any project.** `nexus <persona>` opens, or reattaches to, the session for the directory
+  you're in. `nexus ls` shows everything running.
+- **Personas, not just containers.** Each has its own account, git author, token and persistent home. Run
+  several side by side on one project, a team account next to a personal plan or Claude next to Grok, each
+  in its own colour in the status bar (*persona @ VM*).
+- **Agents that keep running.** Sessions survive disconnects: detach, close the laptop, come back later.
+- **Native to your stack.** It uses the same Docker daemon, network and paths as the VM, so `ddev` and
+  `docker compose` work inside exactly as outside. ddev personas share ddev's state and its local CA, so
+  `https://*.ddev.site` is trusted inside. No project toolchains in the image: the agent drives the
+  project's own containers, so it fits any stack.
+- **Upgrades on your terms.** Claude Code, APM and ddev versions are pinned and the built-in auto-updaters
+  are off. An upgrade is a rebuild plus a restart, and logins survive it.
+- **Sensible limits.** SSH through agent forwarding only (private keys never enter a container), no
+  privilege escalation, and CPU, memory and process limits per persona.
+- **Agent packages built in.** Microsoft's APM (Agent Package Manager) installs skills, prompts, agents and
+  MCP servers for each persona.
+- **Set up in minutes.** Run the installer interactively, or scripted with `--yes`. It writes nothing until
+  every answer checks out. Build the images locally or pull them from your registry.
 
 ## Install on a VM
 
@@ -98,3 +146,11 @@ docker exec -w ~/projects/billing agent-claude-ddev \
 `Bash(ddev *)` allows every ddev subcommand, `ddev exec <anything>` included; in a docker-context persona
 allow what the project needs instead, e.g. `Bash(docker compose *)`. Docker access is root on the VM, so
 keep such runs to repos you trust ([runbook](runbook.md#3-headless-runs)).
+
+## License
+
+The files in this repo are under the [MIT License](LICENSE). The images they build download third-party
+software that keeps its own license and terms of use: Claude Code (Anthropic), Grok Build (xAI), APM, ddev,
+the Docker CLI, the GitHub CLI and Node.js among others. Building or using an image is subject to those
+terms, and they decide whether you may share a built image, e.g. on a public registry. This project is not
+affiliated with or endorsed by Anthropic or xAI.
