@@ -1,0 +1,32 @@
+#!/bin/sh
+# tests/fake-grok — grok as far as tests/run.sh needs it, on the PATH of its grok persona.
+#
+# Prints the arguments nexus gave it, the directory it runs in and, given --prompt-file, that file's
+# content with its newlines as "|". Then, by prompt: "exit N" exits N; "hold NAME" waits five minutes,
+# its pid in $NXT_STATE/NAME.pid; "daemon NAME" does the same after detaching a daemon of its own, as an
+# agent's dev server would be, with that daemon's pid in $NXT_STATE/NAME.daemon.
+state="${NXT_STATE:-/tmp}" prompt="" file=0 nl='
+'
+printf 'argv:'
+for a in "$@"; do printf ' [%s]' "$a"; done
+printf '\npwd: %s\n' "$PWD"
+for a in "$@"; do
+  if [ "$file" = 1 ]; then
+    in="$(cat -- "$a"; echo .)"; in="${in%.}"
+    printf 'stdin: %s\n' "$(printf '%s' "$in" | tr '\n' '|')"
+    prompt="${in%%"$nl"*}" file=0
+  fi
+  case "$a" in
+    --single=*)    prompt="${a#--single=}" ;;
+    --prompt-file) file=1 ;;
+  esac
+done
+
+case "$prompt" in
+  "exit "*)   exit "${prompt#exit }" ;;
+  "hold "*)   echo "$$" > "$state/${prompt#hold }.pid"; exec sleep 300 ;;
+  "daemon "*) n="${prompt#daemon }"
+              # shellcheck disable=SC2016  # $$ there is the daemon's own
+              setsid sh -c 'echo "$$" > "$1"; exec sleep 300' sh "$state/$n.daemon" </dev/null >/dev/null 2>&1 &
+              echo "$$" > "$state/$n.pid"; exec sleep 300 ;;
+esac

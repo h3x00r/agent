@@ -87,12 +87,14 @@ services:
       # asks the daemon for resolves on the VM filesystem. Whole root, not one repo, so git
       # worktrees and cross-repo references keep working.
       - ${PROJECTS_ROOT}:${PROJECTS_ROOT}
-      # SSH via agent forwarding only: no private keys inside the container. The socket path is
+      # SSH via agent forwarding: your keys never enter the container. The socket path is
       # fixed when the container is created; if it is gone at a later start, the start fails
       # instead of Docker creating a root-owned directory there.
-      # Alternative for VMs without an agent: replace this entry with  - ${HOME}/.ssh:/home/dev/.ssh:ro
+      # Or a persona has an ssh key of its own (config.sh: SSH, new or a key's path, e.g. a deploy
+      # key), or no ssh at all (none): its service then puts /dev/null here, so its ssh doesn't use your
+      # agent. Not a wall: the Docker socket above is root on the VM (README, rules).
       - type: bind
-        source: ${SSH_AUTH_SOCK:?run an ssh-agent on the VM, or mount ~/.ssh instead (see compose.yml)}
+        source: ${SSH_AUTH_SOCK:?run an ssh-agent on the VM, or set the persona up with a key of its own or no ssh (config.sh)}
         target: /ssh-agent
         bind:
           create_host_path: false

@@ -19,6 +19,7 @@ A **persona** is one long-lived container with its own login, settings and histo
 - [ ] Your VM user can use Docker without sudo: `docker ps` works. If not, `sudo usermod -aG docker "$USER"`
       and log in again.
 - [ ] An ssh-agent holding your key: `ssh-add -l` lists it (connect with `ssh -A`, or run an agent on the VM).
+      A persona with an ssh key of its own, or no ssh, doesn't need it ([§5](#no-ssh-commit-inside-push-from-the-vm)).
 - [ ] For ddev-context personas: ddev from pkg.ddev.com on the VM (it also provides `mkcert`).
 - [ ] About 3 GB free for Docker for the first build: `df -h /var/lib/docker` (config.sh checks it too).
 - [ ] Credentials: for Claude an Anthropic API key, a `claude setup-token` token or a Claude subscription to
@@ -43,7 +44,10 @@ It checks Docker and your ssh-agent, then asks, in this order:
 
 1. **Personas**, one at a time: flavour, context (the default is `ddev` if the VM has ddev), a name (suggested
    `<flavour>-<context>`: `claude-ddev` on a VM with ddev, `claude-docker` without), for Claude whether to
-   show the statusline, and its projects root: `-` (the default) for the VM's, or a directory of its own.
+   show the statusline, its projects root: `-` (the default) for the VM's, or a directory of its own, and
+   how its ssh (git over ssh) signs in: `agent`, your ssh-agent (the default); `none`, not at all, so you pull
+   and push from the VM; `new`, a key made for it whose public half you add as a deploy key; or the path of a
+   key you have ([§5](#no-ssh-commit-inside-push-from-the-vm)).
    Personas can share a root. On a re-run it shows the personas and a menu instead: add, change or remove
    one at a time (it asks which), then done; personas you don't pick aren't asked about.
 2. **Per VM**, under "VM settings": the projects root (default `~/projects`; every persona without its own
@@ -66,8 +70,9 @@ ssh session, the end of piped input) leaves the setup as it was; only the projec
 persona's own) are created as you name them.
 
 **Expected:** a table of the personas, then `Start one from a project directory: cd …/<project> && nexus <name>`,
-plus a line for anything still to do (a missing key or git identity, the mkcert CA). It has written `.env`,
-`compose.personas.yml` and `personas/<name>.env` (mode 600).
+plus a line for anything still to do (a missing key or git identity, the mkcert CA, a new ssh key's public
+half to add). It has written `.env`, `compose.personas.yml` and `personas/<name>.env` (mode 600), and
+`personas/<name>.key` for a persona given a new ssh key.
 
 **If it fails:** the message says what's missing, e.g. Docker access, and nothing has been written: fix the cause
 and run config.sh again. A failed launcher link, `mkcert -install` or image build comes after the setup is in
@@ -172,8 +177,8 @@ nexus grok-docker headless "list the TODOs" --output-format json | jq -r .text
 `nexus <persona> headless [PROMPT] [FLAGS…]` runs one prompt through the persona's CLI, without tmux, in the
 directory you're in. That has to be in the persona's projects root (a path through a symlink is fine); from
 anywhere else it refuses, where a session would start in the root. It starts the persona if it isn't running;
-that needs an ssh-agent, as `nexus <persona> start` does. The CLI's stdout, stderr and exit code are the
-command's; nexus's own messages (compose's progress included) go to stderr.
+that needs an ssh-agent, as `nexus <persona> start` does, unless the persona has an ssh key of its own or no
+ssh. The CLI's stdout, stderr and exit code are the command's; nexus's own messages (compose's progress included) go to stderr.
 
 | You give | Claude runs | grok runs |
 |----------|-------------|-----------|
@@ -234,13 +239,17 @@ Either context:
 ## 5. Add, change or remove a persona
 
 Re-run `/opt/agents/config.sh`. It shows the personas and a menu: add one, change one (flavour, context,
-statusline, projects root), remove one, or done; for change and remove it asks which. After done it offers
+statusline, projects root, ssh), remove one, or done; for change and remove it asks which. After done it offers
 to keep the VM settings as they are. Without questions:
 ```bash
 /opt/agents/config.sh --yes --persona grok-docker:grok:docker            # add, or update flavour/context
 /opt/agents/config.sh --yes --persona grok-docker:grok:docker:/srv/work  # with a projects root of its own
 /opt/agents/config.sh --yes --persona grok-docker:grok:docker:           # back to the VM's projects root
 /opt/agents/config.sh --yes --remove grok-docker                         # drop it from compose.personas.yml
+/opt/agents/config.sh --yes --ssh grok-docker:none                      # no ssh: push from the VM (below)
+/opt/agents/config.sh --yes --ssh grok-docker:new                       # an ssh key of its own (below)
+/opt/agents/config.sh --yes --ssh grok-docker:~/.ssh/grok_deploy        # a key you have
+/opt/agents/config.sh --yes --ssh grok-docker:agent                     # back to your ssh-agent
 ```
 - A persona's own projects root is kept in its `# persona:` line in `compose.personas.yml` (`root=`), so it
   can't contain spaces or `:`. Given without `:ROOT`, an existing persona keeps its root. Changing the root
@@ -255,8 +264,52 @@ to keep the VM settings as they are. Without questions:
   same way: one of its flavour is reused, one of the other flavour is replaced (the old one to `.env.bak`).
 - `--statusline` / `--no-statusline` with `--persona` turn a Claude persona's statusline on or off; without
   either, an existing Claude persona keeps its setting, and a new one (or one switched from grok) gets it.
-- Removing keeps the env file and the home volume; config.sh prints the commands that delete them. While that
-  `personas/<name>.env` stays, an interactive run offers to set the persona up again; delete it to stop that.
+- Removing keeps the env file, the ssh key and the home volume; config.sh prints the commands that delete them.
+  While that `personas/<name>.env` stays, an interactive run offers to set the persona up again; delete it to
+  stop that.
+
+### No ssh: commit inside, push from the VM
+
+By default a persona's ssh, and so git over ssh, uses your ssh-agent, forwarded: your keys never enter the
+container, but starting it needs an agent in your shell, and a forwarded one goes stale when you reconnect.
+Committing needs no ssh at all, only pull, fetch and push do. So a persona can go without (config.sh: change
+it, SSH `none`; or `--ssh <name>:none`, then `nexus <name> restart`):
+
+- The agent commits as usual, as the persona's git identity (`GIT_AUTHOR_*` in `personas/<name>.env`).
+- You pull and push on the VM, in the same directory: the projects root is the same path on both sides, so its
+  commits are already in your repo, and your own key, passphrase and all, isn't used inside.
+- It starts without an ssh-agent. Inside, git over ssh fails at once (`ssh/none.conf` sets `BatchMode`)
+  rather than ask for a password. Don't run git on the VM while the agent is mid-commit: both share one
+  `.git` (an `index.lock` error). Its commits aren't signed, if you sign yours on the VM.
+
+What `none` doesn't stop: with a `GH_TOKEN` in `personas/<name>.env` it still pushes over https and through
+`gh`, so leave that out (or give it a token without write access) if it shouldn't push. And the shared `.git`
+is the persona's to write too: its config (`core.pager`, `core.fsmonitor`, `core.sshCommand`, remotes) and
+hooks run as you when you run git on the VM. That doesn't widen what an agent can already do with the Docker
+socket ([README, rules](README.md#rules-that-keep-it-working)), but it means pushing from the VM is your
+check on honest work, not a guard against an agent led astray: then look at `.git/config` and `.git/hooks`
+before you run git there.
+
+### An ssh key of its own
+
+Or a persona can have a key of its own, such as a deploy key, and pull and push by itself:
+
+1. Re-run config.sh, change the persona, and answer `new` at "SSH". It makes `personas/<name>.key` (ed25519, no
+   passphrase, mode 600, gitignored) and prints its public half. Or answer `path` with a key you already have: it
+   must be yours, mode 600 and without a passphrase, since nothing inside could type one.
+2. Add the public half on your git host: as a deploy key on each repo the persona works on (with write access if
+   it pushes), or to a machine user's account with access to them. `cat personas/<name>.key.pub` shows it again.
+3. `nexus <name> restart`. Inside, `ssh -T git@<your git host>` greets the key's account.
+
+The key is mounted read-only at `/run/nexus/ssh-key`, and `ssh/key.conf` makes ssh use it and no other
+(`IdentitiesOnly`), without a password prompt if the host refuses it. Your agent isn't mounted: `SSH_AUTH_SOCK`
+is empty inside, and the persona starts without one. Anything that runs in the persona can read that key, a
+prompt-injected agent included, and through the Docker socket the other personas' keys too, so give each only
+the access its persona needs, never your own key; removing it on the git host cuts it off.
+
+`new` never replaces a key that is there. For a fresh one, delete `personas/<name>.key*`, re-run config.sh (it
+makes the key and prints it), add it on the git host, and `nexus <name> restart`: a running persona keeps the
+key it started with until then. The same goes for a key file you named and then replaced.
 
 ## 6. Upgrade Claude Code (or grok, APM, or ddev)
 
@@ -280,9 +333,9 @@ upgrades every persona of that flavour, whichever persona you name:
    exits non-zero.
 4. It removes the old images, unless a container still uses them.
 
-Run it from a shell with an ssh-agent (recreating needs one), and when no agent is mid-task. One upgrade at
-a time: it shares config.sh's lock. Check: `docker exec agent-<persona> claude --version` (`grok --version`
-in a grok persona). A version exported in your shell beats `.env`, so `upgrade` refuses until you unset it.
+Run it from a shell with an ssh-agent (recreating a persona that uses yours needs one), and when no agent is
+mid-task. One upgrade at a time: it shares config.sh's lock. Check: `docker exec agent-<persona> claude --version`
+(`grok --version` in a grok persona). A version exported in your shell beats `.env`, so `upgrade` refuses until you unset it.
 Coming from a checkout older than `upgrade`, re-run config.sh once, so the grok image tags follow
 `GROK_VERSION` (`upgrade` warns until then).
 
@@ -353,6 +406,22 @@ docker volume rm agents_claude-ddev-home     # deletes its login, settings, memo
 ```
 The next `nexus claude-ddev` starts it fresh, seeded from the image.
 
+## 9. Test a change to nexus or config.sh
+
+`tests/run.sh` runs config.sh and nexus end to end in a scratch copy of the checkout, your uncommitted changes
+included, on throwaway personas. Nothing of your setup is read or changed, and what it makes is removed at the end.
+```bash
+/opt/agents/tests/run.sh                  # about two minutes: ok or FAIL per check, a summary, exit 1 on a failure
+/opt/agents/tests/run.sh --no-containers  # seconds: lint, config.sh and nexus without starting a persona
+```
+- Starting personas needs a Claude persona image built for your uid (the newest `agent-claude-docker` here, or
+  `--image REF`), `ssh-agent` and `script`; a stage it can't run is skipped, saying why. There is no real sign-in:
+  Claude Code talks to a stand-in API (`tests/fake-api.py`) and grok is a stand-in (`tests/fake-grok`), so it tests
+  nexus and config.sh, not a CLI release.
+- It lints with shellcheck and hadolint if they are installed or their images are here; it never pulls them.
+- Its personas are `nxt-<pid>-c` and `nxt-<pid>-g`, in compose project `agents`, so compose warns that your real
+  personas are orphans; that is only a warning. `--keep` leaves it all for a look after a failure, and says what.
+
 ## Troubleshooting
 
 | Symptom | Likely cause | Fix |
@@ -363,6 +432,10 @@ The next `nexus claude-ddev` starts it fresh, seeded from the image.
 | `warning: the ssh-agent at … holds no keys` | agent without your key (often gpg-agent's) | `ssh-add`, then `nexus <persona> restart` |
 | `warning: nothing answers at … (stale ssh-agent socket)` | the agent behind that socket is gone | reconnect with `ssh -A`, then `nexus <persona> restart` |
 | git over ssh fails inside after you reconnected | the container still has the old login's socket | `nexus <persona> restart` |
+| `git pull` inside asks for a password, or says `Permission denied (publickey)` | your agent: gone or empty; a key of its own: not added on the git host | inside, `ssh-add -l`: "Could not open a connection" → `nexus <persona> restart` from a shell where `ssh-add -l` works on the VM; "no identities" → `ssh-add` on the VM. A key of its own: add `personas/<name>.key.pub` on the host ([§5](#an-ssh-key-of-its-own)) |
+| `<persona>'s ssh key … isn't there` | its key file was moved or deleted | put it back, or re-run config.sh: SSH `new` makes a new one (add it on the git host again), `none` or `agent` drop the key |
+| `Permission denied (publickey)` at once, in a persona without ssh | that is what `none` does | pull and push from the VM ([§5](#no-ssh-commit-inside-push-from-the-vm)), or give it a key |
+| config.sh: `--ssh …: others can read it`, `… has a passphrase`, `… isn't yours` | ssh inside wouldn't use that key | `chmod 600` it; a passphrase: `ssh-keygen -p -N "" -f KEY` drops it (or use `new`); someone else's: copy it as yours |
 | Persona not running after a VM reboot | its ssh-agent socket didn't exist at boot | `nexus <persona>` (or `nexus <persona> start`) |
 | `the input device is not a TTY` | `nexus <persona>` attaches; a script has no tty | `nexus <persona> start` |
 | `<persona> isn't running` | `nexus <persona> ls` on a stopped persona | `nexus <persona>` or `nexus <persona> start` |
@@ -427,7 +500,7 @@ both. `.env` feeds compose, and the launcher reads `PROJECTS_ROOT`, `REGISTRY` a
 |----------|-------|-------------------|
 | `AGENT_UID` / `AGENT_GID` | `id -u` / `id -g` | you build for another uid; export it in the shell |
 | `DOCKER_GID` | gid of `/var/run/docker.sock` | never |
-| `SSH_AUTH_SOCK` | your shell's agent, else `/run/user/<uid>/ssh-agent.sock`, `$XDG_RUNTIME_DIR/openssh_agent`, gnome-keyring, gpg-agent | you want a specific agent |
+| `SSH_AUTH_SOCK` | your shell's agent, else `/run/user/<uid>/ssh-agent.sock`, `$XDG_RUNTIME_DIR/openssh_agent`, gnome-keyring, gpg-agent; unused by a persona with an ssh key of its own or no ssh | you want a specific agent |
 | `AGENT_CA_CERTS` | ddev context: `~/.local/share/mkcert/rootCA.pem` if it exists, else empty | never |
 | `AGENTS_DIR` | the directory the `nexus` script lives in | the repo is somewhere unusual |
 | `HOME` | your VM home; ddev context mounts `~/.ddev` and the mkcert CA from there | never |
@@ -461,7 +534,7 @@ Keep comments on their own lines: after an empty value, compose reads an inline 
 |----------|-------|
 | `HOME` | `/home/dev` (the persona's home volume) |
 | `PROJECTS_ROOT` | the persona's projects root: its own, or the VM's |
-| `SSH_AUTH_SOCK` | `/ssh-agent` (your agent's socket, mounted) |
+| `SSH_AUTH_SOCK` | `/ssh-agent` (your agent's socket, mounted); empty in a persona with an ssh key of its own (the key: `/run/nexus/ssh-key`) or no ssh |
 | `TERM` / `COLORTERM` / `LANG` | `xterm-256color` (tmux sets its own) / `truecolor` / `C.UTF-8` |
 | (timezone) | the VM's: `/etc/localtime` is mounted, so clocks and commit times match it |
 | `AGENT_PERSONA`, `AGENT_COLOUR` | persona name and status-bar colour |

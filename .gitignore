@@ -4,6 +4,8 @@
 personas/*.env
 personas/*.env.*
 !personas/*.env.example
+personas/*.key
+personas/*.key.pub
 # written by ./config.sh
 compose.personas.yml
 compose.personas.yml.*

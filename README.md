@@ -40,6 +40,8 @@ entrypoint.sh           keeps the tmux server alive, paints the persona into the
 tmux.conf               session-per-project ergonomics
 nexus                   launcher: `nexus <persona>` from any project dir
 statusline/             Claude Code statusline + its setting, for Claude personas with it on; feeds `nexus top`
+ssh/                    ssh settings for personas with a key of their own (a deploy key, say), or no ssh
+tests/                  run.sh: end-to-end tests of config.sh and nexus, on throwaway personas
 runbook.md              setup, day-to-day use, upgrades, troubleshooting, every environment variable
 LICENSE                 MIT, for the files in this repo (not the software the images download)
 .env.example            per-VM settings template → .env (gitignored)
@@ -69,8 +71,9 @@ they are.
   project's own containers, so it fits any stack.
 - **Upgrades on your terms.** Claude Code, Grok Build, APM and ddev versions are pinned and the built-in
   auto-updaters are off. `nexus <persona> upgrade` moves to a new release in one command, and logins survive it.
-- **Sensible limits.** SSH through agent forwarding only (private keys never enter a container), no
-  privilege escalation, and CPU, memory and process limits per persona.
+- **Sensible limits.** SSH through your forwarded agent (your keys never enter a container), a key of the
+  persona's own such as a deploy key, or none at all; no privilege escalation; CPU, memory and process
+  limits per persona.
 - **Agent packages built in.** Microsoft's APM (Agent Package Manager) installs skills, prompts, agents and
   MCP servers for each persona.
 - **Set up in minutes.** Run the installer interactively, or scripted with `--yes`. It writes nothing until
@@ -79,12 +82,12 @@ they are.
 ## Install on a VM
 
 Needs on the VM: Docker Engine with the compose plugin (your user in the `docker` group), and an
-ssh-agent holding your key (`ssh-add -l`). For ddev-context personas also ddev from pkg.ddev.com
-(it provides `mkcert`). Step by step: [runbook.md](runbook.md).
+ssh-agent holding your key (`ssh-add -l`) for the personas that use it. For ddev-context personas also
+ddev from pkg.ddev.com (it provides `mkcert`). Step by step: [runbook.md](runbook.md).
 
 ```bash
 sudo git clone <this repo> /opt/agents && sudo chown -R "$USER" /opt/agents
-/opt/agents/config.sh                      # asks: personas (flavour, context, name, root), VM settings, sign-in
+/opt/agents/config.sh                      # asks: personas (flavour, context, name, root, ssh), VM settings, sign-in
 cd ~/projects/billing && nexus claude-ddev # e.g. a persona named claude-ddev: opens session "billing"
 ```
 
@@ -138,7 +141,16 @@ figures are what `nexus top` shows, so a persona without the statusline shows it
   with that login, so after reconnecting run `nexus <persona> restart`. After a VM reboot the persona
   stays stopped until the next `nexus <persona>` if that socket is gone; `nexus <persona> start` (or a
   headless run) starts it, given an agent. An agent that outlives logins avoids both; when your shell has
-  no agent, the launcher tries `/run/user/<uid>/ssh-agent.sock` first.
+  no agent, the launcher tries `/run/user/<uid>/ssh-agent.sock` first. A persona with an ssh key of its own,
+  or with no ssh at all, is spared both: it starts without an agent. Without ssh it still commits, and you
+  pull and push from the VM in the same directory (runbook §5).
+- **An ssh key of its own is readable inside.** Anything that runs in that persona, a prompt-injected agent
+  included, can copy it. Give it a key that only does what the persona should: a deploy key on the repos it
+  works on, or a machine user's key, never your own. Removing it on the git host cuts it off (runbook §5).
+- **The ssh choices steer a persona's own ssh; they aren't a wall.** Every persona has the Docker socket
+  (next rule), so one that goes rogue can still get at your agent through a persona that has it, at your
+  `~/.ssh`, or at the other personas' keys. And a persona without ssh still pushes over https with a
+  `GH_TOKEN`. What contains an agent is the VM, so a passphrase on your own key still matters.
 - **The socket is root on the VM.** Treat the dev VM as the blast radius: snapshot before an
   unattended `--dangerously-skip-permissions` run, no production secrets on dev VMs, egress
   allowlist at the hypervisor or router level (host networking rules out an in-container firewall).
@@ -190,9 +202,9 @@ VM
 ├── projects roots, mounted at the same path inside:
 │   ├── /home/local/src    the VM's root: claude-max, grok
 │   └── /home/local/work   a root of its own: claude-team
-├── ssh-agent              its socket is mounted; no private keys inside
+├── ssh-agent              its socket is mounted into the personas that use it: your keys stay outside
 ├── ~/.ddev + mkcert CA    shared with ddev-context personas
-└── ~/agent                checkout: config.sh, nexus, .env, compose files, personas/*.env
+└── ~/agent                checkout: config.sh, nexus, .env, compose files, personas/*.env (and *.key)
 ```
 
 ### Inside one persona
@@ -205,7 +217,7 @@ agent-claude-max                        image: local/agent-claude-ddev:<version>
 │   └── api      ◄── nexus claude-max -- claude, run in /home/local/src/api
 ├── /home/dev           volume agents_claude-max-home: login, settings, history (kept across rebuilds)
 ├── /home/local/src     its projects root (same path as on the VM)
-├── /ssh-agent          your agent
+├── /ssh-agent          your agent (with a key of its own: /run/nexus/ssh-key and no agent; with none: neither)
 └── claude, apm, docker, ddev, gh   from the image, so a new image upgrades them
 ```
 
@@ -213,12 +225,14 @@ agent-claude-max                        image: local/agent-claude-ddev:<version>
 
 ```text
 bash config.sh
-  │  personas:  first run: add one (flavour, context, name, statusline, projects root; - = the VM's)
+  │  personas:  first run: add one (flavour, context, name, statusline, projects root; - = the VM's, ssh)
   │             re-run:    the list and a menu: add · change · remove · done (it asks which persona)
   │  VM:        projects root, registry, Claude Code version (a re-run asks only whether to keep them)
   │  new ones:  sign-in key/token, git identity, GH_TOKEN
   ▼
 writes .env, compose.personas.yml, personas/<name>.env    all together, or nothing
+  ▼
+makes personas/<name>.key for a persona given a new ssh key, and shows its public half to add
   ▼
 links /usr/local/bin/nexus
   ▼
@@ -233,7 +247,7 @@ cd /home/local/src/billing
 nexus claude-max -- claude
   │
   ├─ looks up the persona: flavour, context, projects root
-  ├─ container running? ── no ──► docker compose up -d (mounts the root, the socket, the ssh-agent)
+  ├─ container running? ── no ──► docker compose up -d (mounts the root, the socket, the ssh-agent or its key)
   ├─ session "billing" exists? ── yes ─► attach
   │                            └─ no ──► create it in billing/, running claude
   ▼

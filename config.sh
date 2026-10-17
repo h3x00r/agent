@@ -11,6 +11,11 @@
 #     --persona NAME:FLAVOUR:CONTEXT[:ROOT]
 #                                      add or update a persona; repeatable. ROOT: its own projects root
 #                                      (empty: the VM's; left out: an existing persona keeps its own)
+#     --ssh NAME:agent|none|new|KEY    how that persona's ssh (git over ssh) signs in: agent, your ssh-agent
+#                                      (the default); none, not at all (pull and push from the VM); new, a
+#                                      key of its own made as personas/NAME.key, to add as a deploy key (an
+#                                      existing one is kept); or KEY, the path of a private key of yours
+#                                      without a passphrase; repeatable
 #     --remove NAME                    drop a persona (its env file and home volume stay); repeatable
 #     --projects-root DIR              default: $HOME/projects
 #     --registry HOST                  local (build on this VM; the default) or host[:port][/path]
@@ -22,7 +27,8 @@
 #
 # Writes .env, compose.personas.yml and personas/<name>.env (mode 600; an existing one is kept), all
 # at once and only after `docker compose config` accepts them: a run that stops early changes nothing,
-# except the projects roots (the VM's and a persona's own), which are created as they are named.
+# except the projects roots (the VM's and a persona's own), which are created as they are named. Then
+# it makes the ssh keys asked for (personas/<name>.key) that don't exist yet.
 set -euo pipefail
 
 SELF="$(readlink -f "$0")"   # before the cd: $0 may be relative
@@ -46,13 +52,14 @@ trap 'exit 130' INT TERM HUP
 need() { [[ -n "${2-}" ]] || die "$1 needs $3 (see --help)"; }
 YES=0 LIST=0 BUILD=1 STATUSLINE="" LINK=/usr/local/bin
 OPT_ROOT="" OPT_REGISTRY="" OPT_CLAUDE=""
-ADD=() REMOVE=() LATER=()
+ADD=() SSHS=() REMOVE=() LATER=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
     -h|--help)        usage; exit 0 ;;
     --list)           LIST=1 ;;
     -y|--yes)         YES=1 ;;
     --persona)        need "$1" "${2-}" "NAME:FLAVOUR:CONTEXT[:ROOT]"; ADD+=("$2"); shift ;;
+    --ssh)            need "$1" "${2-}" "NAME:agent, NAME:none, NAME:new or NAME:KEY"; SSHS+=("$2"); shift ;;
     --remove)         need "$1" "${2-}" "a NAME"; REMOVE+=("$2"); shift ;;
     --projects-root)  need "$1" "${2-}" "a DIR"; OPT_ROOT="$2"; shift ;;
     --registry)       need "$1" "${2-}" "local or a HOST"; OPT_REGISTRY="$2"; shift ;;
@@ -93,9 +100,37 @@ check_spec() {  # check_spec NAME:FLAVOUR:CONTEXT[:ROOT]
   [[ "$c" == ddev || "$c" == docker ]] || die "--persona $1: context must be ddev or docker"
   [[ -z "$r" ]] || { norm_dir r; persona_root_ok "$r"; } || die "--persona $1: its projects root must be $ROOT_RULE"
 }
+# A persona's ssh: your ssh-agent (the default, nothing stored), none at all ("none"), or a key of its own,
+# personas/NAME.key made here or a key of yours by its absolute path. That path goes into its "# persona:"
+# line (ssh=) and, quoted, into the compose file, which expands $: hence KEY_RULE. key_path_ok NAME PATH
+# checks the path; key_problem PATH says what keeps the file from working inside (nothing if it would): ssh
+# wants it yours, private and without a passphrase.
+KEY_RULE="an absolute path (or ~/…) without spaces, ':', quotes or \$"
+key_path_ok() { [[ "$2" != *[[:space:]:\'\"\$]* && ( "$2" == /?* || "$2" == "personas/$1.key" ) ]]; }
+key_problem() {
+  local m
+  command -v ssh-keygen >/dev/null || { echo "checking it needs ssh-keygen (openssh-client) on this VM"; return; }
+  if [[ ! -f "$1" || ! -r "$1" ]]; then echo "no readable file there"
+  elif [[ "$(stat -L -c %u "$1")" != "$(id -u)" ]]; then echo "it isn't yours, and the persona runs as you (uid $(id -u))"
+  elif m="$(stat -L -c %a "$1")"; [[ ! "$m" =~ ^[0-7]00$ ]]; then echo "others can read it (mode $m), so ssh won't use it: chmod 600 it"
+  elif ! ssh-keygen -y -P "" -f "$1" >/dev/null 2>&1; then echo "it has a passphrase, or isn't a private key: nothing inside could type a passphrase"
+  fi
+}
+check_ssh_flag() {  # check_ssh_flag NAME:agent|none|new|KEY
+  local n="${1%%:*}" k="${1#*:}" why
+  if [[ "$1" != *:?* ]] || ! valid_name "$n"; then die "--ssh $1: it takes NAME:agent, NAME:none, NAME:new or NAME:/path/to/key"; fi
+  case "$k" in
+    agent|none) ;;
+    new)   command -v ssh-keygen >/dev/null || die "--ssh $1: making a key needs ssh-keygen (openssh-client) on this VM" ;;
+    *)     norm_dir k
+           key_path_ok "$n" "$k" || die "--ssh $1: the key's path must be $KEY_RULE"
+           why="$(key_problem "$k")"; [[ -z "$why" ]] || die "--ssh $1: $why" ;;
+  esac
+}
 
 # Flag values are checked before anything is asked.
 for p in "${ADD[@]}"; do check_spec "$p"; done
+for p in "${SSHS[@]}"; do check_ssh_flag "$p"; done
 if [[ -n "$OPT_ROOT" ]]; then
   norm_dir OPT_ROOT
   root_ok "$OPT_ROOT" || die "--projects-root must be an absolute directory other than /, without ':', not '$OPT_ROOT'"
@@ -207,37 +242,37 @@ env_flavour() {
 }
 
 # --- personas: kept in arrays, loaded from and written to compose.personas.yml -----------------
-P_NAME=() P_FLAVOUR=() P_CONTEXT=() P_COLOUR=() P_STATUSLINE=() P_ROOT=()   # P_ROOT: empty = the VM's
-declare -A LOADED=() STAGED=()   # name -> "flavour context statusline root" as loaded; name -> staged env file
+P_NAME=() P_FLAVOUR=() P_CONTEXT=() P_COLOUR=() P_STATUSLINE=() P_ROOT=() P_SSH=()   # empty: the VM's root, your agent
+declare -A LOADED=() STAGED=()   # name -> "flavour context statusline root ssh" as loaded; name -> staged env file
 idx() { local i; for i in "${!P_NAME[@]}"; do [[ "${P_NAME[i]}" == "$1" ]] && { echo "$i"; return 0; }; done; return 1; }
-put() {    # put NAME FLAVOUR CONTEXT COLOUR STATUSLINE [ROOT]
+put() {    # put NAME FLAVOUR CONTEXT COLOUR STATUSLINE [ROOT [SSHKEY]]
   local i; i="$(idx "$1")" || i="${#P_NAME[@]}"
-  P_NAME[i]="$1" P_FLAVOUR[i]="$2" P_CONTEXT[i]="$3" P_COLOUR[i]="$4" P_STATUSLINE[i]="$5" P_ROOT[i]="${6-}"
+  P_NAME[i]="$1" P_FLAVOUR[i]="$2" P_CONTEXT[i]="$3" P_COLOUR[i]="$4" P_STATUSLINE[i]="$5" P_ROOT[i]="${6-}" P_SSH[i]="${7-}"
 }
 drop() {
   local i; i="$(idx "$1")" || return 0
-  unset 'P_NAME[i]' 'P_FLAVOUR[i]' 'P_CONTEXT[i]' 'P_COLOUR[i]' 'P_STATUSLINE[i]' 'P_ROOT[i]'
+  unset 'P_NAME[i]' 'P_FLAVOUR[i]' 'P_CONTEXT[i]' 'P_COLOUR[i]' 'P_STATUSLINE[i]' 'P_ROOT[i]' 'P_SSH[i]'
   P_NAME=("${P_NAME[@]}") P_FLAVOUR=("${P_FLAVOUR[@]}") P_CONTEXT=("${P_CONTEXT[@]}")
-  P_COLOUR=("${P_COLOUR[@]}") P_STATUSLINE=("${P_STATUSLINE[@]}") P_ROOT=("${P_ROOT[@]}")
+  P_COLOUR=("${P_COLOUR[@]}") P_STATUSLINE=("${P_STATUSLINE[@]}") P_ROOT=("${P_ROOT[@]}") P_SSH=("${P_SSH[@]}")
 }
 load() {
   [[ -f "$PERSONAS_FILE" ]] || return 0
-  local line w kv name f c col sl r
+  local line w kv name f c col sl r k
   while read -r line; do
     read -ra w <<< "$line"
-    name="${w[0]-}" f="" c="" col="" sl="" r=""
+    name="${w[0]-}" f="" c="" col="" sl="" r="" k=""
     for kv in "${w[@]:1}"; do
       case "$kv" in
         flavour=*) f="${kv#*=}" ;; context=*) c="${kv#*=}" ;; colour=*) col="${kv#*=}" ;; statusline=*) sl="${kv#*=}" ;;
-        root=*) r="${kv#*=}" ;;
+        root=*) r="${kv#*=}" ;; ssh=*) k="${kv#*=}" ;;
       esac
     done
     if ! valid_name "$name" || ! [[ "$f" =~ ^(claude|grok)$ && "$c" =~ ^(ddev|docker)$ && "$col" =~ ^colour[0-9]+$ && "$sl" =~ ^(yes|no)$ ]] \
-       || { [[ -n "$r" ]] && ! persona_root_ok "$r"; }; then
-      die "$PERSONAS_FILE: persona '$name' has a bad line (edited by hand?): '# persona: $line'; it takes flavour=claude|grok context=ddev|docker colour=colourN statusline=yes|no [root=/dir]"
+       || { [[ -n "$r" ]] && ! persona_root_ok "$r"; } || { [[ -n "$k" && "$k" != none ]] && ! key_path_ok "$name" "$k"; }; then
+      die "$PERSONAS_FILE: persona '$name' has a bad line (edited by hand?): '# persona: $line'; it takes flavour=claude|grok context=ddev|docker colour=colourN statusline=yes|no [root=/dir] [ssh=none|/path|personas/NAME.key]"
     fi
-    put "$name" "$f" "$c" "$col" "$sl" "$r"
-    LOADED[$name]="$f $c $sl $r"
+    put "$name" "$f" "$c" "$col" "$sl" "$r" "$k"
+    LOADED[$name]="$f $c $sl $r $k"
   done < <(sed -n 's/\r$//; s/^# persona: //p' "$PERSONAS_FILE")
 }
 next_colour() {
@@ -250,10 +285,11 @@ suggest_name() {
 has() { local i; for i in "${!P_NAME[@]}"; do [[ "${P_FLAVOUR[i]} ${P_CONTEXT[i]}" == *"$1"* ]] && return 0; done; return 1; }
 list() {
   if (( ! ${#P_NAME[@]} )); then say "  (none yet)"; return; fi
-  local i r; printf '  %-31s %-8s %-8s %-10s %s\n' NAME FLAVOUR CONTEXT STATUSLINE "PROJECTS ROOT"
+  local i r; printf '  %-31s %-8s %-8s %-10s %-20s %s\n' NAME FLAVOUR CONTEXT STATUSLINE "PROJECTS ROOT" SSH
   for i in "${!P_NAME[@]}"; do
     r="${P_ROOT[i]}"; [[ -n "$r" ]] || r="the VM's"
-    printf '  %-31s %-8s %-8s %-10s %s\n' "${P_NAME[i]}" "${P_FLAVOUR[i]}" "${P_CONTEXT[i]}" "${P_STATUSLINE[i]}" "$r"
+    printf '  %-31s %-8s %-8s %-10s %-20s %s\n' "${P_NAME[i]}" "${P_FLAVOUR[i]}" "${P_CONTEXT[i]}" "${P_STATUSLINE[i]}" "$r" \
+      "${P_SSH[i]:-your agent}"
   done
 }
 
@@ -283,8 +319,36 @@ ask_root() {
     say "  $_why"; _r=-
   done
 }
+SSH_HOW=("agent    your ssh-agent, forwarded: your own keys; starting it then needs an agent in your shell"
+         "none     no ssh: it commits, and you pull and push from the VM, in the same directory"
+         "new      a key of its own, made as personas/NAME.key: add its public half as a deploy key"
+         "path     a private key you already have, without a passphrase")
+# ask_ssh VAR NAME CURRENT: how NAME's ssh signs in: "" for your ssh-agent, none, or its key's path.
+ask_ssh() {
+  local _how _k _why _def=agent
+  case "$3" in "") ;; none) _def=none ;; "personas/$2.key") _def=new ;; *) _def=path ;; esac
+  while :; do
+    choose _how "SSH (git over ssh) for $2:" "$_def" "${SSH_HOW[@]//NAME/$2}"
+    case "$_how" in
+      agent) printf -v "$1" ''; return ;;
+      none)  printf -v "$1" none; return ;;
+      new)   if command -v ssh-keygen >/dev/null; then printf -v "$1" '%s' "personas/$2.key"; return; fi
+             say "  making a key needs ssh-keygen (openssh-client) on this VM" ;;
+      *)     _k=""; [[ "$_def" != path ]] || _k="$3"
+             while :; do   # a path until one works; - goes back to the choice
+               ask _k "Path of $2's private key (-: back)" "$_k"
+               [[ -n "$_k" && "$_k" != - ]] || break
+               norm_dir _k
+               if ! key_path_ok "$2" "$_k"; then _why="the key's path must be $KEY_RULE"
+               else _why="$(key_problem "$_k")"; fi
+               if [[ -z "$_why" ]]; then printf -v "$1" '%s' "$_k"; return; fi
+               say "  $2's key: $_why"; _k=""
+             done ;;
+    esac
+  done
+}
 add_interactive() {
-  local f c n r sl=no
+  local f c n r k sl=no
   ask_flavour_context f c claude "$DEFAULT_CONTEXT"
   while :; do
     ask n "Name" "$(suggest_name "$f" "$c")"
@@ -293,15 +357,17 @@ add_interactive() {
   done
   if [[ "$f" == claude ]] && yesno "Claude Code statusline (statusline/statusline.sh) in $n?" y; then sl=yes; fi
   ask_root r "$n" ""
-  put "$n" "$f" "$c" "$(next_colour)" "$sl" "$r"
+  ask_ssh k "$n" ""
+  put "$n" "$f" "$c" "$(next_colour)" "$sl" "$r" "$k"
 }
 change_interactive() {
-  local i f c sl r; i="$(idx "$1")"
+  local i f c sl r k; i="$(idx "$1")"
   ask_flavour_context f c "${P_FLAVOUR[i]}" "${P_CONTEXT[i]}"
   sl=no
   if [[ "$f" == claude ]] && yesno "Claude Code statusline in $1?" "$([[ ${P_FLAVOUR[i]} != claude || ${P_STATUSLINE[i]} == yes ]] && echo y || echo n)"; then sl=yes; fi
   ask_root r "$1" "${P_ROOT[i]}"
-  put "$1" "$f" "$c" "${P_COLOUR[i]}" "$sl" "$r"
+  ask_ssh k "$1" "${P_SSH[i]}"
+  put "$1" "$f" "$c" "${P_COLOUR[i]}" "$sl" "$r" "$k"
 }
 # A re-run asks only about what you pick: add, change or remove one persona at a time, then done.
 persona_menu() {
@@ -310,7 +376,7 @@ persona_menu() {
     say ""; list
     choose act "What next?" "done" \
       "add      a new persona" \
-      "change   one persona's flavour, context, statusline or projects root" \
+      "change   one persona's flavour, context, statusline, projects root or ssh" \
       "remove   one persona (its env file and home volume stay)" \
       "done     go on with the rest of the setup"
     case "$act" in
@@ -346,10 +412,10 @@ adopt_interactive() {
   done
 }
 add_flag() {  # --persona NAME:FLAVOUR:CONTEXT[:ROOT], already checked
-  local n f c r i col sl=yes keep=""
+  local n f c r i col sl=yes keep="" key=""
   IFS=: read -r n f c r <<< "$1"
   if i="$(idx "$n")"; then
-    col="${P_COLOUR[i]}" keep="${P_ROOT[i]}"
+    col="${P_COLOUR[i]}" keep="${P_ROOT[i]}" key="${P_SSH[i]}"
     if [[ "${P_FLAVOUR[i]}" == claude ]]; then sl="${P_STATUSLINE[i]}"; fi   # an existing Claude persona keeps it
   else
     col="$(next_colour)"
@@ -360,24 +426,31 @@ add_flag() {  # --persona NAME:FLAVOUR:CONTEXT[:ROOT], already checked
   else
     r="$keep"
   fi
-  put "$n" "$f" "$c" "$col" "$sl" "$r"
+  put "$n" "$f" "$c" "$col" "$sl" "$r" "$key"
+}
+ssh_flag() {  # --ssh NAME:agent|none|new|KEY, already checked
+  local n="${1%%:*}" k="${1#*:}" i
+  i="$(idx "$n")" || die "--ssh $1: no persona $n (add it with --persona)"
+  case "$k" in agent) k="" ;; none) ;; new) k="personas/$n.key" ;; *) norm_dir k ;; esac
+  P_SSH[i]="$k"
 }
 
 write_personas() {  # write_personas FILE [staged]: the compose file for every persona in the arrays;
                     # "staged" points env_file at the staged env files, for the check before commit
-  local i n f c tag base env
+  local i n f c k tag base env more
   {
     say "# compose.personas.yml — written by ./config.sh; re-run it to add, change or remove personas."
     say "# config.sh and the nexus launcher read the \"# persona:\" lines back: keep them in step with"
     say "# the services below if you edit this by hand."
     for i in "${!P_NAME[@]}"; do
-      say "# persona: ${P_NAME[i]} flavour=${P_FLAVOUR[i]} context=${P_CONTEXT[i]} colour=${P_COLOUR[i]} statusline=${P_STATUSLINE[i]}${P_ROOT[i]:+ root=${P_ROOT[i]}}"
+      say "# persona: ${P_NAME[i]} flavour=${P_FLAVOUR[i]} context=${P_CONTEXT[i]} colour=${P_COLOUR[i]} statusline=${P_STATUSLINE[i]}${P_ROOT[i]:+ root=${P_ROOT[i]}}${P_SSH[i]:+ ssh=${P_SSH[i]}}"
     done
     say ""
     say "services:"
     for i in "${!P_NAME[@]}"; do
-      n="${P_NAME[i]}" f="${P_FLAVOUR[i]}" c="${P_CONTEXT[i]}"
+      n="${P_NAME[i]}" f="${P_FLAVOUR[i]}" c="${P_CONTEXT[i]}" k="${P_SSH[i]}" more=""
       env="personas/$n.env"; [[ "${2-}" != staged ]] || env="${STAGED[$n]:-$env}"
+      [[ -z "$k" ]] || more=', SSH_AUTH_SOCK: ""'   # a key of its own or none, not your agent (see below)
       base=_agent; [[ "$c" == ddev ]] && base=_agent-ddev
       # shellcheck disable=SC2016 # literal: compose expands these, not this script
       if [[ "$f" == claude ]]; then tag='${CLAUDE_TAG:-${CLAUDE_VERSION:-latest}}'; else tag='${GROK_TAG:-${GROK_VERSION:-latest}}'; fi
@@ -390,7 +463,7 @@ write_personas() {  # write_personas FILE [staged]: the compose file for every p
     build: { target: $f, args: { CONTEXT: $c } }
     container_name: agent-$n
     env_file: $env
-    environment: { AGENT_PERSONA: "$n", AGENT_COLOUR: ${P_COLOUR[i]} }
+    environment: { AGENT_PERSONA: "$n", AGENT_COLOUR: ${P_COLOUR[i]}$more }
     labels: { agent.persona: "$n", agent.flavour: $f, agent.context: $c }
     volumes:
       - $n-home:/home/dev
@@ -402,6 +475,27 @@ EOF
       # so a change to statusline/settings.json needs `nexus <persona> restart`.
       - ./statusline:/etc/claude-code/statusline:ro
       - ./statusline/settings.json:/etc/claude-code/managed-settings.d/20-statusline.json:ro
+EOF
+      fi
+      if [[ "$k" == none ]]; then
+        cat <<'EOF'
+      # No ssh: your ssh-agent isn't mounted (/dev/null takes the socket's place, SSH_AUTH_SOCK is
+      # empty), and its ssh setting makes git over ssh fail at once rather than ask for a password.
+      - ./ssh/none.conf:/etc/ssh/ssh_config.d/50-nexus-none.conf:ro
+      - { type: bind, source: /dev/null, target: /ssh-agent }
+EOF
+      elif [[ -n "$k" ]]; then
+        [[ "$k" == /* ]] || k="./$k"
+        cat <<EOF
+      # Its own ssh key, read-only, and the ssh setting that makes ssh (and git over ssh) use it. Your
+      # ssh-agent isn't mounted: /dev/null takes the socket's place, and SSH_AUTH_SOCK is empty.
+      - type: bind
+        source: '$k'
+        target: /run/nexus/ssh-key
+        read_only: true
+        bind: { create_host_path: false }
+      - ./ssh/key.conf:/etc/ssh/ssh_config.d/50-nexus-key.conf:ro
+      - { type: bind, source: /dev/null, target: /ssh-agent }
 EOF
       fi
     done
@@ -460,8 +554,8 @@ docker info >/dev/null 2>&1 \
 docker compose version >/dev/null 2>&1 || die "the docker compose plugin is missing (docker-compose-plugin)"
 rc=0; ssh-add -l >/dev/null 2>&1 || rc=$?
 case $rc in
-  1) warn "your ssh-agent holds no keys: \`ssh-add\` before starting a persona, or git over ssh fails inside" ;;
-  2) warn "no ssh-agent in this shell: starting a persona needs one (connect with ssh -A, or run one on the VM)" ;;
+  1) warn "your ssh-agent holds no keys: \`ssh-add\` before starting a persona that uses it, or git over ssh fails inside" ;;
+  2) warn "no ssh-agent in this shell: starting a persona that uses one needs it (connect with ssh -A, or run one on the VM)" ;;
 esac
 VM_DDEV="$(command -v ddev >/dev/null && ddev --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n 1 || true)"
 DEFAULT_CONTEXT=docker; [[ -n "$VM_DDEV" ]] && DEFAULT_CONTEXT=ddev
@@ -473,6 +567,7 @@ VM_ROOT_HINT="${OPT_ROOT:-$(get_kv .env PROJECTS_ROOT)}"   # for ask_root; the V
 if [[ -n "$VM_ROOT_HINT" ]]; then VM_ROOT_HINT="now $VM_ROOT_HINT"; else VM_ROOT_HINT="asked below"; fi
 for n in "${REMOVE[@]}"; do idx "$n" >/dev/null || die "--remove $n: no such persona"; drop "$n"; done
 for p in "${ADD[@]}"; do add_flag "$p"; done
+for p in "${SSHS[@]}"; do ssh_flag "$p"; done
 if (( ! YES )); then
   section "Personas"
   adopt_interactive
@@ -482,14 +577,15 @@ fi
 (( ${#P_NAME[@]} )) || warn "no personas configured; add some with ./config.sh (or --persona NAME:FLAVOUR:CONTEXT)"
 for i in "${!P_NAME[@]}"; do
   n="${P_NAME[i]}"
-  if [[ -n "${LOADED[$n]+x}" && "${LOADED[$n]}" != "${P_FLAVOUR[i]} ${P_CONTEXT[i]} ${P_STATUSLINE[i]} ${P_ROOT[i]}" ]]; then
+  if [[ -n "${LOADED[$n]+x}" && "${LOADED[$n]}" != "${P_FLAVOUR[i]} ${P_CONTEXT[i]} ${P_STATUSLINE[i]} ${P_ROOT[i]} ${P_SSH[i]}" ]]; then
     LATER+=("$n: changed; \`nexus $n restart\` applies it (that ends its tmux sessions)")
   fi
 done
 for n in "${OLD_NAMES[@]}"; do
   idx "$n" >/dev/null && continue
-  LATER+=("$n: removed. Its $AGENTS_DIR/personas/$n.env and home volume stay; to delete them:"
-          "    docker rm -f agent-$n; docker volume rm agents_$n-home; rm $(printf %q "$AGENTS_DIR/personas/$n.env")")
+  what="env file"; [[ ! -e "personas/$n.key" ]] || what+=", ssh key"
+  LATER+=("$n: removed. Its $what and home volume stay; to delete them:"
+          "    docker rm -f agent-$n; docker volume rm agents_$n-home; rm -f $(printf '%q ' "$AGENTS_DIR/personas/$n".{env,key,key.pub})")
 done
 
 # --- per-VM settings: .env -------------------------------------------------------------------
@@ -661,6 +757,23 @@ elif [[ -f "$PERSONAS_FILE" ]]; then
 fi
 trap 'exit 130' INT TERM HUP
 # From here on a failure is a line in the summary, not the end of the run.
+
+# --- ssh keys made for personas: only those not there yet, so a key added somewhere stays valid ------
+for i in "${!P_NAME[@]}"; do
+  n="${P_NAME[i]}" k="${P_SSH[i]}"
+  [[ "$k" == "personas/$n.key" && ! -e "$k" ]] || continue
+  if ssh-keygen -q -t ed25519 -N "" -C "$n@${HOSTNAME%%.*} (nexus)" -f "$k" </dev/null && [[ -f "$k.pub" ]]; then
+    say "-- made $k, the ssh key of $n"
+    then="then git over ssh works inside"
+    # An existing persona's container may run, with the key it started with mounted until it is recreated.
+    [[ -z "${LOADED[$n]+x}" ]] || then="then \`nexus $n restart\` (a running one keeps its old key until then)"
+    LATER+=("$n: add its public key on your git host, as a deploy key (a repo's settings; write access to push)"
+            "    or to a machine user's account, $then:"
+            "    $(cat "$k.pub")")
+  else
+    LATER+=("$n: making its ssh key failed (see above); retry with: ssh-keygen -t ed25519 -N '' -f $(printf %q "$AGENTS_DIR/$k")")
+  fi
+done
 
 # --- the launcher on PATH --------------------------------------------------------------------
 SUDO_OPTS=(); (( YES )) && SUDO_OPTS=(-n)   # --yes never waits for a password

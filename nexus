@@ -111,18 +111,19 @@ declare -A CLI_NEWEST=([claude]="https://downloads.claude.ai/claude-code-release
 # Every persona set up here and its state, with the tmux sessions of the running ones; then any persona
 # container this checkout started that no persona has any more (compose labels each with its directory).
 cmd_ls_all() {
-  local name rest c st fl cx
+  local name rest c st fl cx how
   local -A known=()
   [[ -f "$PERSONAS_FILE" ]] || die "no personas set up yet: run $AGENTS_DIR/config.sh"
   while read -r name rest; do
     c="agent-$name"; known[$c]=1
     fl="${rest#*flavour=}"; fl="${fl%% *}"; cx="${rest#*context=}"; cx="${cx%% *}"
+    case " $rest " in *" ssh=none "*) how=", no ssh" ;; *" ssh="*) how=", own ssh key" ;; *) how="" ;; esac
     st="$(docker inspect -f '{{.State.Status}}{{if .State.Health}} ({{.State.Health.Status}}){{end}}' "$c" 2>/dev/null || true)"
     case "$st" in
       "")       st="not started yet: \`nexus $name\` starts it" ;;
       exited*)  st="stopped: \`nexus $name\` starts it" ;;
     esac
-    echo "== $name  ($fl, $cx)  $st"
+    echo "== $name  ($fl, $cx$how)  $st"
     [[ "$st" == running* ]] || continue
     docker exec "$c" tmux list-sessions \
       -F '   #{session_name}  #{session_windows}w  #{?session_attached,attached,detached}  #{pane_current_path}' 2>/dev/null \
@@ -422,7 +423,7 @@ up_restore() {
   done
 }
 cmd_upgrade() {
-  local want="" yes=0 a
+  local want="" yes=0 a need
   for a in "$@"; do
     case "$a" in
       -y|--yes) yes=1 ;;
@@ -455,10 +456,11 @@ cmd_upgrade() {
   # (via its first persona). What they and their image names run now:
   local name rest ctx id r was=""
   local -a peers=() builders=() olds=()
-  local -A seen=() ref_new=() id_new=()
+  local -A seen=() ref_new=() id_new=() own=()
   while read -r _ _ name rest; do
     [[ " $rest " == *" flavour=$flavour "* ]] || continue
     peers+=("$name")
+    [[ " $rest" != *" ssh="* ]] || own[$name]=1   # an ssh key of its own, or none: starts without your agent
     ctx="${rest#*context=}"; ctx="${ctx%% *}"
     if [[ -z "${seen[${ctx:-none}]:-}" ]]; then seen[${ctx:-none}]=1; builders+=("$name"); fi
   done < <(grep '^# persona: ' "$PERSONAS_FILE")
@@ -531,9 +533,10 @@ cmd_upgrade() {
       a="$(docker exec "agent-$name" tmux list-sessions -F '#{session_name}' 2>/dev/null | grep -vx main | paste -sd ' ' - || true)"
       echo "  $name${a:+  (sessions: $a)}"
     done
-    a=y
-    if [[ ! -S "${SSH_AUTH_SOCK:-}" ]]; then
-      echo "nexus: but recreating needs an ssh-agent, and this shell has none"; a=n
+    a=y need=""
+    for name in "${run[@]}"; do [[ -n "${own[$name]:-}" ]] || need="${need:+$need }$name"; done
+    if [[ -n "$need" && ! -S "${SSH_AUTH_SOCK:-}" ]]; then
+      echo "nexus: but recreating $need needs an ssh-agent, and this shell has none"; a=n
     elif (( ! yes )); then
       a=n
       if [[ -t 0 ]]; then read -r -p "Recreate them now? [y/N] " a || a=n; fi
@@ -607,15 +610,26 @@ if [[ "$meta" == *" context=ddev "* ]]; then
     export AGENT_CA_CERTS=""; no_ca=1
   fi
 fi
+# ssh= in its "# persona:" line (set by config.sh): instead of your agent, an ssh key of its own (its path)
+# or no ssh at all (none). Its compose service puts /dev/null where the agent's socket would be, so
+# compose.yml's required SSH_AUTH_SOCK only needs a value here.
+own_ssh="$(meta_get ssh)" key=""
+if [[ -n "$own_ssh" ]]; then
+  if [[ "$own_ssh" != none ]]; then key="$own_ssh"; [[ "$key" == /* ]] || key="$AGENTS_DIR/$key"; fi
+  export SSH_AUTH_SOCK="${SSH_AUTH_SOCK:-/dev/null}"
+fi
 (( upgrade )) && { cmd_upgrade "${up_args[@]}"; exit 0; }
 
 # (Re)create the persona container if asked or if it isn't running. Its ssh-agent socket path is
 # fixed at creation, for the container's whole life (a new path makes compose recreate it).
 if (( restart )) || ! running; then
+  # A missing key would become a root-owned directory (Docker); a running persona has its key mounted already.
+  [[ -z "$key" || ( -f "$key" && -r "$key" ) ]] \
+    || die "$persona's ssh key $key isn't there; config.sh makes one (SSH: new), or points it at another, none or your agent"
   if (( no_ca )); then
     warn "no mkcert CA on this VM yet — run 'mkcert -install' here, then \`nexus $persona restart\`, or https://*.ddev.site stays untrusted inside"
   fi
-  if [[ -S "$SSH_AUTH_SOCK" ]] && command -v ssh-add >/dev/null; then
+  if [[ -z "$own_ssh" && -S "$SSH_AUTH_SOCK" ]] && command -v ssh-add >/dev/null; then
     rc=0; ssh-add -l >/dev/null 2>&1 || rc=$?
     case $rc in
       1) warn "the ssh-agent at $SSH_AUTH_SOCK holds no keys (ssh-add -l); git over ssh will fail inside" ;;
