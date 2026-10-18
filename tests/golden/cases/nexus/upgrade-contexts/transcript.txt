@@ -1,0 +1,9 @@
+## run 1: nexus d1 upgrade 2.1.400 -y  [pipe]
+rc: 0
+--- stdout
+nexus: claude for c1 d1 c2: latest -> 2.1.400
+nexus: CLAUDE_VERSION=2.1.400 in <A>/.env; 2.1.400 (Claude Code) in: local/agent-claude-docker:2.1.400 local/agent-claude-ddev:2.1.400 
+nexus: done; c1 d1 c2 run 2.1.400 (Claude Code)
+--- stderr
+ c1 Built  done
+ d1 Built  done

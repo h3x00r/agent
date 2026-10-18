@@ -1,0 +1,15 @@
+## run 1: nexus c1 upgrade 2.1.400 -y  [pipe]
+rc: 0
+--- stdout
+nexus: claude for c1 c2 c3: 2.1.300 (Claude Code) -> 2.1.400
+nexus: CLAUDE_VERSION=2.1.400 in <A>/.env; 2.1.400 (Claude Code) in: local/agent-claude-docker:2.1.400 
+nexus: removed the stopped agent-c3; its next start uses the new image
+nexus: still on the old image, so recreating ends their tmux sessions (and the claude in them):
+  c1
+  c2
+nexus: but recreating c1 needs an ssh-agent, and this shell has none
+nexus: removed the old image: local/agent-claude-docker:latest cccccccccccc
+nexus: kept the old image (a container still uses it): dddddddddddd
+nexus: not recreated: c1 c2. When they're idle, `nexus c1 upgrade 2.1.400` recreates them and removes the old image
+--- stderr
+ c1 Built  done

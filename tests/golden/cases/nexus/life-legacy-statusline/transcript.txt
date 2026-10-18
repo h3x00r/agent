@@ -1,0 +1,36 @@
+## run 1: nexus c1 start  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: <A>/compose.personas.yml is from before statusline/ was split into claude/ and grok/: re-run <A>/config-tools (--yes keeps every setting), then start c1 again
+## run 2: nexus c1 restart  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: <A>/compose.personas.yml is from before statusline/ was split into claude/ and grok/: re-run <A>/config-tools (--yes keeps every setting), then start c1 again
+## run 3: nexus g1 start  (running)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+(empty)
+## run 4: nexus g1  (running)  [pipe]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s projects -c <P>]
+--- stderr
+nexus: warning: <A>/compose.personas.yml is from before a split (statusline/, or the Claude settings): re-run <A>/config-tools --yes, then nexus g1 restart
+## run 5: nexus g1 headless 'nxt say hi'  (running)  [pipe]
+rc: 0
+--- stdout
+FAKE-REPLY
+--- stderr
+(empty)
+## run 6: nexus g1 restart  (running)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: <A>/compose.personas.yml is from before statusline/ was split into claude/ and grok/: re-run <A>/config-tools (--yes keeps every setting), then start g1 again

@@ -1,0 +1,16 @@
+## run 1: nexus c2 upgrade 2.1.400 -y  (from the peer with its own key)  [pipe]
+rc: 0
+--- stdout
+nexus: claude for c1 c2: 2.1.300 (Claude Code) -> 2.1.400
+nexus: CLAUDE_VERSION=2.1.400 in <A>/.env; 2.1.400 (Claude Code) in: local/agent-claude-docker:2.1.400 
+nexus: still on the old image, so recreating ends their tmux sessions (and the claude in them):
+  c1  (sessions: billing)
+  c2
+nexus: removed the old image: local/agent-claude-docker:latest
+nexus: done; c1 c2 run 2.1.400 (Claude Code)
+--- stderr
+ c1 Built  done
+ Container agent-c1  Recreated
+nexus: c1: Claude defaults from personas/claude.json: model, modelSettings.opus.effortLevel, outputStyle, teammateMode, theme, tui, worktree.baseRef
+ Container agent-c2  Recreated
+nexus: c2: Claude defaults from personas/claude.json: model, modelSettings.opus.effortLevel, outputStyle, teammateMode, theme, tui, worktree.baseRef

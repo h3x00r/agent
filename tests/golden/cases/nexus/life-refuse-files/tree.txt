@@ -1,0 +1,2 @@
+- a/personas/claude.managed.json
+- a/personas/g1.key

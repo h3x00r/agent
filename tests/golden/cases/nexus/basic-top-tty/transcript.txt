@@ -1,0 +1,51 @@
+## run 1: nexus top --once  [tty-all]
+rc: 0
+--- stdout
+\e[1mnexus top\e[0m  <HOST>  <HH:MM:SS>
+
+\e[90mPERSONA  STATE       CPU     MEM  PANES\e[0m
+\e[1mc1\e[0m       \e[32mhealthy\e[0m   0.50%  120MiB  2 claude
+\e[1mg1\e[0m       \e[33mstarting\e[0m  0.50%  120MiB  \e[90mno grok running\e[0m
+
+\e[90mPERSONA  SESSION  MODEL      CONTEXT   5H   7D   COST  SEEN\e[0m
+c1       billing  Opus 5.5  \e[31m38k/200k\e[0m  \e[33m55%\e[0m  \e[32m10%\e[0m  $1.23    3d
+c1       café     Opus é    \e[32m38k/200k\e[0m  \e[33m50%\e[0m  \e[33m79%\e[0m  $1.23    3d
+
+\e[90mCONTEXT used/size; 5H, 7D: the plan's limits used; COST: the session's, at API prices\e[0m
+\e[90mSEEN: since the CLI last drew its statusline, which it does as the session works\e[0m
+--- stderr
+(empty)
+## run 2: NO_COLOR=1 nexus top --once  [tty-all]
+rc: 0
+--- stdout
+nexus top  <HOST>  <HH:MM:SS>
+
+PERSONA  STATE       CPU     MEM  PANES
+c1       healthy   0.50%  120MiB  2 claude
+g1       starting  0.50%  120MiB  no grok running
+
+PERSONA  SESSION  MODEL      CONTEXT   5H   7D   COST  SEEN
+c1       billing  Opus 5.5  38k/200k  55%  10%  $1.23    3d
+c1       café     Opus é    38k/200k  50%  79%  $1.23    3d
+
+CONTEXT used/size; 5H, 7D: the plan's limits used; COST: the session's, at API prices
+SEEN: since the CLI last drew its statusline, which it does as the session works
+--- stderr
+(empty)
+## run 3: LC_ALL=C nexus top --once  [tty-all]
+rc: 0
+--- stdout
+\e[1mnexus top\e[0m  <HOST>  <HH:MM:SS>
+
+\e[90mPERSONA  STATE       CPU     MEM  PANES\e[0m
+\e[1mc1\e[0m       \e[32mhealthy\e[0m   0.50%  120MiB  2 claude
+\e[1mg1\e[0m       \e[33mstarting\e[0m  0.50%  120MiB  \e[90mno grok running\e[0m
+
+\e[90mPERSONA  SESSION  MODEL      CONTEXT   5H   7D   COST  SEEN\e[0m
+c1       billing  Opus 5.5  \e[31m38k/200k\e[0m  \e[33m55%\e[0m  \e[32m10%\e[0m  $1.23    3d
+c1       café    Opus é   \e[32m38k/200k\e[0m  \e[33m50%\e[0m  \e[33m79%\e[0m  $1.23    3d
+
+\e[90mCONTEXT used/size; 5H, 7D: the plan's limits used; COST: the session's, at API prices\e[0m
+\e[90mSEEN: since the CLI last drew its statusline, which it does as the session works\e[0m
+--- stderr
+(empty)

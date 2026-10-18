@@ -1,0 +1,78 @@
+## run 1: config --yes --no-link --no-build --persona c1  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --persona c1: flavour must be claude or grok
+## run 2: config --yes --no-link --no-build --persona c1:claude  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --persona c1:claude: context must be ddev or docker
+## run 3: config --yes --no-link --no-build --persona c1:claude:  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --persona c1:claude:: context must be ddev or docker
+## run 4: config --yes --no-link --no-build --persona c1:Claude:docker  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --persona c1:Claude:docker: flavour must be claude or grok
+## run 5: config --yes --no-link --no-build --persona c1:gpt:docker  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --persona c1:gpt:docker: flavour must be claude or grok
+## run 6: config --yes --no-link --no-build --persona c1:claude:k8s  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --persona c1:claude:k8s: context must be ddev or docker
+## run 7: config --yes --no-link --no-build --persona c1:grok:ddev:rel/dir  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --persona c1:grok:ddev:rel/dir: its projects root must be an absolute directory other than /, without ':' or spaces
+## run 8: config --yes --no-link --no-build --persona c1:claude:docker:/  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --persona c1:claude:docker:/: its projects root must be an absolute directory other than /, without ':' or spaces
+## run 9: config --yes --no-link --no-build --persona c1:claude:docker://  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --persona c1:claude:docker://: its projects root must be an absolute directory other than /, without ':' or spaces
+## run 10: config --yes --no-link --no-build --persona c1:claude:docker:/a:b  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --persona c1:claude:docker:/a:b: its projects root must be an absolute directory other than /, without ':' or spaces
+## run 11: config --yes --no-link --no-build --persona c1:claude:docker:/a b  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --persona c1:claude:docker:/a b: its projects root must be an absolute directory other than /, without ':' or spaces
+## run 12: config --yes --no-link --no-build --persona c1:claude:docker:<S>/x::  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --persona c1:claude:docker:<S>/x::: its projects root must be an absolute directory other than /, without ':' or spaces
+## run 13: config --yes --no-link --no-build --persona c1:claude:docker:::  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --persona c1:claude:docker:::: its projects root must be an absolute directory other than /, without ':' or spaces

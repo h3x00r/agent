@@ -1,0 +1,41 @@
+## run 1: nexus ls  [pipe]
+rc: 0
+--- stdout
+PERSONA  FLAVOUR  CONTEXT  SSH    STATE        PROJECTS ROOT
+c1       claude   docker   agent  running      <P>
+c2       claude   docker   agent  unhealthy    <P>
+c3       claude   docker   agent  starting     <P>
+c4       claude   docker   agent  restarting   <P>
+c5       claude   docker   agent  paused       <P>
+c6       claude   docker   agent  stopped      <P>
+c7       claude   docker   agent  stopped      <P>
+c8       claude   docker   agent  stopped      <P>
+g1       grok     docker   none   not started  <P>
+
+PERSONA  SESSION  WINDOWS  ATTACHED  DIR
+c1       main           1  no        <P>
+c2       main           1  no        <P>
+c3       main           1  no        <P>
+
+nexus <persona> starts one that isn't running
+--- stderr
+(empty)
+## run 2: nexus c3 ls  [pipe]
+rc: 0
+--- stdout
+SESSION  WINDOWS  ATTACHED  DIR
+main           1  no        <P>
+--- stderr
+(empty)
+## run 3: nexus c4 ls  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: c4 isn't running; start it with: nexus c4
+## run 4: nexus c5 ls  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: c5 isn't running; start it with: nexus c5

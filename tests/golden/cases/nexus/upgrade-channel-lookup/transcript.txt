@@ -1,0 +1,48 @@
+## run 1: nexus c1 upgrade  (the default channel, latest)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: can't look up the newest claude at https://downloads.claude.ai/claude-code-releases/latest
+## run 2: nexus c1 upgrade stable -y  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: can't look up the newest claude at https://downloads.claude.ai/claude-code-releases/stable
+## run 3: nexus c1 upgrade -y  (no version: the default channel)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: can't look up the newest claude at https://downloads.claude.ai/claude-code-releases/latest
+## run 4: nexus c1 upgrade v  (v alone: no version, so the default channel)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: can't look up the newest claude at https://downloads.claude.ai/claude-code-releases/latest
+## run 5: nexus c1 upgrade ''  (an empty argument: the same)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: can't look up the newest claude at https://downloads.claude.ai/claude-code-releases/latest
+## run 6: nexus c1 upgrade '' stable  (an empty one doesn't count as one)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: can't look up the newest claude at https://downloads.claude.ai/claude-code-releases/stable
+## run 7: nexus g1 upgrade  (grok's default channel, stable)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: can't look up the newest grok at https://x.ai/cli/stable
+## run 8: nexus g1 upgrade alpha  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: can't look up the newest grok at https://x.ai/cli/alpha

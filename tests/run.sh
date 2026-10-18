@@ -7,10 +7,14 @@
 #   tests/run.sh --image REF      the Claude persona image to run the test personas on (default: the
 #                                 newest agent-claude-docker image here, else agent-claude-ddev)
 #   tests/run.sh --keep           leave the scratch dir, containers, volumes and tags, for a look after
+#   tests/run.sh --strict         a skipped check fails the run too: what a change must pass before it goes in
 #
 # Stages:
-#   lint       bash -n; shellcheck and hadolint, where installed or their images are here (never pulled);
-#              the secret scan CI runs (tests/secrets.sh), where its gitleaks image is here
+#   lint       bash -n; python3 parses every .py as Python 3.8; shellcheck and hadolint, where installed or
+#              their images are here (never pulled); the secret scan CI runs (tests/secrets.sh), where its
+#              gitleaks image is here
+#   goldens    tests/golden: what the tools print, call and write in scenarios this suite doesn't drive
+#              (questions on a terminal, upgrade, top), against fakes; compared with the recorded cases
 #   config.sh  --yes: refused names, specs and ssh keys, a setup, --list, --remove, kept env files and keys
 #   nexus      before any persona runs: usage, errors, ls, top, upgrade's argument checks
 #   personas   a Claude persona against a stand-in Messages API (tests/fake-api.py, in a container of
@@ -34,12 +38,13 @@ set -uo pipefail     # no -e: a failed check is counted, and the run goes on
 shopt -s lastpipe    # in `producer | t nexus …`, t runs in this shell, so RC, OUT and ERR stay set
 
 REPO="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
-IMAGE="" KEEP=0 CONTAINERS=1
+IMAGE="" KEEP=0 CONTAINERS=1 STRICT=0
 while (( $# )); do
   case "$1" in
     --image)         [[ -n "${2-}" ]] || { echo "tests: --image needs an image" >&2; exit 2; }; IMAGE="$2"; shift ;;
     --no-containers) CONTAINERS=0 ;;
     --keep)          KEEP=1 ;;
+    --strict)        STRICT=1 ;;
     -h|--help)       awk 'NR > 1 && !/^#/ { exit } NR > 1 { sub(/^# ?/, ""); print }' "$0"; exit 0 ;;
     *)               echo "tests: unknown option '$1' (see --help)" >&2; exit 2 ;;
   esac
@@ -57,7 +62,7 @@ summary() {
   printf '\n%d passed, %d failed, %d skipped\n' "$PASS" "${#FAILS[@]}" "${#SKIPS[@]}"
   for f in "${FAILS[@]}"; do printf '  FAIL  %s\n' "$f"; done
   for f in "${SKIPS[@]}"; do printf '  skip  %s\n' "$f"; done
-  exit $(( ${#FAILS[@]} ? 1 : 0 ))
+  exit $(( (${#FAILS[@]} || (STRICT && ${#SKIPS[@]})) ? 1 : 0 ))
 }
 
 # t CMD…: run CMD, with its exit code, stdout and stderr in RC, OUT and ERR (carriage returns dropped).
@@ -136,9 +141,13 @@ for f in nexus config.sh entrypoint.sh statusline/claude/statusline.sh statuslin
   if out="$(bash -n "$REPO/$f" 2>&1)"; then ok "bash -n $f"; else fail "bash -n $f" "$out"; fi
 done
 if out="$(sh -n "$REPO/tests/fake-grok" 2>&1)"; then ok "sh -n tests/fake-grok"; else fail "sh -n tests/fake-grok" "$out"; fi
+# Every .py, as Python 3.8 (the oldest the tools run on) reads it. Parsed, never compiled: no __pycache__.
 if command -v python3 >/dev/null; then
-  if out="$(python3 -c 'import ast, sys; ast.parse(open(sys.argv[1]).read(), sys.argv[1])' "$REPO/tests/fake-api.py" 2>&1)"
-  then ok "python3 parses tests/fake-api.py"; else fail "python3 parses tests/fake-api.py" "$out"; fi
+  while IFS= read -r -d '' f; do
+    if out="$(python3 -I -c 'import ast, sys; ast.parse(open(sys.argv[1], "rb").read(), sys.argv[1], feature_version=(3, 8))' \
+                "$REPO/$f" 2>&1)"
+    then ok "python3 parses $f"; else fail "python3 parses $f" "$out"; fi
+  done < <(git -C "$REPO" ls-files -z --cached --others --exclude-standard '*.py')
 fi
 
 docker_ok=0
@@ -182,6 +191,13 @@ if (( ! docker_ok )); then
   summary
 fi
 if ! command -v ssh-keygen >/dev/null; then skip "config.sh, nexus, personas: no ssh-keygen (openssh-client) here"; summary; fi
+
+# --- goldens ---------------------------------------------------------------------------------------
+stage "goldens"
+for tool in config nexus; do
+  if out="$(python3 -I -B "$A/tests/golden/golden.py" verify --tree "$A" --tool "$tool" 2>&1)"
+  then ok "goldens: $tool, as recorded ($(tail -n 1 <<< "$out"))"; else fail "goldens: $tool, as recorded" "$(grep -v '^ok ' <<< "$out")"; fi
+done
 
 # --- config.sh -------------------------------------------------------------------------------------
 stage "config.sh --yes"
@@ -329,6 +345,16 @@ mv "$T/claude.managed.json" "$A/personas/claude.managed.json"
 t cfg --yes --no-link --no-build </dev/null
 check "  and with it back: it is mounted again, and the persona is told to restart for it" \
       'rc 0 && grep -qF "./personas/claude.managed.json," "$P" && out_has "$PC: it gets personas/claude.managed.json as managed settings now"'
+# The lock config.sh and `nexus <persona> upgrade` share, held as another run would hold it (flock(1), the
+# same flock(2) lock the tools take); it stays held into the next stage, for upgrade's check.
+LOCK="$A/config.sh"
+( exec 9<"$LOCK"; flock -n 9 && exec sleep 60 ) &
+H=$!; BG+=("$H")
+wait_for 5 '! flock -n "$LOCK" true'
+t cfg --yes --no-link --no-build </dev/null
+check "with the lock held (another setup or an upgrade running): refused" 'rc 1 && err_has "is running in $A"'
+t cfg --list </dev/null
+check "  --list takes no lock" 'rc 0 && out_re "^  $PC "'
 
 # --- nexus, nothing started ------------------------------------------------------------------------
 stage "nexus, before any persona runs"
@@ -348,6 +374,9 @@ check "ls: a table of every persona, not started; the removed one gone" \
        && out_has "nexus <persona> starts one" && ! out_has "$PX" && ! out_has "SESSION"'
 hdr="$(grep -E '^PERSONA +FLAVOUR' <<< "$OUT")" row="$(grep -E "^$PC " <<< "$OUT")"; x="${hdr%%STATE*}"
 check "  its columns line up under their headers" '[[ ${row:${#x}:11} == "not started" && ${row:${#x}-1:1} == " " ]]'
+mkdir -p "$T/bin" && ln -s "$A/nexus" "$T/bin/nexus"
+t env "${NX_ENV[@]}" "$T/bin/nexus" ls </dev/null
+check "  through a symlink, as /usr/local/bin/nexus: it finds its checkout" 'rc 0 && out_re "^$PC +claude +docker "'
 t nx top --once </dev/null
 check "top --once: a table of every persona, not started" \
       'rc 0 && out_has "nexus top" && out_re "^PERSONA +STATE +CPU +MEM +PANES$" && out_re "^$PC +not started +- +- +-$" \
@@ -356,6 +385,10 @@ t nx top -n 0 </dev/null
 check "top: -n takes whole seconds" 'rc 1 && err_has "whole seconds"'
 t nx top --bogus </dev/null
 check "top: an unknown argument" 'rc 1 && err_has "unknown argument"'
+t nx "$PC" upgrade 9.9.9 -y </dev/null
+check "upgrade with the lock held: refused, the pin as it was" \
+      'rc 1 && err_has "another upgrade is running" && ! grep -q "^CLAUDE_VERSION=9.9.9" "$A/.env"'
+kill "$H" 2>/dev/null; wait "$H" 2>/dev/null
 t nx "$PC" upgrade 1.2 </dev/null
 check "upgrade: neither a version nor a channel" 'rc 1 && err_has "neither a version"'
 t nx "$PC" upgrade -x </dev/null

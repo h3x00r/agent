@@ -1,0 +1,144 @@
+## run 1: grep ^# persona:  compose.personas.yml  [pipe, cwd a]
+rc: 0
+--- stdout
+# persona: c1 flavour=claude context=docker colour=colour25 statusline=yes root=<S>/own ssh=none
+# persona: g1 flavour=grok context=docker colour=colour28 statusline=yes
+--- stderr
+(empty)
+## run 2: config --yes --no-link --no-build --persona c1:grok:docker:<S>/own --persona c1:claude:docker  [pipe]
+rc: 0
+--- stdout
+config-tools: setting up <A>
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        <S>/own none
+  g1                              grok     docker   yes        the VM's             your agent
+
+Start one from a project directory:  cd <S>/own/<project> && nexus c1
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run config-tools after the build to check it
+## run 3: grep ^# persona:  compose.personas.yml  [pipe, cwd a]
+rc: 0
+--- stdout
+# persona: c1 flavour=claude context=docker colour=colour25 statusline=yes root=<S>/own ssh=none
+# persona: g1 flavour=grok context=docker colour=colour28 statusline=yes
+--- stderr
+(empty)
+## run 4: config --yes --no-link --no-build --persona c1:claude:docker:<S>/own2/  [pipe]
+rc: 0
+--- stdout
+config-tools: setting up <A>
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        <S>/own2 none
+  g1                              grok     docker   yes        the VM's             your agent
+
+Start one from a project directory:  cd <S>/own2/<project> && nexus c1
+c1: changed; `nexus c1 restart` applies it (that ends its tmux sessions)
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run config-tools after the build to check it
+## run 5: grep ^# persona:  compose.personas.yml  [pipe, cwd a]
+rc: 0
+--- stdout
+# persona: c1 flavour=claude context=docker colour=colour25 statusline=yes root=<S>/own2 ssh=none
+# persona: g1 flavour=grok context=docker colour=colour28 statusline=yes
+--- stderr
+(empty)
+## run 6: config --yes --no-link --no-build --persona c1:claude:docker:  [pipe]
+rc: 0
+--- stdout
+config-tools: setting up <A>
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             none
+  g1                              grok     docker   yes        the VM's             your agent
+
+Start one from a project directory:  cd <P>/<project> && nexus c1
+c1: changed; `nexus c1 restart` applies it (that ends its tmux sessions)
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run config-tools after the build to check it
+## run 7: grep ^# persona:  compose.personas.yml  [pipe, cwd a]
+rc: 0
+--- stdout
+# persona: c1 flavour=claude context=docker colour=colour25 statusline=yes ssh=none
+# persona: g1 flavour=grok context=docker colour=colour28 statusline=yes
+--- stderr
+(empty)
+## run 8: config --yes --no-link --no-build --persona c1:claude:docker:<S>/own3:  [pipe]
+rc: 0
+--- stdout
+config-tools: setting up <A>
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        <S>/own3 none
+  g1                              grok     docker   yes        the VM's             your agent
+
+Start one from a project directory:  cd <S>/own3/<project> && nexus c1
+c1: changed; `nexus c1 restart` applies it (that ends its tmux sessions)
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run config-tools after the build to check it
+## run 9: grep ^# persona:  compose.personas.yml  [pipe, cwd a]
+rc: 0
+--- stdout
+# persona: c1 flavour=claude context=docker colour=colour25 statusline=yes root=<S>/own3 ssh=none
+# persona: g1 flavour=grok context=docker colour=colour28 statusline=yes
+--- stderr
+(empty)
+## run 10: config --yes --no-link --no-build --persona c1:claude:docker::  [pipe]
+rc: 0
+--- stdout
+config-tools: setting up <A>
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             none
+  g1                              grok     docker   yes        the VM's             your agent
+
+Start one from a project directory:  cd <P>/<project> && nexus c1
+c1: changed; `nexus c1 restart` applies it (that ends its tmux sessions)
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run config-tools after the build to check it
+## run 11: grep ^# persona:  compose.personas.yml  [pipe, cwd a]
+rc: 0
+--- stdout
+# persona: c1 flavour=claude context=docker colour=colour25 statusline=yes ssh=none
+# persona: g1 flavour=grok context=docker colour=colour28 statusline=yes
+--- stderr
+(empty)
+## run 12: config --yes --no-link --no-build --persona c1:claude:docker:~/own4 --ssh c1:agent  [pipe]
+rc: 0
+--- stdout
+config-tools: setting up <A>
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        <HOME>/own4 your agent
+  g1                              grok     docker   yes        the VM's             your agent
+
+Start one from a project directory:  cd <HOME>/own4/<project> && nexus c1
+c1: changed; `nexus c1 restart` applies it (that ends its tmux sessions)
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run config-tools after the build to check it
+## run 13: grep ^# persona:  compose.personas.yml  [pipe, cwd a]
+rc: 0
+--- stdout
+# persona: c1 flavour=claude context=docker colour=colour25 statusline=yes root=<HOME>/own4
+# persona: g1 flavour=grok context=docker colour=colour28 statusline=yes
+--- stderr
+(empty)

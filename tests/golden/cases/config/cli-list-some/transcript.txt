@@ -1,0 +1,8 @@
+## run 1: config --list  [pipe]
+rc: 0
+--- stdout
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  g1                              grok     docker   yes        the VM's             personas/g1.key
+--- stderr
+(empty)

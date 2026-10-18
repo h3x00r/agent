@@ -1,0 +1,122 @@
++ a/compose.personas.yml.bak  f 644
+    | # compose.personas.yml — written by ./config-tools; re-run it to add, change or remove personas.
+    | # config-tools and the nexus launcher read the "# persona:" lines back: keep them in step with
+    | # the services below if you edit this by hand.
+    | # persona: c1 flavour=grok context=docker colour=colour25 statusline=yes
+    | 
+    | services:
+    | 
+    |   "c1":
+    |     extends: { file: compose.yml, service: _agent }
+    |     profiles: ["c1", "all"]
+    |     image: ${REGISTRY:-local}/agent-grok-docker:${GROK_TAG:-${GROK_VERSION:-latest}}
+    |     build: { target: grok, args: { CONTEXT: docker } }
+    |     container_name: agent-c1
+    |     env_file: personas/c1.env
+    |     environment: { AGENT_PERSONA: "c1", AGENT_COLOUR: colour25 }
+    |     labels: { agent.persona: "c1", agent.flavour: grok, agent.context: docker }
+    |     volumes:
+    |       - c1-home:/home/dev
+    |       # grok's statusline: the script's directory, so edits and pulls show up live.
+    |       - ./statusline/grok:/etc/grok/statusline:ro
+    |       # grok's managed config, written by config-tools: personas/grok.toml, then the statusline's
+    |       # [ui.status_line] with the statusline on. A key in the persona's ~/.grok/config.toml wins.
+    |       - { type: bind, source: ./personas/c1.grok.toml, target: /etc/grok/managed_config.toml, read_only: true, bind: { create_host_path: false } }
+    | 
+    | volumes:
+    |   "c1-home":
++ a/personas/c1.env.bak  f 600
+    | # personas/<name>.env for a Claude persona. ./config-tools writes it from this template; by hand: copy
+    | # it, chmod 600, never commit. Comments stay on their own lines: an inline one after an empty value
+    | # becomes the value.
+    | 
+    | # Auth: uncomment ONE of these, or neither and log in inside the persona (`claude`, then follow the
+    | # login; it is kept in the persona's home volume). If both are set, the API key wins.
+    | # An API key (Console / API billing):
+    | # ANTHROPIC_API_KEY=
+    | # Or a long-lived subscription token (Pro/Max/Team/Enterprise plan), generated once with `claude setup-token`:
+    | # CLAUDE_CODE_OAUTH_TOKEN=
+    | 
+    | # Commits made by this persona carry this identity.
+    | GIT_AUTHOR_NAME=Test User
+    | GIT_AUTHOR_EMAIL=test@example.invalid
+    | GIT_COMMITTER_NAME=Test User
+    | GIT_COMMITTER_EMAIL=test@example.invalid
+    | 
+    | # Optional.
+    | # gh CLI (PRs, issues) and APM (private GitHub packages) as this persona's account:
+    | # GH_TOKEN=
+    | # Context ddev: never block an unattended run on a ddev prompt:
+    | # DDEV_NONINTERACTIVE=true
+    | # Default model for this persona:
+    | # ANTHROPIC_MODEL=
++ a/personas/c1.env.bak.2  f 600
+    | # personas/<name>.env for a grok persona. ./config-tools writes it from this template; by hand: copy
+    | # it, chmod 600, never commit. Comments stay on their own lines: an inline one after an empty value
+    | # becomes the value.
+    | 
+    | # Grok Build reads its key from the variable named by `env_key` in ~/.grok/config.toml
+    | # (inside the persona's home volume). Set both to match.
+    | XAI_API_KEY=
+    | 
+    | # Commits made by this persona carry this identity.
+    | GIT_AUTHOR_NAME=Test User
+    | GIT_AUTHOR_EMAIL=test@example.invalid
+    | GIT_COMMITTER_NAME=Test User
+    | GIT_COMMITTER_EMAIL=test@example.invalid
+    | 
+    | # Optional.
+    | # gh CLI (PRs, issues) and APM (private GitHub packages) as this persona's account:
+    | # GH_TOKEN=
+    | # Context ddev: never block an unattended run on a ddev prompt:
+    | # DDEV_NONINTERACTIVE=true
++ a/personas/c1.grok.toml  f 600
+    | # /etc/grok/managed_config.toml in grok persona c1, written by config-tools from personas/grok.toml
+    | # (grok settings for every grok persona here) and, with the statusline on, statusline/grok/settings.toml.
+    | # Edit those and re-run config-tools, not this file. A key in the persona's ~/.grok/config.toml wins.
+    | 
+    | # personas/grok.toml: grok settings for every grok persona, on every VM that pulls this repo. config-tools
+    | # copies it into each grok persona's managed config (personas/<name>.grok.toml, /etc/grok/managed_config.toml
+    | # inside, with the statusline after it) and checks it first, so re-run config-tools after an edit: the next grok
+    | # started in a persona reads it.
+    | #
+    | # It is grok's own config.toml format (~/.grok/docs/user-guide/26-config-reference.md in a persona). These
+    | # are defaults: a key in a persona's own ~/.grok/config.toml, which grok writes as you change settings there,
+    | # wins over the same key here. What grok records for itself ([privacy], the [marketplace] install flags,
+    | # [cli] installer) stays out of this file: grok keeps it in each persona's own.
+    | 
+    | [[marketplace.sources]]
+    | name = "xAI Official"
+    | git = "https://github.com/xai-org/plugin-marketplace.git"
+    | 
+    | [ui]
+    | max_thoughts_width = 120
+    | theme = "grokday"
+    | fork_secondary_model = "grok-4.6"
+    | yolo = false
+    | compact_mode = false
+    | permission_mode = "always-approve"   # grok runs its tools without asking
+    | 
+    | [models]
+    | default = "grok-4.7"
+    | default_reasoning_effort = "xhigh"
+    | 
+    | [compat.claude]
+    | rules = false
+    | skills = false
+    | agents = false
+    | 
+    | [tools]
+    | respect_gitignore = false
+    | 
+    | [features]
+    | subagent_model_inheritance = false
+    | 
+    | 
+    | # statusline/grok/settings.toml: what config-tools adds to a grok persona's managed config
+    | # (personas/<name>.grok.toml, /etc/grok/managed_config.toml inside) when the persona has the statusline on.
+    | # grok then runs statusline/grok/statusline.sh, so `nexus top` shows its sessions' figures. A status line
+    | # in personas/grok.toml, or in the persona's own ~/.grok/config.toml, stands instead.
+    | [ui.status_line]
+    | type = "command"
+    | command = "/etc/grok/statusline/statusline.sh"

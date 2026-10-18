@@ -1,0 +1,14 @@
+## run 1: nexus c1 upgrade 2.1.400 -y  (compose can't resolve the image)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+fake compose: no image for c1
+nexus: compose can't resolve c1's image (see above)
+## run 2: nexus c1 upgrade 2.1.400 -y  (c2's image is in another repo)  [pipe]
+rc: 1
+--- stdout
+nexus: claude for c1 c2: latest -> 2.1.400
+--- stderr
+ c1 Built  done
+nexus: no image for c2 after the build; CLAUDE_VERSION is back to latest

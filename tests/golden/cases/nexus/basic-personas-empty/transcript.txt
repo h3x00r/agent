@@ -1,0 +1,22 @@
+## run 1: nexus ls  [pipe]
+rc: 0
+--- stdout
+PERSONA  FLAVOUR  CONTEXT  SSH  STATE  PROJECTS ROOT
+--- stderr
+(empty)
+## run 2: nexus c1  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: no persona 'c1' (set up: ); add it with <A>/config-tools
+## run 3: nexus top --once  [pipe]
+rc: 0
+--- stdout
+nexus top  <HOST>  <HH:MM:SS>
+
+PERSONA  STATE  CPU  MEM  PANES
+
+no Claude Code or grok pane in a running persona
+--- stderr
+(empty)

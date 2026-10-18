@@ -1,0 +1,30 @@
+## run 1: nexus top --once  [pipe]
+rc: 0
+--- stdout
+nexus top  <HOST>  <HH:MM:SS>
+
+PERSONA  STATE          CPU     MEM  PANES
+c1       healthy      0.50%  120MiB  15 claude
+g1       not started      -       -  -
+
+PERSONA  SESSION     MODEL         CONTEXT    5H    7D   COST  SEEN
+c1       tok-small   Opus 5.5     640/200k   12%   40%  $1.23    3d
+c1       tok-edge    Opus 5.5     1000k/1M   12%   40%  $1.23    3d
+c1       tok-big     Opus 5.5      1.3M/2M   12%   40%  $1.23    3d
+c1       tok-mega    Opus 5.5        1M/1M   12%   40%  $1.23    3d
+c1       cost-up     Opus 5.5     38k/200k   12%   40%  $1.00    3d
+c1       cost-down   Opus 5.5     38k/200k   12%   40%  $3.20    3d
+c1       cost-zero   Opus 5.5     38k/200k   12%   40%  $0.00    3d
+c1       cost-int    Opus 5.5     38k/200k   12%   40%      -    3d
+c1       cost-2dp    Opus 5.5     38k/200k   12%   40%      -    3d
+c1       long-model  Claude Opus  38k/200k   12%   40%  $1.23    3d
+c1       future      Opus 5.5     38k/200k   12%   40%  $1.23    0s
+c1       minutes     Opus 5.5     38k/200k   12%   40%  $1.23   45m
+c1       hours       Opus 5.5     38k/200k   12%   40%  $1.23    2h
+c1       limits      Opus 5.5     38k/200k  100%    0%  $1.23    3d
+c1       lead-zero   Opus 5.5     38k/200k  007%  010%  $1.23    3d
+
+CONTEXT used/size; 5H, 7D: the plan's limits used; COST: the session's, at API prices
+SEEN: since the CLI last drew its statusline, which it does as the session works
+--- stderr
+(empty)

@@ -1,0 +1,69 @@
+## run 1: nexus c1 headless nxt say hi  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+FAKE-REPLY
+--- stderr
+(empty)
+## run 2: printf 'line one\nline two\n' | nexus c1 headless 'nxt review'  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+stdin: line one|line two|
+FAKE-REPLY
+--- stderr
+(empty)
+## run 3: printf 'nxt piped only' | nexus c1 headless  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+stdin: nxt piped only
+FAKE-REPLY
+--- stderr
+(empty)
+## run 4: echo 'nxt the prompt' | nexus c1 headless --output-format json  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+stdin: nxt the prompt|
+FAKE-REPLY
+--- stderr
+(empty)
+## run 5: nexus c1 headless nxt json --output-format json --model=opus  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+FAKE-REPLY
+--- stderr
+(empty)
+## run 6: nexus c1 headless $'---\nname: nxt-fm\n---\nthe task'  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+FAKE-REPLY
+--- stderr
+(empty)
+## run 7: nexus c1 headless -- nxt after dashes -v  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+FAKE-REPLY
+--- stderr
+(empty)
+## run 8: nexus c1 headless -- --not-a-flag  [pipe, cwd projects/app]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: headless: give the prompt first, e.g. nexus c1 headless "list the TODOs" --output-format json; or pipe it in
+## run 9: printf '' | nexus c1 headless 'nxt empty pipe'  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+FAKE-REPLY
+--- stderr
+(empty)
+## run 10: nexus c1 headless 'nxt terminal'  (stdin a terminal)  [tty-in, cwd projects/app]
+rc: 0
+--- stdout
+FAKE-REPLY
+--- stderr
+(empty)
+## run 11: nexus c1 headless nxt root  [pipe]
+rc: 0
+--- stdout
+FAKE-REPLY
+--- stderr
+(empty)

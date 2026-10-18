@@ -1,0 +1,36 @@
+## run 1: nexus ls  [pipe]
+rc: 0
+--- stdout
+PERSONA  FLAVOUR  CONTEXT  SSH    STATE    PROJECTS ROOT
+c1       claude   docker   agent  healthy  <S>/own
+g1       grok     docker   agent  healthy  <P>
+
+PERSONA  SESSION  WINDOWS  ATTACHED  DIR
+c1       main           1  no        <P>
+g1       main           1  no        <S>/own
+
+c1 still runs with the projects root it was created with, <P>: nexus c1 restart applies <S>/own, and ends its sessions
+g1 still runs with the projects root it was created with, <S>/own: nexus g1 restart applies <P> (PROJECTS_ROOT in <A>/.env), and ends its sessions
+--- stderr
+(empty)
+## run 2: nexus c1 ls  [pipe]
+rc: 0
+--- stdout
+SESSION  WINDOWS  ATTACHED  DIR
+main           1  no        <P>
+--- stderr
+nexus: warning: c1 still runs with the projects root it was created with, <P>: nexus c1 restart applies <S>/own, and ends its sessions
+## run 3: PROJECTS_ROOT=<S>/own nexus ls  [pipe]
+rc: 0
+--- stdout
+PERSONA  FLAVOUR  CONTEXT  SSH    STATE    PROJECTS ROOT
+c1       claude   docker   agent  healthy  <S>/own
+g1       grok     docker   agent  healthy  <S>/own
+
+PERSONA  SESSION  WINDOWS  ATTACHED  DIR
+c1       main           1  no        <P>
+g1       main           1  no        <S>/own
+
+c1 still runs with the projects root it was created with, <P>: nexus c1 restart applies <S>/own, and ends its sessions
+--- stderr
+(empty)

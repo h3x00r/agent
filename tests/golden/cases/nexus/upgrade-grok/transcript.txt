@@ -1,0 +1,20 @@
+## run 1: nexus g1 upgrade 0.9.1 -y  [pipe]
+rc: 0
+--- stdout
+nexus: grok for g1 g2: grok 0.9.0 -> 0.9.1
+nexus: GROK_VERSION=0.9.1 in <A>/.env; grok 0.9.1 in: local/agent-grok-docker:0.9.1 
+nexus: removed the stopped agent-g2; its next start uses the new image
+nexus: still on the old image, so recreating ends their tmux sessions (and the grok in them):
+  g1  (sessions: billing)
+nexus: removed the old image: local/agent-grok-docker:latest
+nexus: done; g1 g2 run grok 0.9.1
+--- stderr
+ g1 Built  done
+ Container agent-g1  Recreated
+## run 2: nexus g2 upgrade 0.9.2 -y  (the image has grok 0.9.0)  [pipe]
+rc: 1
+--- stdout
+nexus: grok for g1 g2: grok 0.9.1 -> 0.9.2
+--- stderr
+ g1 Built  done
+nexus: local/agent-grok-docker:0.9.2 has grok 0.9.0, not 0.9.2; GROK_VERSION is back to 0.9.1

@@ -1,0 +1,52 @@
+## run 1: (in <P>/gone, deleted) nexus ls  [pipe]
+rc: 0
+--- stdout
+PERSONA  FLAVOUR  CONTEXT  SSH      STATE        PROJECTS ROOT
+c1       claude   docker   agent    healthy      <P>
+g1       grok     docker   own key  not started  <P>
+
+PERSONA  SESSION  WINDOWS  ATTACHED  DIR
+c1       main           1  no        <P>
+
+nexus <persona> starts one that isn't running
+--- stderr
+shell-init: error retrieving current directory: getcwd: cannot access parent directories: No such file or directory
+nexus: warning: this shell sits in a deleted directory; leave it, e.g. cd <P>/gone
+## run 2: (in '<P>/my gone', deleted) nexus ls  [pipe]
+rc: 0
+--- stdout
+PERSONA  FLAVOUR  CONTEXT  SSH      STATE        PROJECTS ROOT
+c1       claude   docker   agent    healthy      <P>
+g1       grok     docker   own key  not started  <P>
+
+PERSONA  SESSION  WINDOWS  ATTACHED  DIR
+c1       main           1  no        <P>
+
+nexus <persona> starts one that isn't running
+--- stderr
+shell-init: error retrieving current directory: getcwd: cannot access parent directories: No such file or directory
+nexus: warning: this shell sits in a deleted directory; leave it, e.g. cd <P>/my\ gone
+## run 3: (in <P>/gone, deleted) nexus c1 ls  [pipe]
+rc: 0
+--- stdout
+SESSION  WINDOWS  ATTACHED  DIR
+main           1  no        <P>
+--- stderr
+shell-init: error retrieving current directory: getcwd: cannot access parent directories: No such file or directory
+nexus: warning: this shell sits in a deleted directory; leave it, e.g. cd <P>/gone
+## run 4: (in <P>/gone, deleted) nexus c1  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+shell-init: error retrieving current directory: getcwd: cannot access parent directories: No such file or directory
+nexus: warning: this shell sits in a deleted directory; leave it, e.g. cd <P>/gone
+nexus: <P>/gone no longer exists; cd to a project dir
+## run 5: (in <S>/elsewhere/gone, deleted) nexus c1  [pipe]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s projects -c <P>]
+--- stderr
+shell-init: error retrieving current directory: getcwd: cannot access parent directories: No such file or directory
+nexus: warning: this shell sits in a deleted directory; leave it, e.g. cd <S>/elsewhere/gone
+nexus: <S>/elsewhere/gone is outside c1's projects root; starting in <P>

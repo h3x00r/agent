@@ -1,0 +1,21 @@
+## run 1: nexus c1 restart  (defaults unchanged; the model migrated to opus[1m])  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-c1  Recreated
+nexus: c1: Claude defaults from personas/claude.json: model
+## run 2: nexus c1 start  (stopped; personas/claude.json changed)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-c1  Started
+nexus: c1: Claude defaults from personas/claude.json: model, modelSettings.opus.effortLevel, newKey, tui (no longer a default), worktree.baseRef
+## run 3: nexus c1 restart  (the model default changed, the persona's own; newKey gone)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-c1  Recreated
+nexus: c1: Claude defaults from personas/claude.json: newKey (no longer a default)

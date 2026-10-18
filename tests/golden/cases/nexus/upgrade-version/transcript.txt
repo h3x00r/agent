@@ -1,0 +1,23 @@
+## run 1: nexus c1 upgrade 2.1.400 -y  [pipe]
+rc: 0
+--- stdout
+nexus: claude for c1: latest -> 2.1.400
+nexus: CLAUDE_VERSION=2.1.400 in <A>/.env; 2.1.400 (Claude Code) in: local/agent-claude-docker:2.1.400 
+nexus: done; c1 run 2.1.400 (Claude Code)
+--- stderr
+ c1 Built  done
+## run 2: nexus c1 upgrade v2.1.401-rc.1  [pipe]
+rc: 0
+--- stdout
+nexus: claude for c1: 2.1.400 (Claude Code) -> 2.1.401-rc.1
+nexus: CLAUDE_VERSION=2.1.401-rc.1 in <A>/.env; 2.1.401-rc.1 (Claude Code) in: local/agent-claude-docker:2.1.401-rc.1 
+nexus: removed the old image: local/agent-claude-docker:2.1.400
+nexus: done; c1 run 2.1.401-rc.1 (Claude Code)
+--- stderr
+ c1 Built  done
+## run 3: grep ^CLAUDE_VERSION= <A>/.env  [pipe]
+rc: 0
+--- stdout
+CLAUDE_VERSION=2.1.401-rc.1
+--- stderr
+(empty)

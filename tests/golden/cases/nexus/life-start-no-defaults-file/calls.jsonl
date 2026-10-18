@@ -1,0 +1,3 @@
+## run 1
+{"argv": ["inspect", "-f", "{{.State.Running}}", "agent-c1"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+{"argv": ["compose", "-p", "agents", "-f", "<A>/compose.yml", "-f", "<A>/compose.personas.yml", "--profile", "c1", "up", "-d", "c1"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "PROJECTS_ROOT": "<P>", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}

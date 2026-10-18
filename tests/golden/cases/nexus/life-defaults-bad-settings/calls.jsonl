@@ -1,0 +1,19 @@
+## run 1
+{"argv": ["inspect", "-f", "{{.State.Running}}", "agent-c1"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+{"argv": ["compose", "-p", "agents", "-f", "<A>/compose.yml", "-f", "<A>/compose.personas.yml", "--profile", "c1", "up", "-d", "c1"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "PROJECTS_ROOT": "<P>", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+{"argv": ["exec", "-i", "agent-c1", "python3", "-c", "sha256:5d2b156a28385590"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "file"}
+## run 2
+{"argv": ["inspect", "-f", "{{.State.Running}}", "agent-c2"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+{"argv": ["compose", "-p", "agents", "-f", "<A>/compose.yml", "-f", "<A>/compose.personas.yml", "--profile", "c2", "up", "-d", "c2"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "PROJECTS_ROOT": "<P>", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+{"argv": ["exec", "-i", "agent-c2", "python3", "-c", "sha256:5d2b156a28385590"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "file"}
+## run 3
+{"argv": ["inspect", "-f", "{{.State.Running}}", "agent-c3"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+{"argv": ["compose", "-p", "agents", "-f", "<A>/compose.yml", "-f", "<A>/compose.personas.yml", "--profile", "c3", "up", "-d", "c3"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "PROJECTS_ROOT": "<P>", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+{"argv": ["exec", "-i", "agent-c3", "python3", "-c", "sha256:5d2b156a28385590"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "file"}
+## run 4
+{"argv": ["inspect", "-f", "{{.State.Running}}", "agent-c4"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+{"argv": ["compose", "-p", "agents", "-f", "<A>/compose.yml", "-f", "<A>/compose.personas.yml", "--profile", "c4", "up", "-d", "c4"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "PROJECTS_ROOT": "<P>", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+{"argv": ["exec", "-i", "agent-c4", "python3", "-c", "sha256:5d2b156a28385590"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "file"}
+## run 5
+{"argv": ["compose", "-p", "agents", "-f", "<A>/compose.yml", "-f", "<A>/compose.personas.yml", "--profile", "c4", "up", "-d", "--force-recreate", "c4"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "PROJECTS_ROOT": "<P>", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+{"argv": ["exec", "-i", "agent-c4", "python3", "-c", "sha256:5d2b156a28385590"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "file"}

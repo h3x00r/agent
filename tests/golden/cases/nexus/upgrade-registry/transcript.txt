@@ -1,0 +1,38 @@
+## run 1: nexus c1 upgrade 2.1.400 -y  (REGISTRY=registry.invalid:5000 in .env)  [pipe]
+rc: 0
+--- stdout
+nexus: claude for c1: latest -> 2.1.400
+nexus: CLAUDE_VERSION=2.1.400 in <A>/.env; 2.1.400 (Claude Code) in: registry.invalid:5000/agent-claude-docker:2.1.400 
+nexus: done; c1 run 2.1.400 (Claude Code)
+--- stderr
+ c1 Pulled  done
+## run 2: nexus c1 upgrade 2.1.401 -y  (the pull fails)  [pipe]
+rc: 1
+--- stdout
+nexus: claude for c1: 2.1.400 (Claude Code) -> 2.1.401
+--- stderr
+fake compose: the pull of c1 failed
+nexus: the pull for c1 failed (see above); CLAUDE_VERSION is back to 2.1.400
+## run 3: grep ^CLAUDE_VERSION= <A>/.env  [pipe]
+rc: 0
+--- stdout
+CLAUDE_VERSION=2.1.400
+--- stderr
+(empty)
+## run 4: nexus c1 upgrade 2.1.401 -y  (REGISTRY=local exported: built)  [pipe]
+rc: 0
+--- stdout
+nexus: claude for c1: 2.1.400 -> 2.1.401
+nexus: CLAUDE_VERSION=2.1.401 in <A>/.env; 2.1.401 (Claude Code) in: local/agent-claude-docker:2.1.401 
+nexus: done; c1 run 2.1.401 (Claude Code)
+--- stderr
+ c1 Built  done
+## run 5: nexus c1 upgrade 2.1.402 -y  (REGISTRY= empty in .env: local, built)  [pipe]
+rc: 0
+--- stdout
+nexus: claude for c1: 2.1.401 (Claude Code) -> 2.1.402
+nexus: CLAUDE_VERSION=2.1.402 in <A>/.env; 2.1.402 (Claude Code) in: local/agent-claude-docker:2.1.402 
+nexus: removed the old image: local/agent-claude-docker:2.1.401
+nexus: done; c1 run 2.1.402 (Claude Code)
+--- stderr
+ c1 Built  done

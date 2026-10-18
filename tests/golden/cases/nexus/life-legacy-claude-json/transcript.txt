@@ -1,0 +1,18 @@
+## run 1: nexus g1 start  (a grok persona: the same file)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: <A>/compose.personas.yml is from before personas/claude.json was split into defaults and claude.managed.json: re-run <A>/config-tools (--yes keeps every setting), then start g1 again
+## run 2: nexus c1 start  (running)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+(empty)
+## run 3: nexus c1 review  (running)  [pipe]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s review -c <P>]
+--- stderr
+nexus: warning: <A>/compose.personas.yml is from before a split (statusline/, or the Claude settings): re-run <A>/config-tools --yes, then nexus c1 restart

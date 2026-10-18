@@ -1,0 +1,20 @@
+## run 1: nexus c1 headless 'nxt say hi'  (not started)  [pipe]
+rc: 0
+--- stdout
+FAKE-REPLY
+--- stderr
+ Container agent-c1  Started
+nexus: c1: Claude defaults from personas/claude.json: model, modelSettings.opus.effortLevel, outputStyle, teammateMode, theme, tui, worktree.baseRef
+## run 2: nexus c1 headless 'nxt fail'  (the CLI exits 7)  [pipe]
+rc: 7
+--- stdout
+nxt the CLI failed
+--- stderr
+(empty)
+## run 3: echo x | nexus g1 headless 'nxt fail'  (grok exits 3)  [pipe]
+rc: 3
+--- stdout
+stdin: nxt fail|x|
+nxt grok failed
+--- stderr
+(empty)

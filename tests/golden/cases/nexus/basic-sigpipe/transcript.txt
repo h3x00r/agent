@@ -1,0 +1,30 @@
+## run 1: nexus ls | head -1  [pipe]
+rc: 0
+--- stdout
+PERSONA  FLAVOUR  CONTEXT  SSH      STATE        PROJECTS ROOT
+--- stderr
+(empty)
+## run 2: nexus ls >closed-pipe  [pipe]
+rc: 0
+--- stdout
+killed by signal 13
+--- stderr
+(empty)
+## run 3: nexus top --once >closed-pipe  [pipe]
+rc: 0
+--- stdout
+killed by signal 13
+--- stderr
+(empty)
+## run 4: nexus --help >closed-pipe  [pipe]
+rc: 0
+--- stdout
+exit 141
+--- stderr
+(empty)
+## run 5: nexus nope >closed-pipe  [pipe]
+rc: 0
+--- stdout
+exit 1
+--- stderr
+nexus: no persona 'nope' (set up: c1 g1); add it with <A>/config-tools

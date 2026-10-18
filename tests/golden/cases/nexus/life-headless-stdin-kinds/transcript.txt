@@ -1,0 +1,32 @@
+## run 1: nexus c1 headless 'nxt file' < input.txt  [pipe]
+rc: 0
+--- stdout
+stdin: from a file|
+FAKE-REPLY
+--- stderr
+(empty)
+## run 2: nexus c1 headless < input.txt  [pipe]
+rc: 0
+--- stdout
+stdin: from a file|
+FAKE-REPLY
+--- stderr
+(empty)
+## run 3: nexus c1 headless < empty.txt  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: headless: no prompt, and the input piped in was empty
+## run 4: nexus c1 headless 'nxt empty file' < empty.txt  [pipe]
+rc: 0
+--- stdout
+FAKE-REPLY
+--- stderr
+(empty)
+## run 5: sleep 7 | nexus c1 headless 'nxt idle'  [pipe]
+rc: 0
+--- stdout
+FAKE-REPLY
+--- stderr
+nexus: warning: headless: no input on stdin within 3 s, so running without it (</dev/null skips the wait)

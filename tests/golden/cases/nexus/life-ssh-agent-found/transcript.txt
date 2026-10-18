@@ -1,0 +1,21 @@
+## run 1: nexus c1 start  (an agent at $XDG_RUNTIME_DIR/keyring/ssh)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+nexus: warning: the ssh-agent at <S>/run/keyring/ssh holds no keys (ssh-add -l); git over ssh will fail inside
+ Container agent-c1  Started
+nexus: c1: Claude defaults from personas/claude.json: model, modelSettings.opus.effortLevel, outputStyle, teammateMode, theme, tui, worktree.baseRef
+## run 2: nexus c1 restart  (SSH_AUTH_SOCK not a socket; $XDG_RUNTIME_DIR/openssh_agent comes first)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+nexus: warning: the ssh-agent at <S>/run/openssh_agent holds no keys (ssh-add -l); git over ssh will fail inside
+ Container agent-c1  Recreated
+## run 3: nexus c1 restart  (no XDG_RUNTIME_DIR: /run/user/$AGENT_UID, nothing there)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-c1  Recreated

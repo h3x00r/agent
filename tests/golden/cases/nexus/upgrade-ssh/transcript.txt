@@ -1,0 +1,27 @@
+## run 1: nexus c1 upgrade 2.1.400 -y  (SSH_AUTH_SOCK=<S>/not-a-socket)  [pipe]
+rc: 0
+--- stdout
+nexus: claude for c1 c2: 2.1.300 (Claude Code) -> 2.1.400
+nexus: CLAUDE_VERSION=2.1.400 in <A>/.env; 2.1.400 (Claude Code) in: local/agent-claude-docker:2.1.400 
+nexus: still on the old image, so recreating ends their tmux sessions (and the claude in them):
+  c1
+  c2
+nexus: but recreating c1 needs an ssh-agent, and this shell has none
+nexus: kept the old image (a container still uses it): local/agent-claude-docker:latest
+nexus: not recreated: c1 c2. When they're idle, `nexus c1 upgrade 2.1.400` recreates them and removes the old image
+--- stderr
+ c1 Built  done
+## run 2: nexus c1 upgrade 2.1.401 -y  (c1 stopped, c2 running; still no agent)  [pipe]
+rc: 0
+--- stdout
+nexus: claude for c1 c2: 2.1.400 (Claude Code) -> 2.1.401
+nexus: CLAUDE_VERSION=2.1.401 in <A>/.env; 2.1.401 (Claude Code) in: local/agent-claude-docker:2.1.401 
+nexus: removed the stopped agent-c1; its next start uses the new image
+nexus: still on the old image, so recreating ends their tmux sessions (and the claude in them):
+  c2
+nexus: removed the old image: local/agent-claude-docker:latest local/agent-claude-docker:2.1.400
+nexus: done; c1 c2 run 2.1.401 (Claude Code)
+--- stderr
+ c1 Built  done
+ Container agent-c2  Recreated
+nexus: c2: Claude defaults from personas/claude.json: model, modelSettings.opus.effortLevel, outputStyle, teammateMode, theme, tui, worktree.baseRef

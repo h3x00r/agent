@@ -1,0 +1,24 @@
+## run 1: nexus c1 start  (its own root=<P>)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+nexus: warning: c1 still runs with the projects root it was created with, <S>/old: nexus c1 restart applies <P>, and ends its sessions
+## run 2: nexus c1  (its own root=<P>; in the old root)  [pipe, cwd old/app]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s app -c <S>/old/app]
+--- stderr
+nexus: warning: c1 still runs with the projects root it was created with, <S>/old: nexus c1 restart applies <P>, and ends its sessions
+## run 3: nexus g1 start  (no PROJECTS_ROOT anywhere: ~/projects)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+nexus: warning: g1 still runs with the projects root it was created with, <S>/old: nexus g1 restart applies <HOME>/projects (the default: no PROJECTS_ROOT in your shell or <A>/.env), and ends its sessions
+## run 4: nexus g1 headless 'nxt hi'  (outside both)  [pipe, cwd elsewhere]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: g1 still runs with the projects root it was created with, <S>/old, which <S>/elsewhere isn't in: nexus g1 restart applies <HOME>/projects (the default: no PROJECTS_ROOT in your shell or <A>/.env), and ends its sessions

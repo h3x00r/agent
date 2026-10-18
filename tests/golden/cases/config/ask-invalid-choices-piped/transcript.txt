@@ -1,0 +1,52 @@
+## run 1: config --no-link --no-build  [pipe]
+rc: 0
+--- stdout
+config-tools: setting up <A>
+
+== Personas
+No personas yet; the first one:
+Flavour:
+  1) claude   Claude Code (Anthropic)
+  2) grok     Grok Build (xAI)
+  pick a number or a name from the list
+Flavour:
+  1) claude   Claude Code (Anthropic)
+  2) grok     Grok Build (xAI)
+  pick a number or a name from the list
+Flavour:
+  1) claude   Claude Code (Anthropic)
+  2) grok     Grok Build (xAI)
+Context: which kind of projects does it work on?
+  1) ddev     ddev projects: ddev inside, sharing the VM's ddev state and mkcert CA
+  2) docker   projects run with docker compose / Dockerfiles: no ddev
+  a lowercase letter, then lowercase letters, digits or -; at most 31, not ending in -; not ls, top, all or start; not taken
+SSH (git over ssh) for g1:
+  1) agent    your ssh-agent, forwarded: your own keys; starting it then needs an agent in your shell
+  2) none     no ssh: it commits, and you pull and push from the VM, in the same directory
+  3) new      a key of its own, made as personas/g1.key: add its public half as a deploy key
+  4) path     a private key you already have, without a passphrase
+
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  g1                              grok     docker   yes        the VM's             your agent
+What next?
+  1) add      a new persona
+  2) change   one persona's flavour, context, statusline, projects root or ssh
+  3) remove   one persona (its env file and home volume stay)
+  4) done     go on with the rest of the setup
+
+== VM settings, shared by every persona
+
+== g1: sign-in and identity (personas/g1.env)
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  g1                              grok     docker   yes        the VM's             your agent
+
+Start one from a project directory:  cd <P>/<project> && nexus g1
+g1: add XAI_API_KEY to <A>/personas/g1.env
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+
+
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run config-tools after the build to check it

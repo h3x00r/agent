@@ -1,0 +1,14 @@
+## run 1: nexus c1 upgrade 2.1.400 -y  (compose up fails)  [pipe]
+rc: 1
+--- stdout
+nexus: claude for c1 c2: 2.1.300 (Claude Code) -> 2.1.400
+nexus: CLAUDE_VERSION=2.1.400 in <A>/.env; 2.1.400 (Claude Code) in: local/agent-claude-docker:2.1.400 
+nexus: still on the old image, so recreating ends their tmux sessions (and the claude in them):
+  c1
+  c2
+nexus: kept the old image (a container still uses it): local/agent-claude-docker:latest
+--- stderr
+ c1 Built  done
+ Container agent-c1  Error
+ Container agent-c2  Error
+nexus: recreating c1 c2 failed (see above); once that's fixed: nexus c1 restart; nexus c2 restart;

@@ -1,0 +1,111 @@
+## run 1: nexus ls  [tty-all]
+rc: 0
+--- stdout
+\e[90mPERSONA  FLAVOUR  CONTEXT  SSH    STATE        PROJECTS ROOT\e[0m
+c1       claude   docker   agent  \e[32mhealthy\e[0m      <P>
+c2       claude   docker   agent  \e[31munhealthy\e[0m    <P>
+c3       claude   docker   agent  \e[33mstarting\e[0m     <P>
+c4       claude   docker   agent  \e[90mstopped\e[0m      <P>
+g1       grok     docker   agent  \e[90mnot started\e[0m  <P>
+
+\e[90mPERSONA  SESSION  WINDOWS  ATTACHED  DIR\e[0m
+c1       main           1  no        <P>
+c1       café           1  yes       <P>/café
+c2       main           1  no        <P>
+c3       main           1  no        <P>
+
+\e[90mnexus <persona> starts one that isn't running\e[0m
+--- stderr
+(empty)
+## run 2: NO_COLOR=1 nexus ls  [tty-all]
+rc: 0
+--- stdout
+PERSONA  FLAVOUR  CONTEXT  SSH    STATE        PROJECTS ROOT
+c1       claude   docker   agent  healthy      <P>
+c2       claude   docker   agent  unhealthy    <P>
+c3       claude   docker   agent  starting     <P>
+c4       claude   docker   agent  stopped      <P>
+g1       grok     docker   agent  not started  <P>
+
+PERSONA  SESSION  WINDOWS  ATTACHED  DIR
+c1       main           1  no        <P>
+c1       café           1  yes       <P>/café
+c2       main           1  no        <P>
+c3       main           1  no        <P>
+
+nexus <persona> starts one that isn't running
+--- stderr
+(empty)
+## run 3: NO_COLOR= nexus ls  [tty-all]
+rc: 0
+--- stdout
+\e[90mPERSONA  FLAVOUR  CONTEXT  SSH    STATE        PROJECTS ROOT\e[0m
+c1       claude   docker   agent  \e[32mhealthy\e[0m      <P>
+c2       claude   docker   agent  \e[31munhealthy\e[0m    <P>
+c3       claude   docker   agent  \e[33mstarting\e[0m     <P>
+c4       claude   docker   agent  \e[90mstopped\e[0m      <P>
+g1       grok     docker   agent  \e[90mnot started\e[0m  <P>
+
+\e[90mPERSONA  SESSION  WINDOWS  ATTACHED  DIR\e[0m
+c1       main           1  no        <P>
+c1       café           1  yes       <P>/café
+c2       main           1  no        <P>
+c3       main           1  no        <P>
+
+\e[90mnexus <persona> starts one that isn't running\e[0m
+--- stderr
+(empty)
+## run 4: LC_ALL=C nexus ls  [tty-all]
+rc: 0
+--- stdout
+\e[90mPERSONA  FLAVOUR  CONTEXT  SSH    STATE        PROJECTS ROOT\e[0m
+c1       claude   docker   agent  \e[32mhealthy\e[0m      <P>
+c2       claude   docker   agent  \e[31munhealthy\e[0m    <P>
+c3       claude   docker   agent  \e[33mstarting\e[0m     <P>
+c4       claude   docker   agent  \e[90mstopped\e[0m      <P>
+g1       grok     docker   agent  \e[90mnot started\e[0m  <P>
+
+\e[90mPERSONA  SESSION  WINDOWS  ATTACHED  DIR\e[0m
+c1       main           1  no        <P>
+c1       café          1  yes       <P>/café
+c2       main           1  no        <P>
+c3       main           1  no        <P>
+
+\e[90mnexus <persona> starts one that isn't running\e[0m
+--- stderr
+(empty)
+## run 5: LC_ALL=C nexus ls  [pipe]
+rc: 0
+--- stdout
+PERSONA  FLAVOUR  CONTEXT  SSH    STATE        PROJECTS ROOT
+c1       claude   docker   agent  healthy      <P>
+c2       claude   docker   agent  unhealthy    <P>
+c3       claude   docker   agent  starting     <P>
+c4       claude   docker   agent  stopped      <P>
+g1       grok     docker   agent  not started  <P>
+
+PERSONA  SESSION  WINDOWS  ATTACHED  DIR
+c1       main           1  no        <P>
+c1       café          1  yes       <P>/café
+c2       main           1  no        <P>
+c3       main           1  no        <P>
+
+nexus <persona> starts one that isn't running
+--- stderr
+(empty)
+## run 6: nexus c1 ls  [tty-all]
+rc: 0
+--- stdout
+\e[90mSESSION  WINDOWS  ATTACHED  DIR\e[0m
+main           1  no        <P>
+café           1  yes       <P>/café
+--- stderr
+(empty)
+## run 7: NO_COLOR=1 nexus c1 ls  [tty-all]
+rc: 0
+--- stdout
+SESSION  WINDOWS  ATTACHED  DIR
+main           1  no        <P>
+café           1  yes       <P>/café
+--- stderr
+(empty)

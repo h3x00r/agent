@@ -1,0 +1,89 @@
+## run 1: config --yes --no-link --no-build --projects-root ~/p2 --registry registry.lan:5000/team/ --claude-version 2.1.302-beta.1  [pipe]
+rc: 0
+--- stdout
+config-tools: setting up <A>
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+
+Start one from a project directory:  cd <HOME>/p2/<project> && nexus c1
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+## run 2: grep ^(PROJECTS_ROOT|REGISTRY|CLAUDE_VERSION)= .env  [pipe, cwd a]
+rc: 0
+--- stdout
+PROJECTS_ROOT=<HOME>/p2
+REGISTRY=registry.lan:5000/team
+CLAUDE_VERSION=2.1.302-beta.1
+--- stderr
+(empty)
+## run 3: config --yes --no-link --no-build --projects-root <S>/p3/ --registry local/ --claude-version stable  [pipe]
+rc: 0
+--- stdout
+config-tools: setting up <A>
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+
+Start one from a project directory:  cd <S>/p3/<project> && nexus c1
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+## run 4: grep ^(PROJECTS_ROOT|REGISTRY|CLAUDE_VERSION)= .env  [pipe, cwd a]
+rc: 0
+--- stdout
+PROJECTS_ROOT=<S>/p3
+REGISTRY=local
+CLAUDE_VERSION=stable
+--- stderr
+(empty)
+## run 5: config --yes --no-link --no-build --projects-root <S>/p 4 --registry Reg-1.lan:5000/te_am/x--y  [pipe]
+rc: 0
+--- stdout
+config-tools: setting up <A>
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+
+Start one from a project directory:  cd <S>/p 4/<project> && nexus c1
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+## run 6: grep ^(PROJECTS_ROOT|REGISTRY)= .env  [pipe, cwd a]
+rc: 0
+--- stdout
+PROJECTS_ROOT=<S>/p 4
+REGISTRY=Reg-1.lan:5000/te_am/x--y
+--- stderr
+(empty)
+## run 7: config --yes --no-link --no-build --remove c1 --persona g1:grok:docker --claude-version 2.1.5  [pipe]
+rc: 0
+--- stdout
+config-tools: setting up <A>
+-- personas/g1.env
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  g1                              grok     docker   yes        the VM's             your agent
+
+Start one from a project directory:  cd <S>/p 4/<project> && nexus g1
+c1: removed. Its env file and home volume stay; to delete them:
+    docker rm -f agent-c1; docker volume rm agents_c1-home; rm -f <A>/personas/c1.env <A>/personas/c1.key <A>/personas/c1.key.pub <A>/personas/c1.grok.toml 
+g1: add XAI_API_KEY to <A>/personas/g1.env
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run config-tools after the build to check it
+## run 8: grep ^(PROJECTS_ROOT|REGISTRY|CLAUDE_VERSION|GROK_VERSION)= .env  [pipe, cwd a]
+rc: 0
+--- stdout
+PROJECTS_ROOT=<S>/p 4
+REGISTRY=Reg-1.lan:5000/te_am/x--y
+CLAUDE_VERSION=2.1.5
+GROK_VERSION=latest
+--- stderr
+(empty)

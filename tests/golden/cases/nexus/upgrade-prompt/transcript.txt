@@ -1,0 +1,67 @@
+## run 1: nexus c1 upgrade 2.1.400  (stdin not a terminal: not asked, no)  [pipe]
+rc: 0
+--- stdout
+nexus: claude for c1: 2.1.300 (Claude Code) -> 2.1.400
+nexus: CLAUDE_VERSION=2.1.400 in <A>/.env; 2.1.400 (Claude Code) in: local/agent-claude-docker:2.1.400 
+nexus: still on the old image, so recreating ends their tmux sessions (and the claude in them):
+  c1  (sessions: billing)
+nexus: kept the old image (a container still uses it): local/agent-claude-docker:latest
+nexus: not recreated: c1. When they're idle, `nexus c1 upgrade 2.1.400` recreates them and removes the old image
+--- stderr
+ c1 Built  done
+## run 2: nexus c1 upgrade 2.1.401  (asked: n)  [tty-in]
+rc: 0
+--- stdout
+nexus: claude for c1: 2.1.400 (Claude Code) -> 2.1.401
+nexus: CLAUDE_VERSION=2.1.401 in <A>/.env; 2.1.401 (Claude Code) in: local/agent-claude-docker:2.1.401 
+nexus: still on the old image, so recreating ends their tmux sessions (and the claude in them):
+  c1  (sessions: billing)
+nexus: removed the old image: local/agent-claude-docker:2.1.400
+nexus: kept the old image (a container still uses it): local/agent-claude-docker:latest
+nexus: not recreated: c1. When they're idle, `nexus c1 upgrade 2.1.401` recreates them and removes the old image
+--- stderr (no newline at the end)
+ c1 Built  done
+Recreate them now? [y/N] 
+--- echo
+n\r
+## run 3: nexus c1 upgrade 2.1.402  (asked: ^D)  [tty-in]
+rc: 0
+--- stdout
+nexus: claude for c1: 2.1.401 (Claude Code) -> 2.1.402
+nexus: CLAUDE_VERSION=2.1.402 in <A>/.env; 2.1.402 (Claude Code) in: local/agent-claude-docker:2.1.402 
+nexus: still on the old image, so recreating ends their tmux sessions (and the claude in them):
+  c1  (sessions: billing)
+nexus: removed the old image: local/agent-claude-docker:2.1.401
+nexus: kept the old image (a container still uses it): local/agent-claude-docker:latest
+nexus: not recreated: c1. When they're idle, `nexus c1 upgrade 2.1.402` recreates them and removes the old image
+--- stderr (no newline at the end)
+ c1 Built  done
+Recreate them now? [y/N] 
+## run 4: nexus c1 upgrade 2.1.403  (asked: y)  [tty-in]
+rc: 0
+--- stdout
+nexus: claude for c1: 2.1.402 (Claude Code) -> 2.1.403
+nexus: CLAUDE_VERSION=2.1.403 in <A>/.env; 2.1.403 (Claude Code) in: local/agent-claude-docker:2.1.403 
+nexus: still on the old image, so recreating ends their tmux sessions (and the claude in them):
+  c1  (sessions: billing)
+nexus: removed the old image: local/agent-claude-docker:2.1.402 local/agent-claude-docker:latest
+nexus: done; c1 run 2.1.403 (Claude Code)
+--- stderr
+ c1 Built  done
+Recreate them now? [y/N]  Container agent-c1  Recreated
+nexus: c1: Claude defaults from personas/claude.json: model, modelSettings.opus.effortLevel, outputStyle, teammateMode, theme, tui, worktree.baseRef
+--- echo
+y\r
+## run 5: nexus c1 upgrade 2.1.404  (all on a terminal, asked: n)  [tty-all]
+rc: 0
+--- stdout
+nexus: claude for c1: 2.1.403 (Claude Code) -> 2.1.404
+ c1 Built  done
+nexus: CLAUDE_VERSION=2.1.404 in <A>/.env; 2.1.404 (Claude Code) in: local/agent-claude-docker:2.1.404 
+nexus: still on the old image, so recreating ends their tmux sessions (and the claude in them):
+  c1
+Recreate them now? [y/N] n
+nexus: kept the old image (a container still uses it): local/agent-claude-docker:2.1.403
+nexus: not recreated: c1. When they're idle, `nexus c1 upgrade 2.1.404` recreates them and removes the old image
+--- stderr
+(empty)

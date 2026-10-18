@@ -1,0 +1,92 @@
+## run 1: config --yes --no-link --no-build  [pipe]
+rc: 0
+--- stdout
+config-tools: setting up <A>
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  g1                              grok     docker   yes        the VM's             your agent
+  g2                              grok     docker   no         the VM's             your agent
+
+Start one from a project directory:  cd <P>/<project> && nexus g1
+g1: its grok settings and statusline come through personas/g1.grok.toml now; `nexus g1 restart` brings them in
+g2: its grok settings come through personas/g2.grok.toml now; `nexus g2 restart` brings them in
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run config-tools after the build to check it
+## run 2: config --yes --no-link --no-build  [pipe]
+rc: 0
+--- stdout
+config-tools: setting up <A>
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  g1                              grok     docker   yes        the VM's             your agent
+  g2                              grok     docker   no         the VM's             your agent
+
+Start one from a project directory:  cd <P>/<project> && nexus g1
+g1: its grok settings changed; the next grok started in it reads them
+g2: its grok settings changed; the next grok started in it reads them
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run config-tools after the build to check it
+## run 3: config --yes --no-link --no-build  [pipe]
+rc: 0
+--- stdout
+config-tools: setting up <A>
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  g1                              grok     docker   yes        the VM's             your agent
+  g2                              grok     docker   no         the VM's             your agent
+
+Start one from a project directory:  cd <P>/<project> && nexus g1
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run config-tools after the build to check it
+## run 4: config --yes --no-link --no-build  [pipe]
+rc: 0
+--- stdout
+config-tools: setting up <A>
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  g1                              grok     docker   yes        the VM's             your agent
+  g2                              grok     docker   no         the VM's             your agent
+
+Start one from a project directory:  cd <P>/<project> && nexus g1
+g1: its grok settings changed; the next grok started in it reads them
+g2: its grok settings changed; the next grok started in it reads them
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run config-tools after the build to check it
+## run 5: grep status_line|statusline|builtin personas/g1.grok.toml  [pipe, cwd a]
+rc: 0
+--- stdout
+# (grok settings for every grok persona here) and, with the statusline on, statusline/grok/settings.toml.
+# inside, with the statusline after it) and checks it first, so re-run config-tools after an edit: the next grok
+[ ui . status_line ]
+type = "builtin"
+--- stderr
+(empty)
+## run 6: config --yes --no-link --no-build --persona g1:grok:docker --no-statusline  [pipe]
+rc: 0
+--- stdout
+config-tools: setting up <A>
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  g1                              grok     docker   no         the VM's             your agent
+  g2                              grok     docker   no         the VM's             your agent
+
+Start one from a project directory:  cd <P>/<project> && nexus g1
+g1: changed; `nexus g1 restart` applies it (that ends its tmux sessions)
+g2: its grok settings changed; the next grok started in it reads them
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run config-tools after the build to check it

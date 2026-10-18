@@ -1,0 +1,16 @@
+## run 1: nexus c1 upgrade 2.1.400 -y  (CLAUDE_TAG=latest exported)  [pipe]
+rc: 0
+--- stdout
+nexus: claude for c1: latest -> 2.1.400
+nexus: CLAUDE_VERSION=2.1.400 in <A>/.env; 2.1.400 (Claude Code) in: local/agent-claude-docker:latest 
+nexus: done; c1 run 2.1.400 (Claude Code)
+--- stderr
+ c1 Built  done
+nexus: warning: local/agent-claude-docker:latest is tagged by CLAUDE_TAG=latest in <A>/.env, not by the version: remove that line, and the tags follow CLAUDE_VERSION
+## run 2: nexus c1 upgrade 2.1.401 -y  (the same; the image has 2.1.400)  [pipe]
+rc: 1
+--- stdout
+nexus: claude for c1: 2.1.400 (Claude Code) -> 2.1.401
+--- stderr
+ c1 Built  done
+nexus: local/agent-claude-docker:latest has 2.1.400 (Claude Code), not 2.1.401 (it is tagged by CLAUDE_TAG=latest, not the version); CLAUDE_VERSION is back to 2.1.400

@@ -1,0 +1,18 @@
+## run 1: nexus c1  (PROJECTS_ROOT=<S>/links/projects, from <P>/app)  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s app -c <S>/links/projects/app]
+--- stderr
+(empty)
+## run 2: nexus c1 headless 'nxt real'  (the same)  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+FAKE-REPLY
+--- stderr
+(empty)
+## run 3: nexus c1 start  (PROJECTS_ROOT=<P> from .env: the real path, another root)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+nexus: warning: c1 still runs with the projects root it was created with, <S>/links/projects: nexus c1 restart applies <P> (PROJECTS_ROOT in <A>/.env), and ends its sessions

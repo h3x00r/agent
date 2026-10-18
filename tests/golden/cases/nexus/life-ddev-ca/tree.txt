@@ -1,0 +1,77 @@
++ ctr  d 755
++ ctr/c1  d 755
++ ctr/c1/home  d 755
++ ctr/c1/home/.claude  d 755
++ ctr/c1/home/.claude/.nexus-defaults.json  f 644
+    | {
+    |   "model": "opus",
+    |   "modelSettings": {
+    |     "opus": {
+    |       "effortLevel": "xhigh"
+    |     }
+    |   },
+    |   "outputStyle": "Concise",
+    |   "teammateMode": "tmux",
+    |   "theme": "auto",
+    |   "tui": "fullscreen",
+    |   "worktree": {
+    |     "baseRef": "head"
+    |   }
+    | }
++ ctr/c1/home/.claude/settings.json  f 644
+    | {
+    |   "model": "opus",
+    |   "modelSettings": {
+    |     "opus": {
+    |       "effortLevel": "xhigh"
+    |     }
+    |   },
+    |   "outputStyle": "Concise",
+    |   "teammateMode": "tmux",
+    |   "theme": "auto",
+    |   "tui": "fullscreen",
+    |   "worktree": {
+    |     "baseRef": "head"
+    |   }
+    | }
++ ctr/d1  d 755
++ ctr/d1/home  d 755
++ ctr/d1/home/.claude  d 755
++ ctr/d1/home/.claude/.nexus-defaults.json  f 644
+    | {
+    |   "model": "opus",
+    |   "modelSettings": {
+    |     "opus": {
+    |       "effortLevel": "xhigh"
+    |     }
+    |   },
+    |   "outputStyle": "Concise",
+    |   "teammateMode": "tmux",
+    |   "theme": "auto",
+    |   "tui": "fullscreen",
+    |   "worktree": {
+    |     "baseRef": "head"
+    |   }
+    | }
++ ctr/d1/home/.claude/settings.json  f 644
+    | {
+    |   "model": "opus",
+    |   "modelSettings": {
+    |     "opus": {
+    |       "effortLevel": "xhigh"
+    |     }
+    |   },
+    |   "outputStyle": "Concise",
+    |   "teammateMode": "tmux",
+    |   "theme": "auto",
+    |   "tui": "fullscreen",
+    |   "worktree": {
+    |     "baseRef": "head"
+    |   }
+    | }
++ home/.ddev  d 755
++ home/.local  d 755
++ home/.local/share  d 755
++ home/.local/share/mkcert  d 755
++ home/.local/share/mkcert/rootCA.pem  f 644
+    | fake CA

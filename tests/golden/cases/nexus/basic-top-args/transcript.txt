@@ -1,0 +1,108 @@
+## run 1: nexus top -n 0  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: top: -n takes whole seconds, e.g. -n 10
+## run 2: nexus top -n x  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: top: -n takes whole seconds, e.g. -n 10
+## run 3: nexus top -n  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: top: -n takes whole seconds, e.g. -n 10
+## run 4: nexus top -n 1.5  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: top: -n takes whole seconds, e.g. -n 10
+## run 5: nexus top -n 05  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: top: -n takes whole seconds, e.g. -n 10
+## run 6: nexus top --interval 0  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: top: --interval takes whole seconds, e.g. --interval 10
+## run 7: nexus top --interval=5  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: top: unknown argument '--interval=5'; it takes [-n SECONDS] [--once]
+## run 8: nexus top --bogus  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: top: unknown argument '--bogus'; it takes [-n SECONDS] [--once]
+## run 9: nexus top --once extra  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: top: unknown argument 'extra'; it takes [-n SECONDS] [--once]
+## run 10: nexus top -n 10 -n  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: top: -n takes whole seconds, e.g. -n 10
+## run 11: nexus top -n 10 --once  [pipe]
+rc: 0
+--- stdout
+nexus top  <HOST>  <HH:MM:SS>
+
+PERSONA  STATE        CPU  MEM  PANES
+c1       not started    -    -  -
+g1       not started    -    -  -
+
+no Claude Code or grok pane in a running persona
+--- stderr
+(empty)
+## run 12: nexus top --interval 3 --once --once  [pipe]
+rc: 0
+--- stdout
+nexus top  <HOST>  <HH:MM:SS>
+
+PERSONA  STATE        CPU  MEM  PANES
+c1       not started    -    -  -
+g1       not started    -    -  -
+
+no Claude Code or grok pane in a running persona
+--- stderr
+(empty)
+## run 13: nexus top  [pipe]
+rc: 0
+--- stdout
+nexus top  <HOST>  <HH:MM:SS>
+
+PERSONA  STATE        CPU  MEM  PANES
+c1       not started    -    -  -
+g1       not started    -    -  -
+
+no Claude Code or grok pane in a running persona
+--- stderr
+(empty)
+## run 14: nexus top -n 2  [pipe]
+rc: 0
+--- stdout
+nexus top  <HOST>  <HH:MM:SS>
+
+PERSONA  STATE        CPU  MEM  PANES
+c1       not started    -    -  -
+g1       not started    -    -  -
+
+no Claude Code or grok pane in a running persona
+--- stderr
+(empty)

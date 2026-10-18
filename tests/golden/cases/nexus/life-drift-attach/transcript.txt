@@ -1,0 +1,36 @@
+## run 1: nexus c1  (in the old root)  [pipe, cwd old/app]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s app -c <S>/old/app]
+--- stderr
+nexus: warning: c1 still runs with the projects root it was created with, <S>/old: nexus c1 restart applies <P> (PROJECTS_ROOT in <A>/.env), and ends its sessions
+## run 2: nexus c1  (by a symlink into the old root)  [pipe, cwd links/old-app]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s app -c <S>/old/app]
+--- stderr
+nexus: warning: c1 still runs with the projects root it was created with, <S>/old: nexus c1 restart applies <P> (PROJECTS_ROOT in <A>/.env), and ends its sessions
+## run 3: nexus c1 billing  (in the new root: a session it runs)  [pipe, cwd projects/proj]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s billing -c <S>/old]
+--- stderr
+nexus: warning: c1 still runs with the projects root it was created with, <S>/old, which <P>/proj isn't in; attaching to its session billing: nexus c1 restart applies <P> (PROJECTS_ROOT in <A>/.env), and ends its sessions
+## run 4: nexus c1  (in the new root: no session proj)  [pipe, cwd projects/proj]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: c1 still runs with the projects root it was created with, <S>/old, which <P>/proj isn't in: nexus c1 restart applies <P> (PROJECTS_ROOT in <A>/.env), and ends its sessions (until then, a session it runs can be attached to by name: nexus c1 ls lists them)
+## run 5: nexus c1 main -- claude  (outside both)  [pipe, cwd elsewhere]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s main -c <S>/old claude]
+--- stderr
+nexus: warning: c1 still runs with the projects root it was created with, <S>/old, which <S>/elsewhere isn't in; attaching to its session main: nexus c1 restart applies <P> (PROJECTS_ROOT in <A>/.env), and ends its sessions
+## run 6: nexus c1  (outside both: the root's name, no such session)  [pipe, cwd elsewhere]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: c1 still runs with the projects root it was created with, <S>/old, which <S>/elsewhere isn't in: nexus c1 restart applies <P> (PROJECTS_ROOT in <A>/.env), and ends its sessions (until then, a session it runs can be attached to by name: nexus c1 ls lists them)

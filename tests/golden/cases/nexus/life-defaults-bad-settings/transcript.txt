@@ -1,0 +1,37 @@
+## run 1: nexus c1 start  (settings.json not JSON)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-c1  Started
+nexus: warning: c1: its ~/.claude/settings.json is not valid JSON, so the defaults stayed out of it
+## run 2: nexus c2 start  (settings.json a JSON array)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-c2  Started
+nexus: warning: c2: its ~/.claude/settings.json or personas/claude.json is not a JSON object, so nothing was merged
+## run 3: nexus c3 start  (settings.json read-only)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-c3  Started
+nexus: warning: c3: its ~/.claude/settings.json can not be written, so the defaults stayed out of it
+## run 4: nexus c4 start  (personas/claude.json a JSON array)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-c4  Started
+nexus: warning: c4: its ~/.claude/settings.json or personas/claude.json is not a JSON object, so nothing was merged
+## run 5: nexus c4 restart  (personas/claude.json not JSON: the merge fails)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-c4  Recreated
+nexus: warning: c4: the defaults in personas/claude.json couldn't be merged (exit 1): Traceback (most recent call last):
+  …
+json.decoder.JSONDecodeError: Expecting property name enclosed in double quotes: line 1 column 2 (char 1)

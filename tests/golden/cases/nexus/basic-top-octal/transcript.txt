@@ -1,0 +1,24 @@
+## run 1: nexus top --once  [pipe]
+rc: 0
+--- stdout
+nexus top  <HOST>  <HH:MM:SS>
+
+PERSONA  STATE          CPU     MEM  PANES
+c1       healthy      0.50%  120MiB  1 claude
+g1       not started      -       -  -
+
+PERSONA  SESSION  MODEL      CONTEXT   5H   7D   COST  SEEN
+c1       five-09  Opus 5.5  38k/200k  09%  40%  $1.23    3d
+
+CONTEXT used/size; 5H, 7D: the plan's limits used; COST: the session's, at API prices
+SEEN: since the CLI last drew its statusline, which it does as the session works
+--- stderr
+<A>/nexus: line 311: ((: 09: value too great for base (error token is "09")
+<A>/nexus: line 312: ((: 09: value too great for base (error token is "09")
+## run 2: nexus top --once  [pipe]
+rc: 1
+--- stdout
+nexus top  <HOST>  <HH:MM:SS>
+--- stderr
+<A>/nexus: line 389: 0999: value too great for base (error token is "0999")
+nexus: no persona 'top' (set up: c1 g1); add it with <A>/config-tools

@@ -1,0 +1,78 @@
+## run 1: nexus c1 upgrade -x  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: upgrade: unknown option '-x'
+## run 2: nexus c1 upgrade --force -y  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: upgrade: unknown option '--force'
+## run 3: nexus c1 upgrade -y 2.1.400 -n  (the option after the version)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: upgrade: unknown option '-n'
+## run 4: nexus c1 upgrade 2.1.400 stable  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: upgrade takes one VERSION or CHANNEL, not '2.1.400 stable'
+## run 5: nexus c1 upgrade 2.1.400 2.1.401 -x  (the second version first)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: upgrade takes one VERSION or CHANNEL, not '2.1.400 2.1.401'
+## run 6: nexus c1 upgrade 1.2  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: upgrade: '1.2' is neither a version (X.Y.Z) nor a channel of claude (latest stable)
+## run 7: nexus c1 upgrade nightly -y  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: upgrade: 'nightly' is neither a version (X.Y.Z) nor a channel of claude (latest stable)
+## run 8: nexus c1 upgrade 2.1.400-  (a suffix needs a character)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: upgrade: '2.1.400-' is neither a version (X.Y.Z) nor a channel of claude (latest stable)
+## run 9: nexus c1 upgrade V2.1.400  (only a lower-case v is dropped)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: upgrade: 'V2.1.400' is neither a version (X.Y.Z) nor a channel of claude (latest stable)
+## run 10: nexus g1 upgrade latest  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: upgrade: 'latest' is neither a version (X.Y.Z) nor a channel of grok (stable alpha)
+## run 11: nexus g1 upgrade 2.1  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: upgrade: '2.1' is neither a version (X.Y.Z) nor a channel of grok (stable alpha)
+## run 12: nexus c1 upgrade 2.1.400  (flavour=other, by hand)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: upgrade: no CLI known for c1's flavour 'other'
+## run 13: nexus c1 upgrade -x  (flavour=other: the option first)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: upgrade: unknown option '-x'

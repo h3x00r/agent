@@ -1,0 +1,211 @@
+## run 1: config --no-link --no-build  (c1 to grok, a new env file)  [tty-in]
+rc: 0
+--- stdout
+config-tools: setting up <A>
+
+== Personas
+
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  c2                              claude   docker   yes        the VM's             your agent
+What next?
+  1) add      a new persona
+  2) change   one persona's flavour, context, statusline, projects root or ssh
+  3) remove   one persona (its env file and home volume stay)
+  4) done     go on with the rest of the setup
+Which persona to change?
+  1) c1                              claude, docker
+  2) c2                              claude, docker
+  3) -        none: back to the menu
+Flavour:
+  1) claude   Claude Code (Anthropic)
+  2) grok     Grok Build (xAI)
+Context: which kind of projects does it work on?
+  1) ddev     ddev projects: ddev inside, sharing the VM's ddev state and mkcert CA
+  2) docker   projects run with docker compose / Dockerfiles: no ddev
+SSH (git over ssh) for c1:
+  1) agent    your ssh-agent, forwarded: your own keys; starting it then needs an agent in your shell
+  2) none     no ssh: it commits, and you pull and push from the VM, in the same directory
+  3) new      a key of its own, made as personas/c1.key: add its public half as a deploy key
+  4) path     a private key you already have, without a passphrase
+
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              grok     docker   yes        the VM's             your agent
+  c2                              claude   docker   yes        the VM's             your agent
+What next?
+  1) add      a new persona
+  2) change   one persona's flavour, context, statusline, projects root or ssh
+  3) remove   one persona (its env file and home volume stay)
+  4) done     go on with the rest of the setup
+
+== VM settings, shared by every persona
+
+== c1: sign-in and identity (personas/c1.env)
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              grok     docker   yes        the VM's             your agent
+  c2                              claude   docker   yes        the VM's             your agent
+
+Start one from a project directory:  cd <P>/<project> && nexus c1
+c1: changed; `nexus c1 restart` applies it (that ends its tmux sessions)
+c1: its grok settings and statusline come through personas/c1.grok.toml now; `nexus c1 restart` brings them in
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+choice [done]: choice [-]: choice [claude]: choice [docker]: Statusline (statusline/: model, context, cost; what nexus top shows) in c1? [Y/n]: Projects root for c1 (-: the VM's, now <P>) [-]: choice [agent]: choice [done]: Keep them? projects root <P>, image registry local, Claude Code latest [Y/n]: c1 changed flavour: write a new personas/c1.env (the old one is kept as a .bak)? [Y/n]: XAI_API_KEY (hidden; empty to skip): 
+git author name for c1 [Test User]: git author email for c1 [test@example.invalid]: GH_TOKEN for the gh CLI in c1 (hidden; empty to skip): 
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run config-tools after the build to check it
+--- echo
+change\r
+c1\r
+grok\r
+\r
+\r
+\r
+\r
+\r
+\r
+\r
+\r
+\r
+## run 2: config --no-link --no-build  (c2 to grok, its env file kept)  [tty-in]
+rc: 0
+--- stdout
+config-tools: setting up <A>
+
+== Personas
+
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              grok     docker   yes        the VM's             your agent
+  c2                              claude   docker   yes        the VM's             your agent
+What next?
+  1) add      a new persona
+  2) change   one persona's flavour, context, statusline, projects root or ssh
+  3) remove   one persona (its env file and home volume stay)
+  4) done     go on with the rest of the setup
+Which persona to change?
+  1) c1                              grok, docker
+  2) c2                              claude, docker
+  3) -        none: back to the menu
+Flavour:
+  1) claude   Claude Code (Anthropic)
+  2) grok     Grok Build (xAI)
+Context: which kind of projects does it work on?
+  1) ddev     ddev projects: ddev inside, sharing the VM's ddev state and mkcert CA
+  2) docker   projects run with docker compose / Dockerfiles: no ddev
+SSH (git over ssh) for c2:
+  1) agent    your ssh-agent, forwarded: your own keys; starting it then needs an agent in your shell
+  2) none     no ssh: it commits, and you pull and push from the VM, in the same directory
+  3) new      a key of its own, made as personas/c2.key: add its public half as a deploy key
+  4) path     a private key you already have, without a passphrase
+
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              grok     docker   yes        the VM's             your agent
+  c2                              grok     docker   yes        the VM's             your agent
+What next?
+  1) add      a new persona
+  2) change   one persona's flavour, context, statusline, projects root or ssh
+  3) remove   one persona (its env file and home volume stay)
+  4) done     go on with the rest of the setup
+
+== VM settings, shared by every persona
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              grok     docker   yes        the VM's             your agent
+  c2                              grok     docker   yes        the VM's             your agent
+
+Start one from a project directory:  cd <P>/<project> && nexus c1
+c2: changed; `nexus c2 restart` applies it (that ends its tmux sessions)
+c2: its grok settings and statusline come through personas/c2.grok.toml now; `nexus c2 restart` brings them in
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+choice [done]: choice [-]: choice [claude]: choice [docker]: Statusline (statusline/: model, context, cost; what nexus top shows) in c2? [Y/n]: Projects root for c2 (-: the VM's, now <P>) [-]: choice [agent]: choice [done]: Keep them? projects root <P>, image registry local [Y/n]: c2 changed flavour: write a new personas/c2.env (the old one is kept as a .bak)? [Y/n]: config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run config-tools after the build to check it
+--- echo
+change\r
+c2\r
+2\r
+\r
+\r
+\r
+\r
+\r
+\r
+n\r
+## run 3: config --no-link --no-build  (c1 back to claude, a second backup)  [tty-in]
+rc: 0
+--- stdout
+config-tools: setting up <A>
+
+== Personas
+
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              grok     docker   yes        the VM's             your agent
+  c2                              grok     docker   yes        the VM's             your agent
+What next?
+  1) add      a new persona
+  2) change   one persona's flavour, context, statusline, projects root or ssh
+  3) remove   one persona (its env file and home volume stay)
+  4) done     go on with the rest of the setup
+Which persona to change?
+  1) c1                              grok, docker
+  2) c2                              grok, docker
+  3) -        none: back to the menu
+Flavour:
+  1) claude   Claude Code (Anthropic)
+  2) grok     Grok Build (xAI)
+Context: which kind of projects does it work on?
+  1) ddev     ddev projects: ddev inside, sharing the VM's ddev state and mkcert CA
+  2) docker   projects run with docker compose / Dockerfiles: no ddev
+SSH (git over ssh) for c1:
+  1) agent    your ssh-agent, forwarded: your own keys; starting it then needs an agent in your shell
+  2) none     no ssh: it commits, and you pull and push from the VM, in the same directory
+  3) new      a key of its own, made as personas/c1.key: add its public half as a deploy key
+  4) path     a private key you already have, without a passphrase
+
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  c2                              grok     docker   yes        the VM's             your agent
+What next?
+  1) add      a new persona
+  2) change   one persona's flavour, context, statusline, projects root or ssh
+  3) remove   one persona (its env file and home volume stay)
+  4) done     go on with the rest of the setup
+
+== VM settings, shared by every persona
+
+== c1: sign-in and identity (personas/c1.env)
+How does c1 sign in to Claude?
+  1) login    interactively, inside the persona (a Claude subscription; kept in its home volume)
+  2) apikey   an Anthropic API key (Console / API billing)
+  3) token    a long-lived token from `claude setup-token` (Pro/Max/Team/Enterprise plan)
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  c2                              grok     docker   yes        the VM's             your agent
+
+Start one from a project directory:  cd <P>/<project> && nexus c1
+c1: changed; `nexus c1 restart` applies it (that ends its tmux sessions)
+c1: it gets personas/claude.managed.json as managed settings now; `nexus c1 restart` brings them in
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+choice [done]: choice [-]: choice [grok]: choice [docker]: Statusline (statusline/: model, context, cost; what nexus top shows) in c1? [Y/n]: Projects root for c1 (-: the VM's, now <P>) [-]: choice [agent]: choice [done]: Keep them? projects root <P>, image registry local, Claude Code latest [Y/n]: c1 changed flavour: write a new personas/c1.env (the old one is kept as a .bak)? [Y/n]: choice [login]: git author name for c1 [Test User]: git author email for c1 [test@example.invalid]: GH_TOKEN for the gh CLI in c1 (hidden; empty to skip): 
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run config-tools after the build to check it
+--- echo
+change\r
+c1\r
+claude\r
+\r
+\r
+\r
+\r
+\r
+\r
+y\r
+\r
+\r
+\r

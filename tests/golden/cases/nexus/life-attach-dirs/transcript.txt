@@ -1,0 +1,30 @@
+## run 1: nexus c1  (from a symlink to <P>/app)  [pipe, cwd links/app]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s app -c <P>/app]
+--- stderr
+(empty)
+## run 2: nexus c1  (from a symlink to the root)  [pipe, cwd links/projects]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s projects -c <P>]
+--- stderr
+(empty)
+## run 3: nexus c1  (outside the root)  [pipe, cwd outside/proj]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s projects -c <P>]
+--- stderr
+nexus: <S>/outside/proj is outside c1's projects root; starting in <P>
+## run 4: nexus c1 proj  (outside the root, named)  [pipe, cwd outside/proj]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s proj -c <P>]
+--- stderr
+nexus: <S>/outside/proj is outside c1's projects root; starting in <P>
+## run 5: nexus c1 headless 'nxt link'  (from a symlink to <P>/app)  [pipe, cwd links/app]
+rc: 0
+--- stdout
+FAKE-REPLY
+--- stderr
+(empty)

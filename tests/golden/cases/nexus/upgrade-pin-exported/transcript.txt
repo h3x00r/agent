@@ -1,0 +1,32 @@
+## run 1: nexus c1 upgrade 2.1.400 -y  (CLAUDE_VERSION=2.1.0 exported)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: CLAUDE_VERSION is exported in this shell and beats <A>/.env: unset it, then upgrade
+## run 2: nexus c1 upgrade 2.1.400 -y  (CLAUDE_VERSION exported, empty)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: CLAUDE_VERSION is exported in this shell and beats <A>/.env: unset it, then upgrade
+## run 3: nexus c1 upgrade 1.2  (the same: the pin is checked before the version)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: CLAUDE_VERSION is exported in this shell and beats <A>/.env: unset it, then upgrade
+## run 4: nexus g1 upgrade 0.9.1 -y  (GROK_VERSION exported, empty)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: GROK_VERSION is exported in this shell and beats <A>/.env: unset it, then upgrade
+## run 5: nexus c1 upgrade 2.1.400 -y  (GROK_VERSION=0.9.0 exported)  [pipe]
+rc: 0
+--- stdout
+nexus: claude for c1: latest -> 2.1.400
+nexus: CLAUDE_VERSION=2.1.400 in <A>/.env; 2.1.400 (Claude Code) in: local/agent-claude-docker:2.1.400 
+nexus: done; c1 run 2.1.400 (Claude Code)
+--- stderr
+ c1 Built  done
