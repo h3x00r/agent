@@ -1,5 +1,6 @@
-# CI: a secret scan of the whole history (tests/secrets.sh: gitleaks, pinned there) on every push and pull
-# request. The actions are pinned to a commit; the comment says which release that is.
+# CI, on every push and pull request: a secret scan of the whole history (tests/secrets.sh: gitleaks,
+# pinned there), and tests/run.sh without starting a persona (lint, the goldens, the setup tool, nexus
+# before any persona runs). The actions are pinned to a commit; the comment says which release that is.
 name: CI
 
 on:
@@ -25,3 +26,43 @@ jobs:
           persist-credentials: false
       - name: Scan for secrets with gitleaks
         run: tests/secrets.sh
+
+  unit:
+    name: Unit tests (Python 3.8)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    # The oldest Python the tools run on, pinned by digest (3.8 is past its end of life: the tag is frozen).
+    # Not root, so tests of permissions mean something.
+    container:
+      image: python:3.8-slim-bookworm@sha256:1d52838af602b4b5a831beb13a0e4d073280665ea7be7f69ce2382f29c5a613f
+      options: --user 1001:1001
+      env:
+        HOME: /tmp/home
+    steps:
+      - name: Check out the commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install pytest (pinned, with hashes)
+        run: pip install --user --no-deps --require-hashes -r tests/requirements-dev.txt
+      - name: Run the unit tests
+        run: python -B -m pytest -p no:cacheprovider tests/unit
+
+  e2e:
+    name: Lint, goldens and setup (no persona started)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out the commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # tests/run.sh never pulls an image; hadolint comes in pinned, under the name it looks for. The
+      # runner already has shellcheck, docker with compose, ssh-keygen and python3.
+      - name: Get hadolint
+        run: |
+          docker pull hadolint/hadolint@sha256:32dac94127fd60b7b7e3fbfc65e1383b9b5e25c9bfd7b8536de7a539fe68a12d
+          docker tag hadolint/hadolint@sha256:32dac94127fd60b7b7e3fbfc65e1383b9b5e25c9bfd7b8536de7a539fe68a12d hadolint/hadolint:latest
+      # Not --strict: the secret scan has a job of its own, and the personas stage needs an image built here.
+      - name: Run tests/run.sh without starting a persona
+        run: tests/run.sh --no-containers
