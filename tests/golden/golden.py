@@ -195,7 +195,8 @@ class Sandbox:
     def run(self, tool, *args, mode="pipe", stdin=None, steps=(), cwd=None, env=None, merge=False, via=None,
             timeout=30, label=None):
         if self.before is None:
-            self.before = snapshot(self.s)
+            self.held = []
+            self.before = snapshot(self.s, self.held)
             self.calls_seen = self._calls_len()
         r = self._exec(tool, args, mode, stdin, steps, cwd, env, merge, via, timeout)
         calls = self._calls_since()
@@ -290,7 +291,9 @@ def oracle_tree(ref, dst):
 SKIP = ("bin", "pyhide", "world.json", "world.json.lock", "world.json.tmp", "calls.jsonl")
 
 
-def snapshot(root):
+def snapshot(root, hold=None):
+    """Every file under ROOT: kind, mode, content, inode. With HOLD (a list), each file is kept open in it,
+    so its inode can't be freed and handed to a new file: "inode=same" then means the same file."""
     snap = {}
     for top, dirs, files in os.walk(root):
         rel = os.path.relpath(top, root)
@@ -310,6 +313,11 @@ def snapshot(root):
             else:
                 with open(p, "rb") as f:
                     data = f.read()
+                if hold is not None:
+                    try:
+                        hold.append(os.open(p, os.O_RDONLY))
+                    except OSError:
+                        pass
                 snap[key] = ("f", "%o" % stat.S_IMODE(st.st_mode), data, st.st_ino)
     return snap
 
@@ -415,6 +423,8 @@ def render(sb, rename, extra_norm=None):
     after = snapshot(sb.s)
     files = {"transcript.txt": "\n".join(t) + "\n", "calls.jsonl": "\n".join(c) + "\n",
              "tree.txt": tree_diff(sb.before or {}, after)}
+    for fd in getattr(sb, "held", []):
+        os.close(fd)
     return {k: norm(v) for k, v in files.items()}
 
 

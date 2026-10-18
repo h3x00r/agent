@@ -18,3 +18,11 @@ class Interrupted(Exception):
     def __init__(self, code):
         super().__init__(code)
         self.code = code
+
+
+class Exit(Exception):
+    """A run ending with CODE, its message already printed (as bash's `echo … >&2; exit 1`)."""
+
+    def __init__(self, code):
+        super().__init__(code)
+        self.code = code

@@ -204,6 +204,17 @@ done
 stage "config-tools --yes"
 t cfg --help </dev/null
 check "--help: the usage" 'rc 0 && out_has "--persona NAME:FLAVOUR:CONTEXT"'
+# The tools are Python behind a bash shim: python3 -I (no PYTHON* settings reach them), 3.8 or newer, and
+# no bytecode written into the checkout.
+mkdir -p "$T/evil" "$T/oldpy"
+printf 'import os\nopen(os.environ["NXT_MARK"], "w").close()\n' > "$T/evil/json.py"
+cp "$T/evil/json.py" "$T/evil/sitecustomize.py"
+t env "${NX_ENV[@]}" PYTHONPATH="$T/evil" PYTHONHOME="$T/evil" PYTHONSTARTUP="$T/evil/json.py" NXT_MARK="$T/evil-ran" \
+      "$A/config-tools" --help </dev/null
+check "PYTHONPATH, PYTHONHOME and PYTHONSTARTUP don't reach it" 'rc 0 && out_has "--persona" && [[ ! -e $T/evil-ran ]]'
+printf '#!/bin/sh\necho "Python 3.6.9"; exit 1\n' > "$T/oldpy/python3"; chmod 755 "$T/oldpy/python3"
+t env "${NX_ENV[@]}" PATH="$T/oldpy:$PATH" "$A/config-tools" --help </dev/null
+check "an older python3: refused, saying what it needs" 'rc 1 && err_has "needs Python 3.8 or newer; python3 here is Python 3.6.9"'
 for spec in top:claude:docker ls:claude:docker all:claude:docker start:claude:docker Nxt:claude:docker \
             "$ID-:claude:docker" "$ID-q:gpt:docker" "$ID-q:claude:k8s" "$ID-q:claude:docker:rel/dir"; do
   t cfg --yes --no-link --no-build --persona "$spec" </dev/null
@@ -346,6 +357,7 @@ t compose_t --profile "$PC" config "$PC"
 check "without personas/claude.managed.json: no drop-in" 'rc 0 && ! out_has "15-personas"'
 mv "$T/claude.managed.json" "$A/personas/claude.managed.json"
 t cfg --yes --no-link --no-build </dev/null
+check "no Python bytecode in the checkout" '[[ -z $(find "$A" -name __pycache__ -o -name "*.pyc") ]]'
 check "  and with it back: it is mounted again, and the persona is told to restart for it" \
       'rc 0 && grep -qF "./personas/claude.managed.json," "$P" && out_has "$PC: it gets personas/claude.managed.json as managed settings now"'
 # The lock config-tools and `nexus <persona> upgrade` share, held as another run would hold it (flock(1), the
@@ -784,5 +796,6 @@ t nx "$PC" start </dev/null
 check "a stopped one: start applies it (compose recreates it)" 'rc 0 && [[ $(pr) == "$ROOT" ]] && ! err_has "still runs with"'
 cd "$ROOT/app" || exit 2
 check "headless runs left no temp files" '[[ -z $(ls -A "$T/tmp") ]]'
+check "no Python bytecode in the checkout, after everything" '[[ -z $(find "$A" -name __pycache__ -o -name "*.pyc") ]]'
 
 summary

@@ -45,7 +45,7 @@ def run(argv, stdin=None, input=None, timeout=None, env=None, cwd=None, capture=
         new_session=False, stdout_to_stderr=False):
     """Run ARGV and wait. stdin: None (this process's), a file object or fd, or subprocess.DEVNULL; input:
     text or bytes to feed instead. capture=False lets the output through (stdout_to_stderr: its stdout to
-    our stderr, as `cmd >&2`); merge folds stderr into out."""
+    our stderr, as `cmd >&2`); capture="stdout" takes stdout only; merge folds stderr into out."""
     flush()
     if isinstance(input, str):
         input = input.encode("utf-8", "surrogateescape")
@@ -54,7 +54,9 @@ def run(argv, stdin=None, input=None, timeout=None, env=None, cwd=None, capture=
         kw["stdin"] = subprocess.PIPE
     elif stdin is not None:
         kw["stdin"] = stdin
-    if capture:
+    if capture == "stdout":            # $(cmd): stdout captured, stderr through to ours
+        kw["stdout"] = subprocess.PIPE
+    elif capture:
         kw["stdout"] = subprocess.PIPE
         kw["stderr"] = subprocess.STDOUT if merge else subprocess.PIPE
     elif stdout_to_stderr:

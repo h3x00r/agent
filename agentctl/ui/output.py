@@ -38,6 +38,22 @@ class Output:
     def error_line(self, msg):
         self._write(self.err, msg)
 
+    def usage(self, text):
+        """The usage on stdout. Into a pipe whose reader has gone, exit 141, as the bash tools did (their
+        `usage; exit 0` died of SIGPIPE under set -e) rather than being killed by the signal."""
+        import signal
+        from agentctl.core.errors import Exit
+        old = signal.signal(signal.SIGPIPE, signal.SIG_IGN)
+        try:
+            self.out.write(text if text.endswith("\n") else text + "\n")
+            self.out.flush()
+        except BrokenPipeError:
+            import os
+            os.dup2(os.open(os.devnull, os.O_WRONLY), self.out.fileno())   # no second try at exit
+            raise Exit(141)
+        finally:
+            signal.signal(signal.SIGPIPE, old)
+
     @staticmethod
     def die(msg, code=1):
         raise NexusError(msg, code)
