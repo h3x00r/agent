@@ -42,7 +42,8 @@ nexus                   launcher: `nexus <persona>` from any project dir
 statusline/claude/      Claude Code's statusline + its setting, for Claude personas with it on; feeds `nexus top`
 statusline/grok/        grok's statusline + its [ui.status_line], for grok personas with it on; feeds `nexus top`
 ssh/                    ssh settings for personas with a key of their own (a deploy key, say), or no ssh
-tests/                  run.sh: end-to-end tests of config.sh and nexus, on throwaway personas
+tests/                  run.sh: end-to-end tests of config.sh and nexus; secrets.sh: the secret scan (gitleaks)
+.github/workflows/      ci.yml: GitHub Actions, the secret scan on every push and pull request
 runbook.md              setup, day-to-day use, upgrades, troubleshooting, every environment variable
 LICENSE                 MIT, for the files in this repo (not the software the images download)
 .env.example            per-VM settings template → .env (gitignored)

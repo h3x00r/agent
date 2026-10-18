@@ -1,0 +1,27 @@
+# CI: a secret scan of the whole history (tests/secrets.sh: gitleaks, pinned there) on every push and pull
+# request. The actions are pinned to a commit; the comment says which release that is.
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# No concurrency group that cancels older runs: after a force-push, the newer run no longer sees the
+# commits the older one was scanning, though GitHub already has them.
+jobs:
+  secrets:
+    name: Secret scan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out every branch and tag, with their whole history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Scan for secrets with gitleaks
+        run: tests/secrets.sh

@@ -522,6 +522,69 @@ included, on throwaway personas. Nothing of your setup is read or changed, and w
 - Its personas are `nxt-<pid>-c` and `nxt-<pid>-g`, in compose project `agents`, so compose warns that your real
   personas are orphans; that is only a warning. `--keep` leaves it all for a look after a failure, and says what.
 
+### CI: the secret scan
+
+On GitHub, every push and pull request runs `.github/workflows/ci.yml`. It runs `tests/secrets.sh`, which uses
+gitleaks to look for keys, tokens and passwords in two places:
+
+- **The git history:** what every commit on a branch or tag adds, files deleted since and binary ones included. It
+  also covers what a two-parent merge itself adds, such as a conflict resolution, and the commit and tag messages.
+  On GitHub that means the branches and tags pushed there; on the VM, local and remote-tracking branches too.
+  Stashes stay on the VM and aren't scanned.
+- **The files in the checkout:** the tracked ones as they are now, and untracked ones git doesn't ignore. A staged
+  version that differs from the file on disk is scanned once it is committed.
+
+What git ignores (`.env`, `personas/*.env`, `personas/*.key`) never goes into the scan. A finding shows its rule,
+file, line, commit and fingerprint, never the secret or the text around it. A finding in a message shows as
+`../msgs/commit-<sha>.txt` or `../msgs/tag-<sha>.txt`. One in a merge's conflict resolution shows its file as
+`b/<path>`.
+
+CI scans after the push, so anything it finds is already on GitHub. Run the same scan yourself before you push.
+Inside a persona, run it from a clone of this repo under that persona's projects root, because `/opt/agents`
+isn't mounted there. `tests/run.sh` runs it too, once the image is here:
+
+```bash
+/opt/agents/tests/secrets.sh                                  # exit 0 nothing found, 1 found something (listed), 2 couldn't scan
+ln -s ../../tests/secrets.sh /opt/agents/.git/hooks/pre-push   # optional: run it on every git push from this checkout
+```
+
+The hook is a convenience, not a guard: anything that can write `.git/hooks` can remove it. The scan pulls its
+gitleaks image the first time. It stops with exit 2, having scanned nothing, in these cases:
+
+- **A history it can't read:** a shallow clone (`git fetch --unshallow`), missing objects, or alternates that moved.
+- **Rules that miss a fake token it plants first:** a `.gitleaks.toml` without `[extend] useDefault = true`, or one
+  whose `disabledRules` or allowlists cover `ghp_` tokens.
+
+What to do with a finding, and how to keep the scan up to date:
+
+- **A real secret:** revoke or rotate it first. A push can't be taken back: the commit stays in every clone and in
+  pull requests, and on GitHub it stays reachable by its SHA until GitHub Support removes it. Take the secret out
+  of the files (into `.env`, say) and commit that. Then do one of two things, or every scan keeps failing on the
+  old commit:
+  - add the history finding's fingerprint (`<commit>:<file>:<rule>:<line>`) as a line of `.gitleaksignore` and
+    commit it;
+  - or remove the secret from the history: `git filter-repo` on every branch and tag, then a force-push that
+    everyone has to follow.
+- **A false positive:** before you commit the line, put `gitleaks:allow` in a comment on it. After the commit that
+  no longer helps, because the history scan reads the commit that added the line. Instead, add the fingerprints
+  the scan printed, as printed, to `.gitleaksignore` and commit it. Careful with the one without a commit
+  (`<file>:<rule>:<line>`): it hides that rule on that line in every commit, later edits included. For a value
+  that stays in the files, allow that exact value in a `.gitleaks.toml` instead:
+
+  ```toml
+  [extend]
+  useDefault = true          # keep gitleaks' own rules: without this line there are none
+
+  [[allowlists]]
+  description = "the fixture token in tests/"
+  regexes = ['''^ghp_the-exact-value$''']
+  ```
+- **Upgrades:** gitleaks is pinned in `tests/secrets.sh` (`GITLEAKS_IMAGE`, a tag and its digest), and
+  `actions/checkout` in `ci.yml` (a commit). Bump them by hand. The release notes are at
+  github.com/gitleaks/gitleaks and github.com/actions/checkout.
+- **Blocking merges:** to stop a pull request with a finding from being merged, make **Secret scan** a required
+  check in the repo's branch rules. On a private repo that needs a paid GitHub plan.
+
 ## Troubleshooting
 
 | Symptom | Likely cause | Fix |

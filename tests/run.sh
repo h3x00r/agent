@@ -9,7 +9,8 @@
 #   tests/run.sh --keep           leave the scratch dir, containers, volumes and tags, for a look after
 #
 # Stages:
-#   lint       bash -n; shellcheck and hadolint, where installed or their images are here (never pulled)
+#   lint       bash -n; shellcheck and hadolint, where installed or their images are here (never pulled);
+#              the secret scan CI runs (tests/secrets.sh), where its gitleaks image is here
 #   config.sh  --yes: refused names, specs and ssh keys, a setup, --list, --remove, kept env files and keys
 #   nexus      before any persona runs: usage, errors, ls, top, upgrade's argument checks
 #   personas   a Claude persona against a stand-in Messages API (tests/fake-api.py, in a container of
@@ -130,7 +131,8 @@ compose_t() {
 
 # --- lint ------------------------------------------------------------------------------------------
 stage "lint"
-for f in nexus config.sh entrypoint.sh statusline/claude/statusline.sh statusline/grok/statusline.sh tests/run.sh; do
+for f in nexus config.sh entrypoint.sh statusline/claude/statusline.sh statusline/grok/statusline.sh tests/run.sh \
+         tests/secrets.sh; do
   if out="$(bash -n "$REPO/$f" 2>&1)"; then ok "bash -n $f"; else fail "bash -n $f" "$out"; fi
 done
 if out="$(sh -n "$REPO/tests/fake-grok" 2>&1)"; then ok "sh -n tests/fake-grok"; else fail "sh -n tests/fake-grok" "$out"; fi
@@ -148,7 +150,7 @@ elif (( docker_ok )) && docker image inspect koalaman/shellcheck:stable >/dev/nu
   SC=(docker run --rm -v "$REPO:/mnt:ro" -w /mnt koalaman/shellcheck:stable)
 fi
 if (( ${#SC[@]} )); then
-  for f in nexus config.sh entrypoint.sh statusline/grok/statusline.sh tests/run.sh tests/fake-grok; do
+  for f in nexus config.sh entrypoint.sh statusline/grok/statusline.sh tests/run.sh tests/secrets.sh tests/fake-grok; do
     if out="$(cd "$REPO" && "${SC[@]}" "$f" 2>&1)"; then ok "shellcheck $f"; else fail "shellcheck $f" "$out"; fi
   done
   # Claude's statusline.sh keeps its colours in printf formats (SC2059).
@@ -165,6 +167,14 @@ if (( ${#HL[@]} )); then
   if out="$(cd "$REPO" && "${HL[@]}" Dockerfile 2>&1)"; then ok "hadolint Dockerfile"; else fail "hadolint Dockerfile" "$out"; fi
 else
   skip "hadolint: not installed, and no hadolint/hadolint:latest image here"
+fi
+# The secret scan CI runs, on this checkout as it stands: its history and its files.
+GL_IMAGE="$(sed -n 's/^GITLEAKS_IMAGE="\(.*\)"$/\1/p' "$REPO/tests/secrets.sh")"
+if (( docker_ok )) && [[ -n "$GL_IMAGE" ]] && docker image inspect "$GL_IMAGE" >/dev/null 2>&1; then
+  if out="$("$REPO/tests/secrets.sh" 2>&1)"; then ok "tests/secrets.sh: no secrets in the history or the checkout"
+  else fail "tests/secrets.sh: no secrets in the history or the checkout" "$out"; fi
+else
+  skip "tests/secrets.sh: its gitleaks image isn't here (tests/secrets.sh pulls it)"
 fi
 
 if (( ! docker_ok )); then
