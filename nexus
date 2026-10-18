@@ -15,7 +15,8 @@
 #                                            one prompt, no tmux: claude -p or grok -p with FLAGS, in this
 #                                            dir; piped input goes with the prompt; output and exit code are its
 #   nexus <persona> start                    start it if it isn't running, without attaching (scripts, cron)
-#   nexus <persona> restart                  recreate the container: picks up a rebuilt/pulled image
+#   nexus <persona> restart                  recreate the container: picks up a rebuilt/pulled image, or a
+#                                            projects root changed while it ran
 #   nexus <persona> upgrade [VERSION|CHANNEL] [-y]
 #                                            pin its CLI (claude or grok) to VERSION, else to the newest
 #                                            release (of CHANNEL), build or pull the images, recreate every
@@ -87,8 +88,10 @@ env_set() {
 # The VM's projects root: shell, else ./.env, else ~/projects. A persona with its own (root= in its
 # "# persona:" line, set by config.sh) uses that instead. Compose gets it per call (COMPOSE, below) and
 # this process's environment keeps the shell's value, so a nexus run from here works out its own.
-vm_root="${PROJECTS_ROOT:-$(env_get PROJECTS_ROOT)}"
-vm_root="${vm_root:-$HOME/projects}"
+# vm_from: where it came from, for the messages that name it.
+if [[ -n "${PROJECTS_ROOT:-}" ]]; then vm_root="$PROJECTS_ROOT" vm_from="PROJECTS_ROOT in your shell"
+else vm_root="$(env_get PROJECTS_ROOT)" vm_from="PROJECTS_ROOT in $AGENTS_DIR/.env"; fi
+[[ -n "$vm_root" ]] || vm_root="$HOME/projects" vm_from="the default: no PROJECTS_ROOT in your shell or $AGENTS_DIR/.env"
 
 # SSH agent forwarding. Ubuntu/Debian user sessions usually have one of these.
 if [[ ! -S "${SSH_AUTH_SOCK:-}" ]]; then
@@ -183,6 +186,26 @@ state_colour() {  # state_colour VAR STATE: green when it runs, red unhealthy, y
     *)                   printf -v "$1" '%s' "$T_D" ;;
   esac
 }
+
+# set_roots CONTAINER…: ROOTS[container], the projects root each was created with: its PROJECTS_ROOT, as
+# compose set it (compose.yml mounts that dir at its own path and starts there). Compose applies another one
+# (root= from config.sh, or a new PROJECTS_ROOT) only when it creates the container: when a stopped one
+# starts, or at a restart. A running one keeps its own, and a dir outside it isn't there. Each is lexical.
+declare -A ROOTS=()
+set_roots() {
+  local c kv
+  ROOTS=()
+  (( $# )) || return 0
+  while IFS=$'\t' read -r c kv; do
+    if [[ "$kv" == PROJECTS_ROOT=?* ]]; then ROOTS[${c#/}]="$(lexical "${kv#PROJECTS_ROOT=}")"; fi
+  done < <(docker inspect -f '{{.Name}}{{range .Config.Env}}{{if eq (index (split . "=") 0) "PROJECTS_ROOT"}}{{"\t"}}{{.}}{{end}}{{end}}' \
+             "$@" 2>/dev/null)
+}
+# lexical PATH: PATH as Docker cleans a mount's path: no repeated or trailing slashes, ./ or .., no symlink
+# followed. So another spelling of the same root isn't another root.
+lexical() { realpath -ms -- "$1" 2>/dev/null || printf '%s\n' "$1"; }
+# moved PERSONA OLD NEW [CLAUSE]: what to say of a running persona whose projects root is OLD, not NEW.
+moved() { echo "$1 still runs with the projects root it was created with, $2${4:+, $4}: nexus $1 restart applies $3, and ends its sessions"; }
 # Run in a persona: a line per tmux session with its name, windows, attached clients and the dir of its
 # current pane, each ended by \037. Each is asked for on its own, by the session's id, and its newlines,
 # tabs and \037s flattened, so a name or a dir can't forge a line or a field. Exit 1: no tmux answer.
@@ -216,9 +239,9 @@ sess_rows() {
 # sessions of the running ones; then any container of this checkout no persona has any more (compose
 # labels each with its directory).
 cmd_ls_all() {
-  local name rest c st fl cx how root lc idle=0
-  local -a rows=($'PERSONA\tFLAVOUR\tCONTEXT\tSSH\tSTATE\tPROJECTS ROOT') notes=()
-  local -A known=()
+  local name rest c st fl cx how root lc idle=0 old note
+  local -a rows=($'PERSONA\tFLAVOUR\tCONTEXT\tSSH\tSTATE\tPROJECTS ROOT') notes=() ups=()
+  local -A known=() conf_root=() conf_from=()
   [[ -f "$PERSONAS_FILE" ]] || die "no personas set up yet: run $AGENTS_DIR/config.sh"
   set_colours; ps_states
   SROWS=($'PERSONA\tSESSION\tWINDOWS\tATTACHED\tDIR')
@@ -226,14 +249,22 @@ cmd_ls_all() {
     rest=" $rest " c="agent-$name"; known[$c]=1
     fl="${rest#* flavour=}"; fl="${fl%% *}"; cx="${rest#* context=}"; cx="${cx%% *}"
     case "$rest" in *" ssh=none "*) how=none ;; *" ssh="*) how="own key" ;; *) how=agent ;; esac
-    root="$vm_root"; if [[ "$rest" == *" root="* ]]; then root="${rest#* root=}"; root="${root%% *}"; fi
-    t_clean root "${root%/}"
+    root="$vm_root" conf_from[$c]=" ($vm_from)"
+    if [[ "$rest" == *" root="* ]]; then root="${rest#* root=}"; root="${root%% *}" conf_from[$c]=""; fi
+    conf_root[$c]="$(lexical "$root")"; t_clean root "${root%/}"
     st="${STATE[$c]:-not started}"; state_colour lc "$st"
     rows+=("$name"$'\t'"$fl"$'\t'"$cx"$'\t'"$how"$'\t'"$lc$st$T_0"$'\t'"$root")
-    if [[ -n "${UP[$c]:-}" ]]; then sess_rows "$c" "$name"$'\t' || true; else idle=1; fi
+    if [[ -n "${UP[$c]:-}" ]]; then sess_rows "$c" "$name"$'\t' || true; ups+=("$c"); else idle=1; fi
   done < <(sed -n 's/\r$//; s/^# persona: //p' "$PERSONAS_FILE")
   table lllll "${rows[@]}"
   if (( ${#SROWS[@]} > 1 )); then echo; table llrll "${SROWS[@]}"; fi
+  set_roots "${ups[@]}"
+  for c in "${ups[@]}"; do
+    old="${ROOTS[$c]-}"
+    if [[ -n "$old" && "$old" != "${conf_root[$c]}" ]]; then
+      t_clean note "$(moved "${c#agent-}" "$old" "${conf_root[$c]}${conf_from[$c]}")"; notes+=("$note")
+    fi
+  done
   if (( idle )); then notes+=("${T_D}nexus <persona> starts one that isn't running$T_0"); fi
   for c in $(printf '%s\n' "${!HERE[@]}" | sort); do
     [[ -n "${known[$c]:-}" ]] || notes+=("$c is ${STATE[$c]}, and no persona has it any more: docker rm -f $c removes it")
@@ -412,6 +443,7 @@ meta=" $(sed -n "s/\r\$//; s/^# persona: $persona //p" "$PERSONAS_FILE" | head -
 meta_get() { local v="${meta#* "$1"=}"; [[ "$v" == "$meta" ]] || echo "${v%% *}"; }
 root="$(meta_get root)"; root="${root:-$vm_root}"; root="${root%/}"
 COMPOSE=(env "PROJECTS_ROOT=$root" "${COMPOSE[@]}")
+from=""; [[ -n "$(meta_get root)" ]] || from=" ($vm_from)"
 
 service="$persona"
 container="agent-$persona"
@@ -420,6 +452,8 @@ container="agent-$persona"
 # required-variable check from blocking e.g. a build on a VM without one.
 mgmt() { export SSH_AUTH_SOCK="${SSH_AUTH_SOCK:-/dev/null}"; exec "${COMPOSE[@]}" --profile "$persona" "$@"; }
 running() { [[ "$(docker inspect -f '{{.State.Running}}' "$container" 2>/dev/null || true)" == true ]]; }
+# old_root: the projects root the container was created with, if it isn't $root (set_roots).
+old_root() { set_roots "$container"; [[ -z "${ROOTS[$container]:-}" || "${ROOTS[$container]}" == "$(lexical "$root")" ]] || echo "${ROOTS[$container]}"; }
 
 # --- Claude defaults -------------------------------------------------------------------------------
 # personas/claude.json holds defaults for every Claude persona (personas/claude.managed.json, mounted as a
@@ -802,7 +836,9 @@ case "${1:-}" in
   ls)      running || die "$persona isn't running; start it with: nexus $persona"
            set_colours; SROWS=($'SESSION\tWINDOWS\tATTACHED\tDIR')
            sess_rows "$container" "" || die "tmux in $persona isn't answering; try again, or nexus $persona restart"
-           table lrll "${SROWS[@]}"; exit 0 ;;
+           table lrll "${SROWS[@]}"
+           old="$(old_root)"; [[ -z "$old" ]] || warn "$(moved "$persona" "$old" "$root$from")"
+           exit 0 ;;
   start)   start_only=1 ;;
   stop)    shift; mgmt stop "$@" "$service" ;;
   logs)    shift; mgmt logs -f "$@" "$service" ;;
@@ -839,7 +875,9 @@ fi
 (( upgrade )) && { cmd_upgrade "${up_args[@]}"; exit 0; }
 
 # (Re)create the persona container if asked or if it isn't running. Its ssh-agent socket path is
-# fixed at creation, for the container's whole life (a new path makes compose recreate it).
+# fixed at creation, for the container's whole life (a new path makes compose recreate it). So is its
+# projects root: a running one may have another (old_root).
+old=""
 if (( restart )) || ! running; then
   # A missing key would become a root-owned directory (Docker); a running persona has its key mounted already.
   [[ -z "$key" || ( -f "$key" && -r "$key" ) ]] \
@@ -878,23 +916,45 @@ if (( restart )) || ! running; then
   fi
   "${COMPOSE[@]}" --profile "$persona" up -d "$service" >&2   # progress only: a headless run's stdout is the CLI's
   claude_defaults
+else
+  old="$(old_root)"
 fi
-(( start_only )) && exit 0
+if (( start_only )); then [[ -z "$old" ]] || warn "$(moved "$persona" "$old" "$root$from")"; exit 0; fi
 
-dir="$here"
-case "$dir/" in
-  "$root"/*) [[ -d "$dir" ]] || die "$dir no longer exists; cd to a project dir" ;;
-  *) # The same place by another path (a symlink on either side)? Then the root's spelling of it: that is
-     # the path mounted inside. Truly outside: a session starts in the root, a headless run refuses.
-     rr="$(realpath -e -- "$root" 2>/dev/null || true)" rh="$(realpath -e -- "$here" 2>/dev/null || true)"
-     if [[ -n "$rr" && -n "$rh" && "$rh/" == "$rr"/* ]]; then
-       dir="$root${rh#"$rr"}"
-     elif (( headless )); then
-       die "headless: $here is outside $persona's projects root ($root); cd to a project in it"
-     else
-       echo "nexus: $here is outside $persona's projects root; starting in $root" >&2; dir="$root"
-     fi ;;
-esac
+dir="$here" inside=1
+# A running container with another projects root (old_root) has that one only. A dir in it (by either
+# spelling) is there, in its spelling, and works as before, with a warning. Outside it, a headless run
+# refuses, and an attach can only reach a session the container runs already (below).
+if [[ -n "$old" ]]; then
+  ro="$(realpath -e -- "$old" 2>/dev/null || true)" rh="$(realpath -e -- "$here" 2>/dev/null || true)"
+  if [[ "$here/" == "$old"/* ]]; then :
+  elif [[ -n "$ro" && -n "$rh" && "$rh/" == "$ro"/* ]]; then dir="$old${rh#"$ro"}"
+  else inside=0
+  fi
+  if (( inside )); then
+    [[ -d "$dir" ]] || die "$dir no longer exists; cd to a project dir"
+    warn "$(moved "$persona" "$old" "$root$from")"
+  elif (( headless )); then
+    die "$(moved "$persona" "$old" "$root$from" "which $here isn't in")"
+  fi
+fi
+if [[ -z "$old" ]] || (( ! inside )); then
+  case "$dir/" in
+    "$root"/*) [[ -d "$dir" ]] || die "$dir no longer exists; cd to a project dir" ;;
+    *) # The same place by another path (a symlink on either side)? Then the root's spelling of it: that is
+       # the path mounted inside. Truly outside: a session starts in the root, a headless run refuses.
+       rr="$(realpath -e -- "$root" 2>/dev/null || true)" rh="$(realpath -e -- "$here" 2>/dev/null || true)"
+       if [[ -n "$rr" && -n "$rh" && "$rh/" == "$rr"/* ]]; then
+         dir="$root${rh#"$rr"}"
+       elif (( headless )); then
+         die "headless: $here is outside $persona's projects root ($root); cd to a project in it"
+       else
+         # With another root in the container, the root only names the session to look for (below).
+         [[ -n "$old" ]] || echo "nexus: $here is outside $persona's projects root; starting in $root" >&2
+         dir="$root"
+       fi ;;
+  esac
+fi
 (( headless )) && cmd_headless "$@"
 
 # Attaching to a running persona whose personas file is from before a split: say what to do (a start refuses).
@@ -908,11 +968,21 @@ if [[ $# -gt 0 && "$1" != "--" ]]; then session="$1"; shift; fi
 if [[ "${1:-}" == "--" ]]; then shift; cmd=("$@"); fi
 session="${session:-$(basename "$dir")}"
 session="${session//[.:]/_}"   # tmux rewrites '.' and ':' in session names; do the same up front
+# Not in the root the container has (above): docker exec there would fail ("chdir to cwd"). From that root,
+# a session it runs already can still be attached to, to finish what runs in it before the restart.
+wd="$dir"
+if (( ! inside )); then
+  docker exec "$container" tmux has-session -t "=$session" 2>/dev/null \
+    || die "$(moved "$persona" "$old" "$root$from" "which $here isn't in")" \
+           "(until then, a session it runs can be attached to by name: nexus $persona ls lists them)"
+  warn "$(moved "$persona" "$old" "$root$from" "which $here isn't in; attaching to its session $session")"
+  wd="$old"
+fi
 
 # tmux inside needs terminfo for $TERM; terminals the image doesn't know (kitty, ghostty) get a safe one.
 term="${TERM:-xterm-256color}"
 docker exec "$container" infocmp "$term" >/dev/null 2>&1 || term=xterm-256color
 
 # -A: attach if the session exists, else create it (cmd is only used on create).
-exec docker exec -it -e TERM="$term" -w "$dir" "$container" \
-  tmux new-session -A -s "$session" -c "$dir" "${cmd[@]}"
+exec docker exec -it -e TERM="$term" -w "$wd" "$container" \
+  tmux new-session -A -s "$session" -c "$wd" "${cmd[@]}"

@@ -290,7 +290,8 @@ to keep the VM settings as they are. Without questions:
 ```
 - A persona's own projects root is kept in its `# persona:` line in `compose.personas.yml` (`root=`), so it
   can't contain spaces or `:`. Given without `:ROOT`, an existing persona keeps its root. Changing the root
-  takes `nexus <persona> restart`; its sessions in the old root end.
+  takes `nexus <persona> restart`; its sessions in the old root end. Until then nexus warns that it still runs
+  with the old root: in that root it works as before; elsewhere it only attaches to one of its sessions by name.
 - After a change, `nexus <persona> restart` applies it (that ends its tmux sessions); config.sh says so for
   each persona it changed.
 - Its build (or pull) covers every persona's image, not only a new one's: adding a grok persona also re-runs the
@@ -605,6 +606,8 @@ What to do with a finding, and how to keep the scan up to date:
 | `env file …/personas/<persona>.env not found` | deleted, or the persona was added by hand | re-run config.sh (it writes a new one) |
 | `the projects root must be an absolute path` / `can't create the projects root …` | a bad `PROJECTS_ROOT` in `.env` or your shell, or a bad own root | the message says which: fix it, or re-run config.sh |
 | `… is outside <persona>'s projects root; starting in …` | you ran `nexus` from a directory that persona doesn't mount | `cd` into its root, or give the persona that root (section 5) |
+| `<persona> still runs with the projects root it was created with, …` | its root changed (config.sh, or `PROJECTS_ROOT`) while it ran: a running container keeps the root it was created with | `nexus <persona> restart` (ends its sessions); to finish one first, `nexus <persona> <session>` attaches to it |
+| `OCI runtime exec failed: … chdir to cwd …: no such file or directory` | an older nexus, attaching to a persona whose root changed while it ran | `nexus <persona> restart`; `git pull` brings the nexus that says so |
 | `no Docker socket at /var/run/docker.sock` | Docker isn't installed or running | install / start Docker |
 | `permission denied … docker.sock` | your user isn't in the `docker` group | `sudo usermod -aG docker "$USER"`, log in again |
 | `range of CPUs is from 0.01 to N` | `AGENT_CPUS` above the VM's vCPUs | set `AGENT_CPUS` ≤ `nproc` (config.sh caps it) |

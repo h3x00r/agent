@@ -678,6 +678,73 @@ t nx "$PG" stop </dev/null
 check "stop: the container stops" 'rc 0 && [[ $(docker inspect -f "{{.State.Status}}" "agent-$PG" 2>/dev/null) == exited ]]'
 t nx ls </dev/null
 check "ls: a stopped persona" 'out_re "^$PG +grok +docker +own key +stopped +$ROOT$" && ! out_re "^$PG +main "'
+
+stage "a projects root changed while a persona runs"
+moved_root() { cp "$T/personas.yml" "$P"; sed -i "s|^# persona: $PC .*|& root=$1|" "$P"; }
+cp "$P" "$T/personas.yml"
+cd "$ROOT/app" || exit 2
+t nx "$PC" start </dev/null
+check "start, the root as it was: no warning" 'rc 0 && ! err_has "still runs with"'
+moved_root "$ROOT/app"
+t nx "$PC" headless "nxt say hi" </dev/null
+check "moved to a dir in the old root: headless still runs, warning that a restart applies it" \
+      'rc 0 && out_is FAKE-REPLY && err_has "$PC still runs with the projects root it was created with, $ROOT: nexus $PC restart applies $ROOT/app, and ends its sessions"'
+mkdir -p "$T/moved/proj"
+moved_root "$T/moved"
+cd "$T/moved/proj" || exit 2
+t nx "$PC" headless "nxt say hi" </dev/null
+check "moved out of it: headless refuses, saying why" \
+      'rc 1 && [[ -z $OUT ]] && err_has "$ROOT, which $T/moved/proj isn'"'"'t in: nexus $PC restart applies $T/moved, and ends"'
+t nx "$PC" start </dev/null
+check "  start: the warning" 'rc 0 && err_has "created with, $ROOT: nexus $PC restart applies $T/moved"'
+t nx ls </dev/null
+check "  ls: its configured root, and a note" \
+      'rc 0 && out_re "^$PC +claude +docker +agent +(starting|healthy|running) +$T/moved$" && out_line "$PC still runs with the projects root it was created with, $ROOT: nexus $PC restart applies $T/moved, and ends its sessions"'
+t nx "$PC" ls </dev/null
+check "  PERSONA ls: its sessions, and the warning" 'rc 0 && out_re "^billing +1 +no +$ROOT/app$" && err_has "applies $T/moved"'
+pty "$T/moved/proj" "$PC"
+pty_end 20
+check "  an attach for a new session: refused, no docker error, the sessions it runs named" \
+      'rc 1 && out_has "which $T/moved/proj isn'"'"'t in" && out_has "nexus $PC ls lists them" && ! out_has "OCI" && ! tx has-session -t =proj 2>/dev/null'
+pty "$T/moved/proj" "$PC" billing
+wait_for 30 '[[ -n $(tx list-clients -t =billing 2>/dev/null) ]]'
+tx detach-client -s =billing >/dev/null 2>&1
+pty_end 20
+check "  one to a session it runs: attached, with the warning" 'rc 0 && out_has "attaching to its session billing" && out_has "detached"'
+cd "$ROOT/app" || exit 2
+t nx "$PC" headless "nxt say hi" </dev/null
+check "  from a dir in the old root: headless runs there, with the warning" 'rc 0 && out_is FAKE-REPLY && err_has "applies $T/moved"'
+cd "$T/link" || exit 2
+t nx "$PC" headless "nxt say hi" </dev/null
+check "    and by another path to it (a symlink)" 'rc 0 && out_is FAKE-REPLY && err_has "applies $T/moved"'
+pty "$ROOT/app" "$PC" -- sleep 300
+wait_for 30 '[[ -n $(tx list-clients -t =app 2>/dev/null) ]]'
+pp="$(tx list-panes -t =app -F '#{pane_current_path}' 2>&1)"
+tx detach-client -s =app >/dev/null 2>&1
+pty_end 20
+check "    an attach from there: a new session at that dir, with the warning" 'rc 0 && [[ $pp == "$ROOT/app" ]] && out_has "applies $T/moved"'
+tx kill-session -t =app 2>/dev/null
+cp "$T/personas.yml" "$P"
+cd "$ROOT/app" || exit 2
+t env "${NX_ENV[@]}" PROJECTS_ROOT="$T/moved" "$A/nexus" "$PC" start </dev/null
+check "  the VM's root from the shell: the warning says so" 'rc 0 && err_has "applies $T/moved (PROJECTS_ROOT in your shell), and ends"'
+t env "${NX_ENV[@]}" PROJECTS_ROOT="$T/moved" "$A/nexus" ls </dev/null
+check "    and ls" \
+      'rc 0 && out_line "$PC still runs with the projects root it was created with, $ROOT: nexus $PC restart applies $T/moved (PROJECTS_ROOT in your shell), and ends its sessions"'
+t env "${NX_ENV[@]}" PROJECTS_ROOT="$T//projects/" "$A/nexus" "$PC" start </dev/null
+check "another spelling of the same root: no warning" 'rc 0 && ! err_has "still runs with"'
+moved_root "$T/moved"
+t nx "$PC" restart </dev/null
+pr() { docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "agent-$PC" | sed -n 's/^PROJECTS_ROOT=//p'; }
+check "restart applies it" 'rc 0 && [[ $(pr) == "$T/moved" ]]'
+cd "$T/moved/proj" || exit 2
+t nx "$PC" headless "nxt say hi" </dev/null
+check "  a headless run in the new root works, and the warning is gone" 'rc 0 && out_is FAKE-REPLY && ! err_has "still runs with"'
+cp "$T/personas.yml" "$P"
+t nx "$PC" stop </dev/null
+t nx "$PC" start </dev/null
+check "a stopped one: start applies it (compose recreates it)" 'rc 0 && [[ $(pr) == "$ROOT" ]] && ! err_has "still runs with"'
+cd "$ROOT/app" || exit 2
 check "headless runs left no temp files" '[[ -z $(ls -A "$T/tmp") ]]'
 
 summary
