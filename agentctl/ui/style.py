@@ -5,9 +5,15 @@ and NO_COLOR is unset or empty, and empty strings otherwise, so code that format
 strip exactly these codes (\\e[NNm and \\e[Nm) to measure rows: use no others.
 
 What a colour stands for is decided here too: a container's state, how full a context or limit is.
+
+Pitfalls (each pinned where named):
+- an empty NO_COLOR leaves colour on (test_ui.Palette.test_off_without_a_terminal_or_with_no_color)
+- load(): a leading zero is decimal, never octal (golden nexus/edge-top-octal-colour)
 """
 import os
 import sys
+
+from agentctl.core.shellcompat import ere
 
 _CODES = {"bold": "\033[1m", "dim": "\033[90m", "red": "\033[31m", "yellow": "\033[33m", "green": "\033[32m",
           "reset": "\033[0m"}
@@ -41,7 +47,7 @@ class Palette:
 
     def load(self, pct):
         """A percentage used (a context, a limit): green, yellow from 50, red from 80; nothing if not a number."""
-        if not (pct and pct.isascii() and pct.isdigit()):
+        if not ere(r"[0-9]+", pct):
             return ""
         n = int(pct)
         if n >= 80:

@@ -6,9 +6,16 @@ ESC [ and the like), removed byte by byte, as the bash t_clean did under LC_ALL=
 plain(): a cell without the Palette's colour codes, for measuring.
 width(): how many columns a cell takes as bash counted them: characters in a UTF-8 locale (an undecodable
 byte counts as one), bytes in any other.
+
+Pitfalls (each pinned where named):
+- clean() on bytes: C1 goes as its UTF-8 bytes, a lone 0x9d byte stays (test_ui.Clean.test_c1_goes_byte_wise,
+  test_ui.Clean.test_a_lone_byte_stays)
+- "-" (test_ui.Clean.test_empty_is_a_dash)
+- width() (test_ui.Width.test_characters_or_bytes, golden nexus/edge-ls-wide-tty)
 """
-import os
 import re
+
+from agentctl.core import shellcompat
 
 _CONTROL = re.compile(rb"[\x00-\x1f\x7f]")
 _C1 = re.compile(rb"\xc2[\x80-\x9f]")
@@ -27,13 +34,7 @@ def plain(cell):
 
 
 def utf8_locale(env=None):
-    env = os.environ if env is None else env
-    for k in ("LC_ALL", "LC_CTYPE", "LANG"):
-        v = env.get(k)
-        if v:
-            v = v.lower().replace("-", "")
-            return "utf8" in v
-    return False
+    return shellcompat.utf8_locale(env)
 
 
 def width(cell, utf8=None):

@@ -8,6 +8,10 @@ goldens record what goes to docker.
 
 check(path, fmt) → (rc, output): rc 0 fine, 3 broken (output says why), -1 nothing here could check,
 anything else the check itself failed (counts as unchecked).
+
+Pitfalls (each pinned where named):
+- the programs as spelt, in a persona image when this python3 has no tomllib (golden config/cli-images-build)
+- -1 makes config-tools warn, not refuse (run.sh "with nothing to check the TOML with: it says so")
 """
 import os
 import re

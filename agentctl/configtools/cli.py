@@ -4,6 +4,11 @@ The grammar is the bash tool's, kept as it was (not argparse, whose exit codes a
 options are read left to right; --help prints the usage and stops when it is reached; a flag that takes a
 value takes the next argument whatever it looks like, as long as it isn't empty; the last of a repeated
 single-value flag wins; anything else is "unknown option '…' (see --help)", exit 1.
+
+Pitfalls (each pinned where named):
+- --help only where it is reached (test_configtools.Parse.test_help_stops_where_it_is_read)
+- the next argument, even one like a flag; an empty one refused
+  (test_configtools.Parse.test_a_value_is_the_next_argument_whatever_it_is, golden config/cli-need-argument)
 """
 from agentctl.core.errors import NexusError
 

@@ -1,0 +1,12 @@
+## run 1: nexus ls >&-  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: its output is closed (>&-): nothing it says would show
+## run 2: nexus nope >&-  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: its output is closed (>&-): nothing it says would show

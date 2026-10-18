@@ -103,3 +103,18 @@ class Proc(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SignalsAtStart(unittest.TestCase):
+    def test_one_ignored_at_start_is_never_trapped(self):
+        import signal
+        root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        code = ("import signal, sys; sys.path.insert(0, sys.argv[1]); from agentctl.core import sigs; "
+                "old = sigs.trap((signal.SIGINT, signal.SIGTERM), lambda *a: None); "
+                "print(sorted(s.name for s in old), signal.getsignal(signal.SIGINT) == signal.SIG_IGN)")
+
+        def ignore_int():
+            signal.signal(signal.SIGINT, signal.SIG_IGN)
+        out = subprocess.run([sys.executable, "-I", "-c", code, root], stdout=subprocess.PIPE,
+                             preexec_fn=ignore_int).stdout.decode().strip()
+        self.assertEqual(out, "['SIGTERM'] True")

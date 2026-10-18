@@ -1,0 +1,51 @@
+## run 1: nexus c1 upgrade vlatest  (v dropped: a channel)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: can't look up the newest claude at https://downloads.claude.ai/claude-code-releases/latest
+## run 2: nexus c1 upgrade -- 2.1.400  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: upgrade: unknown option '--'
+## run 3: nexus c1 upgrade $'2.1.400\n'  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: upgrade: '2.1.400
+' is neither a version (X.Y.Z) nor a channel of claude (latest stable)
+## run 4: nexus c1 upgrade '2.1.400 '  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: upgrade: '2.1.400 ' is neither a version (X.Y.Z) nor a channel of claude (latest stable)
+## run 5: nexus c1 upgrade '*'  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: upgrade: '*' is neither a version (X.Y.Z) nor a channel of claude (latest stable)
+## run 6: nexus c1 upgrade -Y  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: upgrade: unknown option '-Y'
+## run 7: nexus c1 upgrade --yes 1.2.3-rc.1 --yes  [pipe]
+rc: 0
+--- stdout
+nexus: claude for c1: latest -> 1.2.3-rc.1
+nexus: CLAUDE_VERSION=1.2.3-rc.1 in <A>/.env; 1.2.3-rc.1 (Claude Code) in: local/agent-claude-docker:1.2.3-rc.1 
+nexus: done; c1 run 1.2.3-rc.1 (Claude Code)
+--- stderr
+ c1 Built  done
+## run 8: nexus c1 upgrade <fullwidth 2>.1.400  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: upgrade: '２.1.400' is neither a version (X.Y.Z) nor a channel of claude (latest stable)

@@ -1,0 +1,18 @@
+## run 1: (.env unreadable) nexus ls  [pipe]
+rc: 2
+--- stdout
+(empty)
+--- stderr
+nexus: can't read <A>/.env: Permission denied
+## run 2: (compose.personas.yml unreadable) nexus ls  [pipe]
+rc: 2
+--- stdout
+(empty)
+--- stderr
+nexus: can't read <A>/compose.personas.yml: Permission denied
+## run 3: (compose.personas.yml unreadable) nexus c1 ls  [pipe]
+rc: 2
+--- stdout
+(empty)
+--- stderr
+nexus: can't read <A>/compose.personas.yml: Permission denied

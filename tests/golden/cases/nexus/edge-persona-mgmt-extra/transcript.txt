@@ -1,0 +1,135 @@
+## run 1: nexus c1 stop  (no container)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-c1  Stopped
+## run 2: nexus c1 stop -t 3  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-c1  Stopped
+## run 3: nexus c1 logs --since 1h  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+(empty)
+## run 4: nexus c1 pull --policy missing  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ c1 Pulled  done
+## run 5: nexus c1 build -- x  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ c1 Built  done
+## run 6: nexus g1 stop  (SSH_AUTH_SOCK empty)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-g1  Stopped
+## run 7: nexus c1 restart  (SSH_AUTH_SOCK empty)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-c1  Recreated
+nexus: c1: Claude defaults from personas/claude.json: model, modelSettings.opus.effortLevel, outputStyle, teammateMode, theme, tui, worktree.baseRef
+## run 8: nexus g1 stop  (SSH_AUTH_SOCK unset)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-g1  Stopped
+## run 9: nexus c1 restart  (SSH_AUTH_SOCK unset)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-c1  Recreated
+## run 10: nexus g1 stop  (SSH_AUTH_SOCK missing)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-g1  Stopped
+## run 11: nexus c1 restart  (SSH_AUTH_SOCK missing)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-c1  Recreated
+## run 12: nexus g1 stop  (SSH_AUTH_SOCK a file)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-g1  Stopped
+## run 13: nexus c1 restart  (SSH_AUTH_SOCK a file)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-c1  Recreated
+## run 14: nexus g1 stop  (SSH_AUTH_SOCK a dir)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-g1  Stopped
+## run 15: nexus c1 restart  (SSH_AUTH_SOCK a dir)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-c1  Recreated
+## run 16: nexus g1 stop  (SSH_AUTH_SOCK a link to a socket)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-g1  Stopped
+## run 17: nexus c1 restart  (SSH_AUTH_SOCK a link to a socket)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+nexus: warning: the ssh-agent at <S>/slink holds no keys (ssh-add -l); git over ssh will fail inside
+ Container agent-c1  Recreated
+## run 18: nexus g1 stop  (SSH_AUTH_SOCK dangling)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-g1  Stopped
+## run 19: nexus c1 restart  (SSH_AUTH_SOCK dangling)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-c1  Recreated
+## run 20: nexus c1 start extra args  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+(empty)
+## run 21: nexus c1 restart --x  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-c1  Recreated
+## run 22: nexus c1 ls extra  [pipe]
+rc: 0
+--- stdout
+SESSION  WINDOWS  ATTACHED  DIR
+main           1  no        <P>
+--- stderr
+(empty)

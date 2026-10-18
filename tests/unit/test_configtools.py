@@ -8,6 +8,16 @@ from agentctl.configtools.setup import cpus_ok, env_flavour
 from agentctl.core.errors import NexusError
 
 
+def read(path):
+    with open(path) as f:
+        return f.read()
+
+
+def put(path, text):
+    with open(path, "w") as f:
+        f.write(text)
+
+
 class Parse(unittest.TestCase):
     def test_flags(self):
         o = cli.parse(["--yes", "--persona", "c1:claude:docker", "--persona", "g1:grok:ddev", "--ssh", "g1:new",
@@ -41,17 +51,17 @@ class Staging(unittest.TestCase):
         os.chdir(self.cwd)
 
     def test_stage_is_private_and_named_like_mktemp(self):
-        open("x.env", "w").write("A=1\n")
+        put("x.env", "A=1\n")
         t = staging.stage("x.env", "x.env")
         self.assertTrue(t.startswith("x.env.") and "/" not in t)
         self.assertEqual(stat.S_IMODE(os.stat(t).st_mode), 0o600)
-        self.assertEqual(open(t).read(), "A=1\n")
+        self.assertEqual(read(t), "A=1\n")
         staging.cleanup()
         self.assertFalse(os.path.exists(t))
 
     def test_commit_writes_through_a_link_and_keeps_the_inode(self):
         os.mkdir("real")
-        open("real/f", "w").write("old\n")
+        put("real/f", "old\n")
         os.chmod("real/f", 0o640)
         os.symlink("real/f", "f")
         ino = os.stat("real/f").st_ino
@@ -59,12 +69,12 @@ class Staging(unittest.TestCase):
         staging.write(t, "new\n")
         staging.commit(t, "f", "f.bak")
         self.assertTrue(os.path.islink("f"))
-        self.assertEqual((open("real/f").read(), os.stat("real/f").st_ino, stat.S_IMODE(os.stat("real/f").st_mode)),
+        self.assertEqual((read("real/f"), os.stat("real/f").st_ino, stat.S_IMODE(os.stat("real/f").st_mode)),
                          ("new\n", ino, 0o640))
-        self.assertEqual(open("f.bak").read(), "old\n")
+        self.assertEqual(read("f.bak"), "old\n")
 
     def test_an_unchanged_target_is_left_alone(self):
-        open("f", "w").write("same\n")
+        put("f", "same\n")
         before = os.stat("f")
         t = staging.stage("f", "f")
         staging.commit(t, "f", "f.bak")

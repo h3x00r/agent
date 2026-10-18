@@ -13,6 +13,21 @@ What bash's `read -r -p` did, and these do the same:
 
 With yes=True (--yes) every question takes its default without reading; with defaults=True (a block of
 questions kept as they are) ask() does too, but yesno(), secret() and choose() still ask.
+
+Pitfalls (each pinned where named):
+- prompts on a terminal only (test_prompts.Terminal.test_prompts_on_stderr_and_hidden_answers,
+  test_prompts.Piped.test_answers_trimmed_and_defaults)
+- never past its line (test_prompts.Piped.test_reads_no_further_than_its_line)
+- a last line without a newline (test_prompts.Piped.test_answers_trimmed_and_defaults, golden
+  config/ask-last-line-no-newline)
+- a \\r stays (test_prompts.Piped.test_a_cr_stays)
+- the end of input (test_prompts.Piped.test_eof, golden config/ask-eof-piped)
+- secret()'s newline, on a pipe too (test_prompts.Piped.test_secret_ends_the_line)
+- the echo back on after a hidden answer (test_prompts.Terminal.test_prompts_on_stderr_and_hidden_answers)
+- yes and defaults (test_prompts.Piped.test_yes_reads_nothing,
+  test_prompts.Piped.test_defaults_covers_ask_only)
+- choose(): a number only in range, else a key (test_prompts.Piped.test_choose, golden
+  config/ask-invalid-choices)
 """
 import os
 import re

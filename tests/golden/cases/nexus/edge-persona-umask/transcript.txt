@@ -1,0 +1,13 @@
+## run 1: (umask 177) nexus g1 start  (PROJECTS_ROOT=<S>/fresh/a/b)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-g1  Started
+## run 2: (umask 177) nexus d1 start  (~/.local missing)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+nexus: warning: no mkcert CA on this VM yet — run 'mkcert -install' here, then `nexus d1 restart`, or https://*.ddev.site stays untrusted inside
+ Container agent-d1  Started

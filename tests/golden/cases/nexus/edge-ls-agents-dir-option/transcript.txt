@@ -1,0 +1,12 @@
+## run 1: AGENTS_DIR=-P nexus ls  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: can't cd to -P
+## run 2: AGENTS_DIR=- nexus ls  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: can't cd to -

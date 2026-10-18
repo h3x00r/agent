@@ -12,6 +12,12 @@ The rules, as nexus has always applied them:
 - Otherwise: a dir in ROOT (or the same place by another path, which gets ROOT's spelling) is used as it
   is. Truly outside, a session starts in ROOT (with a note) and a headless run refuses.
 Nothing here touches the filesystem: realpath is passed in (shellcompat.realpath_e in real use).
+
+Pitfalls (each pinned where named):
+- by a symlink, ROOT's spelling (test_domain.Places.test_by_a_symlink_gets_the_roots_spelling, golden
+  nexus/life-attach-root-symlink)
+- OLD set, outside it (test_domain.Places.test_drift_outside_the_old_root, golden nexus/life-drift-attach)
+- in ROOT is a string test: /pq isn't in /p (test_shellcompat.Paths.test_under_is_a_string_test)
 """
 from dataclasses import dataclass
 

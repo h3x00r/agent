@@ -1,0 +1,16 @@
+## run 1: nexus c1 headless 'nxt long'  (^C mid-run)  [tty-all, cwd projects/app]
+rc: 130
+--- stdout
+cli: running
+^Ccli: got INT
+nexus: INT: stopping the run in c1
+--- stderr
+(empty)
+## run 2: nexus c1 headless 'nxt long'  (^C mid-run, the CLI exits 3)  [tty-all, cwd projects/app]
+rc: 130
+--- stdout
+cli: running
+^Ccli: got INT
+nexus: INT: stopping the run in c1
+--- stderr
+(empty)

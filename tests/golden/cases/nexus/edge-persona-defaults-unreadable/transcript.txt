@@ -1,0 +1,8 @@
+## run 1: nexus c1 start  (personas/claude.json mode 000)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-c1  Started
+nexus: <A>/personas/claude.json: Permission denied
+nexus: warning: c1: the defaults in personas/claude.json couldn't be merged (exit 1): 

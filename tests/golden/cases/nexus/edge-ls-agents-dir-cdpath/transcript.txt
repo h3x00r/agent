@@ -1,0 +1,6 @@
+## run 1: CDPATH=<S> AGENTS_DIR=a nexus nope  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: can't cd to a

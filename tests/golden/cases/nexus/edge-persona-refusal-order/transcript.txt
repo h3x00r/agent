@@ -1,0 +1,48 @@
+## run 1: nexus g1 start  (all wrong)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: g1's ssh key <A>/personas/g1.key isn't there; config-tools makes one (SSH: new), or points it at another, none or your agent
+## run 2: nexus g1 start  (all wrong, root relative)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: the projects root must be an absolute path, not 'rel' (PROJECTS_ROOT from your shell or <A>/.env; fix it, or unset it for ~/projects)
+## run 3: nexus d1 start  (no CA, legacy file)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: <A>/compose.personas.yml is from before statusline/ was split into claude/ and grok/: re-run <A>/config-tools (--yes keeps every setting), then start d1 again
+## run 4: nexus c1 ls  (all wrong, not running)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: c1 isn't running; start it with: nexus c1
+## run 5: nexus c1 start  (legacy claude.json, managed gone)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: <A>/compose.personas.yml is from before personas/claude.json was split into defaults and claude.managed.json: re-run <A>/config-tools (--yes keeps every setting), then start c1 again
+## run 6: nexus c1 start  (managed gone)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: <A>/personas/claude.managed.json isn't there: restore it (git checkout personas/claude.managed.json), or re-run <A>/config-tools without it
+## run 7: nexus g1 restart  (key, grok.toml gone)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: g1's ssh key <A>/personas/g1.key isn't there; config-tools makes one (SSH: new), or points it at another, none or your agent
+## run 8: nexus g1 start  (grok.toml gone)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: <A>/personas/g1.grok.toml isn't there: re-run <A>/config-tools, which writes it

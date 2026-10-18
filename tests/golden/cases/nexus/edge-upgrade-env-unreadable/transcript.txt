@@ -1,0 +1,12 @@
+## run 1: grep ^CLAUDE_VERSION= <A>/.env  [pipe]
+rc: 0
+--- stdout
+CLAUDE_VERSION=latest
+--- stderr
+(empty)
+## run 2: nexus c1 upgrade 2.1.400 -y  (.env mode 200)  [pipe]
+rc: 2
+--- stdout
+(empty)
+--- stderr
+nexus: can't read <A>/.env: Permission denied

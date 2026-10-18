@@ -3,6 +3,18 @@
 A Persona has a name, a flavour (claude | grok), a context (ddev | docker), a tmux colour, the statusline
 on or off, its own projects root ("" for the VM's) and its ssh: "" (your ssh-agent, forwarded), "none",
 or a key: personas/NAME.key (made by config-tools) or an absolute path.
+
+Pitfalls (each pinned where named):
+- valid_name() is a fullmatch: a trailing newline is no name (test_domain.Rules.test_names)
+- a persona's own root has no whitespace (it goes into a line split on spaces); the VM's may
+  (test_domain.Rules.test_roots_and_keys)
+- a key's path without spaces, quotes or $: compose_render puts it into '…' as it is (golden
+  config/cli-bad-ssh)
+- parse_meta_line(): an unknown field ignored, a repeated one's last value kept
+  (test_domain.Lines.test_reading_rules)
+- norm_dir(): one trailing / goes, a ~user stays as it is (test_domain.Rules.test_norm_dir)
+- next_colour(): past eight personas the colours come round again (test_domain.Rules.test_colours_and_names,
+  golden config/cli-colours)
 """
 import os
 import re

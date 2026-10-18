@@ -1,0 +1,27 @@
+## run 1: (.env root with a NUL) nexus ls  [pipe]
+rc: 0
+--- stdout
+PERSONA  FLAVOUR  CONTEXT  SSH      STATE        PROJECTS ROOT
+c1       claude   docker   agent    healthy      <S>/projectsz
+g1       grok     docker   own key  not started  <S>/projectsz
+
+PERSONA  SESSION  WINDOWS  ATTACHED  DIR
+c1       main           1  no        <P>
+
+c1 still runs with the projects root it was created with, <P>: nexus c1 restart applies <S>/projectsz (PROJECTS_ROOT in <A>/.env), and ends its sessions
+nexus <persona> starts one that isn't running
+--- stderr
+(empty)
+## run 2: (.env root with a NUL) nexus c1 ls  [pipe]
+rc: 0
+--- stdout
+SESSION  WINDOWS  ATTACHED  DIR
+main           1  no        <P>
+--- stderr
+nexus: warning: c1 still runs with the projects root it was created with, <P>: nexus c1 restart applies <S>/projectsz (PROJECTS_ROOT in <A>/.env), and ends its sessions
+## run 3: (.env root with a NUL) nexus c1 stop  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-c1  Stopped

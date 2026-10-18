@@ -1,0 +1,72 @@
+## run 1: nexus c1  (in <P>/app, PWD app/./)  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s _ -c <P>/app/./]
+--- stderr
+(empty)
+## run 2: nexus c1  (in <P>/app, PWD x/../app)  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s app -c <P>/x/../app]
+--- stderr
+(empty)
+## run 3: nexus c1  (in <P>/app, PWD app/)  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s app -c <P>/app/]
+--- stderr
+(empty)
+## run 4: nexus c1  (in <P>/app, PWD //<P>/app)  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s app -c <P>/app]
+--- stderr
+(empty)
+## run 5: nexus c1  (in <P>/app, PWD <S>//projects/app)  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s app -c <P>/app]
+--- stderr
+(empty)
+## run 6: nexus c1  (in <P>/app, PWD stale: <P>/x)  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s app -c <P>/app]
+--- stderr
+(empty)
+## run 7: nexus c1  (in <P>/app, PWD relative)  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s app -c <P>/app]
+--- stderr
+(empty)
+## run 8: nexus c1  (in <P>/app, PWD unset)  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s app -c <P>/app]
+--- stderr
+(empty)
+## run 9: nexus c1  (in <P>/app, PROJECTS_ROOT=<S>//projects)  [pipe, cwd projects/app]
+rc: 126
+--- stdout
+(empty)
+--- stderr
+OCI runtime exec failed: exec failed: unable to start container process: chdir to cwd ("<S>//projects/app") set in config.json failed: no such file or directory: unknown
+## run 10: nexus c1  (in <P>/app, PROJECTS_ROOT=<P>//)  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s app -c <P>//app]
+--- stderr
+(empty)
+## run 11: nexus c1  (in <P>/app, PROJECTS_ROOT=<P>/.)  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s app -c <P>/./app]
+--- stderr
+(empty)
+## run 12: nexus c1  (in <P>/app, PROJECTS_ROOT=<P>/app: another root)  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s app -c <P>/app]
+--- stderr
+nexus: warning: c1 still runs with the projects root it was created with, <P>: nexus c1 restart applies <P>/app (PROJECTS_ROOT in your shell), and ends its sessions

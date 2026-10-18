@@ -1,0 +1,6 @@
+## run 1
+{"argv": ["inspect", "-f", "{{.State.Running}}", "agent-g1"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "PROJECTS_ROOT": "<S>/fresh/a/b", "SSH_AUTH_SOCK": "/dev/null"}, "stdin": "chr"}
+{"argv": ["compose", "-p", "agents", "-f", "<A>/compose.yml", "-f", "<A>/compose.personas.yml", "--profile", "g1", "up", "-d", "g1"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "PROJECTS_ROOT": "<S>/fresh/a/b", "SSH_AUTH_SOCK": "/dev/null"}, "stdin": "chr"}
+## run 2
+{"argv": ["inspect", "-f", "{{.State.Running}}", "agent-d1"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_CA_CERTS": "", "AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": "/dev/null"}, "stdin": "chr"}
+{"argv": ["compose", "-p", "agents", "-f", "<A>/compose.yml", "-f", "<A>/compose.personas.yml", "--profile", "d1", "up", "-d", "d1"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_CA_CERTS": "", "AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "PROJECTS_ROOT": "<P>", "SSH_AUTH_SOCK": "/dev/null"}, "stdin": "chr"}

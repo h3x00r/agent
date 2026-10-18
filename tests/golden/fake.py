@@ -10,9 +10,11 @@ import fcntl
 import hashlib
 import json
 import os
+import signal
 import stat
 import subprocess
 import sys
+import time
 
 SB, NAME, ARGS = sys.argv[1], sys.argv[2], sys.argv[3:]
 WORLD = os.path.join(SB, "world.json")
@@ -71,7 +73,9 @@ class World:
         os.replace(WORLD + ".tmp", WORLD)
 
     def close(self):
-        os.close(self.fd)
+        if self.fd is not None:
+            os.close(self.fd)
+            self.fd = None
 
 
 def log(entry):
@@ -80,7 +84,8 @@ def log(entry):
 
 
 def out(text):
-    sys.stdout.write(text)
+    # Bytes that aren't UTF-8 (a str with surrogateescape'd bytes in world.json) go out as they are.
+    sys.stdout.buffer.write(text.encode("utf-8", "surrogateescape"))
     sys.stdout.flush()
 
 
@@ -238,15 +243,28 @@ def docker_exec(world, args):
             for s in ctr.get("sessions", []):
                 out("".join(str(s[k]).replace("\n", " ").replace("\t", " ").replace("\037", " ") + "\037"
                             for k in ("name", "windows", "attached", "path")) + "\n")
-            return 0
+            hang = ctr.get("probe_hang")   # [seconds, child]: the rows, then no exit for that long
+            if hang:
+                secs, child = hang
+                if child:   # a child that keeps stdout open, as docker run by a wrapper script that didn't exec
+                    subprocess.Popen(["sleep", str(secs)], stdout=1, stderr=2)
+                os.close(world.fd)                       # the world's lock isn't held while it hangs
+                world.fd = os.open(os.devnull, os.O_RDONLY)
+                time.sleep(secs)
+            return ctr.get("probe_rc", 0)
         if "list-panes -a" in script:
             if ctr.get("tmux_down"):
                 return 1
             for p in ctr.get("panes", []):
                 out("\t".join(p) + "\n")
+            if ctr.get("panes_hang"):                   # a probe that hangs after its output
+                world.close()
+                time.sleep(ctr["panes_hang"])
             return 0
         if "NEXUS_RUN" in script:
-            return 0
+            if "kill" not in ctr:
+                return 0
+            return fake_kill(world, ctr["kill"], cmd)
         return unknown()
     if prog == "infocmp":
         return 0 if cmd[1] in ctr.get("terms", ["xterm-256color", "xterm", "screen-256color"]) else 1
@@ -262,6 +280,21 @@ def docker_exec(world, args):
             out("[fake attach: %s]\n" % " ".join(cmd[1:]))
             return 0
     if prog == "python3" and cmd[1:2] == ["-c"]:
+        # py_exec={"out": …, "err": …, "sleep": S (in this process), "child_sleep": S (a child
+        # holding stdout), "signal": N, "rc": N} instead of the real merge.
+        px = ctr.get("py_exec") or w.get("py_exec", {}).get(name)
+        if px:
+            if px.get("out"):
+                out(px["out"])
+            if px.get("err"):
+                err(px["err"])
+            if px.get("sleep"):
+                time.sleep(px["sleep"])
+            if px.get("child_sleep"):
+                subprocess.call(["sleep", str(px["child_sleep"])])
+            if px.get("signal"):
+                os.kill(os.getpid(), px["signal"])
+            return px.get("rc", 0)
         home = ctr.get("home")
         if not home:
             err("fake docker: no home for %s\n" % name)
@@ -273,9 +306,78 @@ def docker_exec(world, args):
         data = sys.stdin.buffer.read() if interactive else b""
         if data:
             out("stdin: %s\n" % data.decode("utf-8", "replace").replace("\n", "|"))
+        if "cli_run" in ctr:
+            return fake_cli(world, ctr, env)
         out(ctr.get("reply", "FAKE-REPLY") + "\n")
         return ctr.get("reply_rc", 0)
     return unknown()
+
+
+# A CLI that runs a while (ctr["cli_run"] = {"secs": S, "sig_rc": N, "die": SIG}), and the kill script
+# sent into the persona (ctr["kill"] = {"sleep": [S1, S2, …]}), which signals it as the real one would: only
+# if the run id it is given is the one the CLI was started with. Both leave marks in SANDBOX/marks (not in
+# tree.txt) for a driver to wait on: cli (pid and run id), kill-N (each kill call), ack (the CLI saw it).
+MARKS = os.path.join(SB, "marks")
+
+
+def mark(name, text):
+    os.makedirs(MARKS, exist_ok=True)
+    with open(os.path.join(MARKS, name + ".tmp"), "w") as f:
+        f.write(text)
+    os.replace(os.path.join(MARKS, name + ".tmp"), os.path.join(MARKS, name))
+
+
+def fake_cli(world, ctr, env):
+    run = ctr["cli_run"]
+    got = []
+    for s in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
+        signal.signal(s, lambda n, f: got.append(n))
+    world.close()   # the kill call needs the world while this runs
+    mark("cli", "%d %s\n" % (os.getpid(), env.get("NEXUS_RUN", "")))
+    out("cli: running\n")
+    if run.get("die"):   # the CLI ends by a signal of its own
+        n = getattr(signal, "SIG" + run["die"])
+        if n not in (signal.SIGKILL, signal.SIGSTOP):   # those two can't be handled, so need no reset
+            signal.signal(n, signal.SIG_DFL)
+        os.kill(os.getpid(), n)
+        time.sleep(5)
+    end = time.time() + run.get("secs", 10)
+    seen = 0
+    while time.time() < end:
+        if len(got) > seen:
+            name = signal.Signals(got[seen]).name[3:]
+            seen += 1
+            out("cli: got %s%s\n" % (name, " (ignored)" if run.get("ignore") else ""))
+            mark("ack", name + "\n")
+            if not run.get("ignore"):
+                return run.get("sig_rc", 0)
+        time.sleep(0.02)
+    out(ctr.get("reply", "FAKE-REPLY") + "\n")
+    return ctr.get("reply_rc", 0)
+
+
+def fake_kill(world, k, cmd):
+    rid, sig = (cmd[4], cmd[5]) if len(cmd) >= 6 else ("", "")
+    n = 1 + len([m for m in (os.listdir(MARKS) if os.path.isdir(MARKS) else ()) if m.startswith("kill-")])
+    mark("kill-%d" % n, "%s %s\n" % (rid, sig))
+    world.close()
+    sleeps = k.get("sleep", [])
+    if n <= len(sleeps):
+        time.sleep(sleeps[n - 1])
+    try:
+        with open(os.path.join(MARKS, "cli")) as f:
+            pid, crid = f.read().split()
+    except (OSError, ValueError):
+        return 0
+    if crid == rid and hasattr(signal, "SIG" + sig):
+        try:
+            os.kill(int(pid), getattr(signal, "SIG" + sig))
+        except OSError:
+            return 0
+        end = time.time() + 5
+        while time.time() < end and not os.path.exists(os.path.join(MARKS, "ack")):
+            time.sleep(0.02)
+    return 0
 
 
 def inspect(world, args):
@@ -383,6 +485,9 @@ def docker(world, args):
         for n in names:
             c = w["containers"].get(n, {})
             out("%s\t%s\t%s\n" % (n, c.get("cpu", "0.50%"), c.get("mem", "120MiB / 7.6GiB")))
+            if c.get("stats_hang"):                      # stats that hang after this line
+                world.close()
+                time.sleep(c["stats_hang"])
         return 0
     if sub == "run":
         rest = args[1:]
@@ -461,16 +566,46 @@ def other(world, name, args):
     return unknown()
 
 
+def maybe_signal(world):
+    """world["signals"]: [{"cmd": "docker", "has": [ARG…], "nth": N, "sig": "TERM", "to": "leader"|"group"}…]. On the
+    Nth call whose argv holds every ARG, before doing its work: SIG to the session leader (the tool under test,
+    as `kill -TERM`), or to the whole process group, as a Ctrl-C does, this fake included, which dies of it."""
+    rules = world.w.get("signals")
+    if not rules:
+        return
+    hit = None
+    for r in rules:
+        if r.get("cmd", "docker") != NAME or not all(h in ARGS for h in r["has"]):
+            continue
+        r["seen"] = r.get("seen", 0) + 1
+        if r["seen"] == r.get("nth", 1):
+            hit = r
+    world.save()
+    if hit:
+        sig = getattr(signal, "SIG" + hit["sig"])
+        if hit.get("to") == "group":
+            signal.signal(sig, signal.SIG_DFL)
+            os.killpg(os.getpgrp(), sig)
+        else:
+            os.kill(os.getsid(0), sig)
+
+
 def main():
+    kind = stdin_kind()   # before the world's lock file can take a closed fd 0
     world = World()
     entry = {"cmd": NAME, "argv": [short(a) for a in ARGS], "cwd": os.getcwd(),
              "env": {k: os.environ[k] for k in ENV_KEYS if k in os.environ},
-             "stdin": stdin_kind()}
+             "stdin": kind}
     held = lock_fds()
     if held:
         entry["lock_fds"] = held
+    if world.w.get("record_sigign"):   # which of INT, QUIT, HUP, TERM came in ignored
+        with open("/proc/self/status") as f:
+            ign = int(next(l for l in f if l.startswith("SigIgn:")).split()[1], 16)
+        entry["sig_ign"] = [n for n, s in (("HUP", 1), ("INT", 2), ("QUIT", 3), ("TERM", 15)) if ign & (1 << (s - 1))]
     log(entry)
     try:
+        maybe_signal(world)
         rc = docker(world, ARGS) if NAME == "docker" else other(world, NAME, ARGS)
     finally:
         world.close()

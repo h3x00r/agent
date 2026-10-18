@@ -288,7 +288,7 @@ def oracle_tree(ref, dst):
                           stdout=subprocess.PIPE).stdout.decode().strip()
 
 
-SKIP = ("bin", "pyhide", "world.json", "world.json.lock", "world.json.tmp", "calls.jsonl")
+SKIP = ("bin", "pyhide", "world.json", "world.json.lock", "world.json.tmp", "calls.jsonl", "marks")
 
 
 def snapshot(root, hold=None):

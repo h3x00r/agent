@@ -1,0 +1,12 @@
+## run 1: nexus c1 upgrade -y  (a byte every 3 s)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: can't look up the newest claude at https://downloads.claude.ai/claude-code-releases/latest
+## run 2: grep ^CLAUDE_VERSION= <A>/.env  [pipe]
+rc: 0
+--- stdout
+CLAUDE_VERSION=latest
+--- stderr
+(empty)

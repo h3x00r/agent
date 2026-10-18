@@ -1,0 +1,14 @@
++ ctr  d 755
++ ctr/c1  d 755
++ ctr/c1/home  d 755
++ ctr/c1/home/.claude  d 755
++ ctr/c1/home/.claude/.nexus-defaults.json  f 644
+    | {
+    |   "a\u0000b": 1,
+    |   "theme": "dark"
+    | }
++ ctr/c1/home/.claude/settings.json  f 644
+    | {
+    |   "a\u0000b": 1,
+    |   "theme": "dark"
+    | }

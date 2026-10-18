@@ -394,6 +394,11 @@ check "  its columns line up under their headers" '[[ ${row:${#x}:11} == "not st
 mkdir -p "$T/bin" && ln -s "$A/nexus" "$T/bin/nexus"
 t env "${NX_ENV[@]}" "$T/bin/nexus" ls </dev/null
 check "  through a symlink, as /usr/local/bin/nexus: it finds its checkout" 'rc 0 && out_re "^$PC +claude +docker "'
+t env "${NX_ENV[@]}" PYTHONPATH="$T/evil" PYTHONHOME="$T/evil" PYTHONSTARTUP="$T/evil/json.py" NXT_MARK="$T/evil-ran" \
+      "$A/nexus" ls </dev/null
+check "  PYTHONPATH, PYTHONHOME and PYTHONSTARTUP don't reach it" 'rc 0 && out_re "^$PC +claude " && [[ ! -e $T/evil-ran ]]'
+t env "${NX_ENV[@]}" PATH="$T/oldpy:$PATH" "$A/nexus" ls </dev/null
+check "  an older python3: refused, saying what it needs" 'rc 1 && err_has "nexus: needs Python 3.8 or newer; python3 here is Python 3.6.9"'
 t nx top --once </dev/null
 check "top --once: a table of every persona, not started" \
       'rc 0 && out_has "nexus top" && out_re "^PERSONA +STATE +CPU +MEM +PANES$" && out_re "^$PC +not started +- +- +-$" \
@@ -431,6 +436,7 @@ t nx "$PG" start </dev/null
 check "a start with its ssh key gone: refused" 'rc 1 && err_has "ssh key $A/personas/$PG.key isn'"'"'t there"'
 mv "$T/keys/moved" "$A/personas/$PG.key"
 check "none of that started a container" '[[ -z $(docker ps -aq --filter "name=^agent-$ID-") ]]'
+check "  and wrote no Python bytecode into the checkout" '[[ -z $(find "$A" -name __pycache__ -o -name "*.pyc") ]]'
 
 # --- personas --------------------------------------------------------------------------------------
 stage "personas"

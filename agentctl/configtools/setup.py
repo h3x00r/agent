@@ -12,6 +12,14 @@
   9. commit: every staged file in place, signals ignored meanwhile (all of it or none of it)
  10. after the commit, failures are notes: ssh keys made, the launcher linked, mkcert, the images
  11. the summary: the personas, how to start one, and the notes (LATER)
+
+Pitfalls (each pinned where named):
+- the flags are checked before the lock is taken, and --list takes none (golden config/cli-lock)
+- a run stopped before the commit leaves nothing staged behind (golden config/ask-int-tty)
+- INT, TERM and HUP ignored during the commit, put back after it (not pinned)
+- AGENT_CPUS against `nproc`, which honours OMP_NUM_THREADS where os.cpu_count() doesn't (golden
+  config/cli-env-legacy)
+- the free space from `df -Pk`, as the bash's awk read it (golden config/ask-build-low-disk)
 """
 import os
 import pwd
@@ -27,7 +35,7 @@ from agentctl.configtools import staging
 from agentctl.configtools.cli import USAGE
 from agentctl.core import dotenv, lock, proc
 from agentctl.core.errors import NexusError
-from agentctl.core.shellcompat import printf_q, read_fields
+from agentctl.core.shellcompat import mkdir_p, printf_q, read_fields
 from agentctl.domain import persona as rules
 from agentctl.domain.persona import Persona
 from agentctl.ui.prompts import Prompter
@@ -196,7 +204,7 @@ class Setup:
             if r:
                 r = self.norm_dir(r)
                 try:
-                    os.makedirs(r, exist_ok=True)
+                    mkdir_p(r)
                 except OSError:
                     die("--persona %s: can't create the projects root '%s'" % (spec, r))
         else:
@@ -226,7 +234,7 @@ class Setup:
                 why = "a projects root must be %s, not '%s'" % (rules.ROOT_RULE, r)
             else:
                 try:
-                    os.makedirs(r, exist_ok=True)
+                    mkdir_p(r)
                     return r
                 except OSError:
                     why = "can't create the projects root '%s'" % r
@@ -448,7 +456,7 @@ class Setup:
                 why = "the projects root must be an absolute directory other than /, without ':', not '%s'" % root
             else:
                 try:
-                    os.makedirs(root, exist_ok=True)
+                    mkdir_p(root)
                     break
                 except OSError:
                     why = "can't create the projects root '%s'" % root
@@ -656,7 +664,8 @@ class Setup:
                 signal.signal(s, h)
 
         # 10. after the commit
-        host = (os.environ.get("HOSTNAME") or socket.gethostname()).split(".", 1)[0]   # bash's ${HOSTNAME%%.*}
+        # bash's ${HOSTNAME%%.*}: its own HOSTNAME unless one came in from the environment, even an empty one
+        host = (os.environ["HOSTNAME"] if "HOSTNAME" in os.environ else socket.gethostname()).split(".", 1)[0]
         for p in self.personas:
             k = p.ssh
             if k != "personas/%s.key" % p.name or os.path.exists(k):
@@ -829,7 +838,7 @@ def read_or_empty(path):
 
 def mkdir_ok(d):
     try:
-        os.makedirs(d, exist_ok=True)
+        mkdir_p(d)
         return True
     except OSError:
         return False

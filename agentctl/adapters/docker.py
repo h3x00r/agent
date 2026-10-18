@@ -4,6 +4,19 @@ knows (`docker images --format …`, not `docker image ls`).
 
 compose(): `docker compose -p agents -f compose.yml -f compose.personas.yml …`. -p, so an exported
 COMPOSE_PROJECT_NAME can't switch to fresh, empty home volumes.
+
+Pitfalls (each pinned where named):
+- -p agents (golden config/cli-yes-first-setup)
+- the formats' `\\t` is a backslash and a t, for docker to read, not a tab (golden nexus/basic-ls-running)
+- probe(): the bytes the bash sent, one final newline dropped
+  (test_nexus.Probes.test_the_bytes_the_bash_launcher_sent)
+- exec_probe(): 10 s, then its whole process group goes (golden nexus/edge-ls-probe-hang, golden
+  nexus/edge-top-probe-hang)
+- exec_probe(pipe_stdin=True): an empty pipe on stdin, as inside `while read … < <(…)` (golden
+  nexus/basic-ls-running)
+- States(errors=…): docker ps's errors go into top's live frame (golden nexus/edge-top-ps-fail)
+- roots(): each root as lexical() spells it, the container's leading / dropped (golden
+  nexus/edge-ls-ids-roots)
 """
 import os
 import shutil
@@ -88,11 +101,16 @@ class States:
     """`docker ps` of the persona containers: each one's state (healthy, unhealthy, starting, running,
     stopped, …), which run, and which this checkout made (compose labels each with its directory)."""
 
-    def __init__(self, checkout):
+    def __init__(self, checkout, errors=None):
+        """docker ps's own errors (the daemon down) go to stderr as they did, or, given ERRORS (a list), into
+        it: top's live frame shows them where the bash's `$(top_frame 2>&1)` had them."""
         from agentctl.core.shellcompat import read_fields
         self.state, self.up, self.here = {}, set(), set()
         r = proc.run(["docker", "ps", "-a", "--filter", "label=agent.persona", "--format",
-                      r'{{.Names}}\t{{.State}}\t{{.Status}}\t{{.Label "com.docker.compose.project.working_dir"}}'])
+                      r'{{.Names}}\t{{.State}}\t{{.Status}}\t{{.Label "com.docker.compose.project.working_dir"}}'],
+                     capture=True if errors is not None else "stdout")
+        if errors is not None and r.err:
+            errors.append(r.err)
         for line in r.out.split("\n")[:-1] if r.out else []:
             c, st, sp, wd = read_fields(line, "\t", 4)
             if wd == checkout:

@@ -1,0 +1,14 @@
+## run 1: nexus c1 headless 'nxt long' 2>dead-pipe  (INT to the group mid-run)  [pipe, cwd projects/app]
+rc: 130
+--- stdout
+cli: running
+cli: got INT
+--- stderr
+(empty)
+## run 2: nexus c1 headless 'nxt long' 2>dead-pipe  (TERM, then INT)  [pipe, cwd projects/app]
+rc: 130
+--- stdout
+cli: running
+cli: got TERM
+--- stderr
+(empty)

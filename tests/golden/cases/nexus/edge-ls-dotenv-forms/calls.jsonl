@@ -1,0 +1,28 @@
+## run 1
+{"argv": ["ps", "-a", "--filter", "label=agent.persona", "--format", "{{.Names}}\\t{{.State}}\\t{{.Status}}\\t{{.Label \"com.docker.compose.project.working_dir\"}}"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+## run 2
+{"argv": ["ps", "-a", "--filter", "label=agent.persona", "--format", "{{.Names}}\\t{{.State}}\\t{{.Status}}\\t{{.Label \"com.docker.compose.project.working_dir\"}}"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+## run 3
+{"argv": ["ps", "-a", "--filter", "label=agent.persona", "--format", "{{.Names}}\\t{{.State}}\\t{{.Status}}\\t{{.Label \"com.docker.compose.project.working_dir\"}}"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+## run 4
+{"argv": ["ps", "-a", "--filter", "label=agent.persona", "--format", "{{.Names}}\\t{{.State}}\\t{{.Status}}\\t{{.Label \"com.docker.compose.project.working_dir\"}}"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+## run 5
+{"argv": ["ps", "-a", "--filter", "label=agent.persona", "--format", "{{.Names}}\\t{{.State}}\\t{{.Status}}\\t{{.Label \"com.docker.compose.project.working_dir\"}}"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+## run 6
+{"argv": ["ps", "-a", "--filter", "label=agent.persona", "--format", "{{.Names}}\\t{{.State}}\\t{{.Status}}\\t{{.Label \"com.docker.compose.project.working_dir\"}}"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+## run 7
+{"argv": ["ps", "-a", "--filter", "label=agent.persona", "--format", "{{.Names}}\\t{{.State}}\\t{{.Status}}\\t{{.Label \"com.docker.compose.project.working_dir\"}}"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+## run 8
+{"argv": ["ps", "-a", "--filter", "label=agent.persona", "--format", "{{.Names}}\\t{{.State}}\\t{{.Status}}\\t{{.Label \"com.docker.compose.project.working_dir\"}}"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+## run 9
+{"argv": ["ps", "-a", "--filter", "label=agent.persona", "--format", "{{.Names}}\\t{{.State}}\\t{{.Status}}\\t{{.Label \"com.docker.compose.project.working_dir\"}}"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+## run 10
+{"argv": ["ps", "-a", "--filter", "label=agent.persona", "--format", "{{.Names}}\\t{{.State}}\\t{{.Status}}\\t{{.Label \"com.docker.compose.project.working_dir\"}}"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+## run 11
+{"argv": ["ps", "-a", "--filter", "label=agent.persona", "--format", "{{.Names}}\\t{{.State}}\\t{{.Status}}\\t{{.Label \"com.docker.compose.project.working_dir\"}}"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+## run 12
+{"argv": ["ps", "-a", "--filter", "label=agent.persona", "--format", "{{.Names}}\\t{{.State}}\\t{{.Status}}\\t{{.Label \"com.docker.compose.project.working_dir\"}}"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "PROJECTS_ROOT": "", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+## run 13
+{"argv": ["ps", "-a", "--filter", "label=agent.persona", "--format", "{{.Names}}\\t{{.State}}\\t{{.Status}}\\t{{.Label \"com.docker.compose.project.working_dir\"}}"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "PROJECTS_ROOT": "<S>/sh", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+## run 14
+{"argv": ["ps", "-a", "--filter", "label=agent.persona", "--format", "{{.Names}}\\t{{.State}}\\t{{.Status}}\\t{{.Label \"com.docker.compose.project.working_dir\"}}"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "PROJECTS_ROOT": "rel/x", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}

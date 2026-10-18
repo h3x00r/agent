@@ -1,0 +1,3 @@
+{
+  "provenance": "accepted: M3: headless: INT while the input is read ends the run (bash swallowed it there), and docker inspect's children see a closed stdin as it came in (ODDITIES: headless input)"
+}

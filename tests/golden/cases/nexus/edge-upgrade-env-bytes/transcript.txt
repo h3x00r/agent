@@ -1,0 +1,26 @@
+## run 1: nexus c1 upgrade 2.1.400 -y  (CLAUDE_VERSION="2.1.\xff")  [pipe]
+rc: 1
+--- stdout
+nexus: claude for c1: 2.1.\xff -> 2.1.400
+--- stderr
+fake compose: the build of c1 failed
+nexus: the build for c1 failed (see above); CLAUDE_VERSION is back to 2.1.\xff
+## run 2: sed -n /CLAUDE_VERSION=/l <A>/.env  [pipe]
+rc: 0
+--- stdout
+CLAUDE_VERSION=2.1.\377$
+--- stderr
+(empty)
+## run 3: nexus c1 upgrade 2.1.400 -y  (CLAUDE_VERSION=2.1.300 #\xff note)  [pipe]
+rc: 1
+--- stdout
+nexus: claude for c1: 2.1.300 -> 2.1.400
+--- stderr
+fake compose: the build of c1 failed
+nexus: the build for c1 failed (see above); CLAUDE_VERSION is back to 2.1.300
+## run 4: sed -n /CLAUDE_VERSION=/l <A>/.env  [pipe]
+rc: 0
+--- stdout
+CLAUDE_VERSION=2.1.300$
+--- stderr
+(empty)

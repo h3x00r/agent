@@ -1,0 +1,3 @@
+{
+  "provenance": "accepted: M3: same outcome and exit code; only the wording of an error differs: bash's '<script>: line N:' prefixes, the lines sed, mktemp and env printed for it, and its 'ignored null byte' and setlocale warnings (ODDITIES: messages)"
+}

@@ -1,0 +1,537 @@
+## run 1: nexus c1 upgrade 2.1.400 -y  (b'export CLAUDE_VERSION=2.1.301\n')  [pipe]
+rc: 1
+--- stdout
+nexus: claude for c1: 2.1.301 -> 2.1.400
+--- stderr
+fake compose: the build of c1 failed
+nexus: the build for c1 failed (see above); CLAUDE_VERSION is back to 2.1.301
+## run 2: cat <S>/a/.env  [pipe]
+rc: 0
+--- stdout
+# /opt/agents/.env — per-VM settings. ./config-tools writes it from this template (re-run it to change
+# them, or edit by hand); docker compose reads it automatically.
+# Identity (AGENT_UID/AGENT_GID/DOCKER_GID/SSH_AUTH_SOCK) and AGENT_CA_CERTS are derived at launch by
+# ./nexus; don't set them here.
+# A variable exported in your shell takes precedence over this file (a persona's own projects root beats both).
+# Keep comments on their own lines: compose's .env parser mis-reads a comment after an empty value.
+
+# The VM's projects root: an absolute path, mounted at the identical path inside every persona that has no
+# root of its own (config-tools asks per persona; it is kept as root= in compose.personas.yml).
+# Without it, ./nexus uses $HOME/projects of the VM user.
+PROJECTS_ROOT=<P>
+
+# Where images come from. "local" = build on this VM (nexus <persona> build);
+# otherwise a registry you push the images to (e.g. registry.lan:5000) and `nexus <persona> pull`.
+REGISTRY=local
+# The tags default to the versions below, so a pinned image is tagged with its CLI's version.
+#CLAUDE_TAG=
+#GROK_TAG=
+
+# Build pins. `nexus <persona> upgrade` sets CLAUDE_VERSION or GROK_VERSION to the newest release and
+# rebuilds. DDEV_VERSION only matters when building ddev-context images here; CLAUDE_VERSION and
+# GROK_VERSION are also the image tags (unless the *_TAG is set), so on a pulling VM they pick the tag
+# that is pulled and run.
+# Claude Code (Anthropic's native installer): an exact X.Y.Z, or a channel, latest | stable.
+# A pin is reproducible, and bumping it re-runs only the Claude installer stage. A
+# channel is resolved once and then cached: `nexus <persona> build --no-cache` to move to a newer
+# release. Pins below 2.1.118 ignore the image's lock on `claude update`. Current versions:
+#   curl -fsSL https://downloads.claude.ai/claude-code-releases/latest   (or …/stable)
+# Grok Build (xAI's installer): an exact X.Y.Z, or latest (the newest on its stable channel), cached once
+# built like a Claude channel. Current version:  curl -fsSL https://x.ai/cli/stable
+GROK_VERSION=latest
+# APM (Agent Package Manager, in both flavours), from PyPI's apm-cli: an exact X.Y.Z, or latest.
+# As with Claude, a pin bump re-runs only the APM stage and latest is cached once built. Current version:
+#   curl -fsSL https://pypi.org/pypi/apm-cli/json | jq -r .info.version
+APM_VERSION=latest
+# ddev context only: pin ddev to `ddev version` on this VM (config-tools does; the leading v is optional),
+# or the router gets recreated on every switch.
+DDEV_VERSION=
+
+# Per-container ceiling. Six parallel Claude sessions sit comfortably in this.
+# AGENT_CPUS must not exceed the VM's vCPU count (nproc), or the container won't start.
+AGENT_CPUS=3
+AGENT_MEMORY=8g
+CLAUDE_VERSION=2.1.301
+--- stderr
+(empty)
+## run 3: nexus c1 upgrade 2.1.400 -y  (b'CLAUDE_VERSION="2.1.302" # pinned\n')  [pipe]
+rc: 1
+--- stdout
+nexus: claude for c1: 2.1.302 -> 2.1.400
+--- stderr
+fake compose: the build of c1 failed
+nexus: the build for c1 failed (see above); CLAUDE_VERSION is back to 2.1.302
+## run 4: cat <S>/a/.env  [pipe]
+rc: 0
+--- stdout
+# /opt/agents/.env — per-VM settings. ./config-tools writes it from this template (re-run it to change
+# them, or edit by hand); docker compose reads it automatically.
+# Identity (AGENT_UID/AGENT_GID/DOCKER_GID/SSH_AUTH_SOCK) and AGENT_CA_CERTS are derived at launch by
+# ./nexus; don't set them here.
+# A variable exported in your shell takes precedence over this file (a persona's own projects root beats both).
+# Keep comments on their own lines: compose's .env parser mis-reads a comment after an empty value.
+
+# The VM's projects root: an absolute path, mounted at the identical path inside every persona that has no
+# root of its own (config-tools asks per persona; it is kept as root= in compose.personas.yml).
+# Without it, ./nexus uses $HOME/projects of the VM user.
+PROJECTS_ROOT=<P>
+
+# Where images come from. "local" = build on this VM (nexus <persona> build);
+# otherwise a registry you push the images to (e.g. registry.lan:5000) and `nexus <persona> pull`.
+REGISTRY=local
+# The tags default to the versions below, so a pinned image is tagged with its CLI's version.
+#CLAUDE_TAG=
+#GROK_TAG=
+
+# Build pins. `nexus <persona> upgrade` sets CLAUDE_VERSION or GROK_VERSION to the newest release and
+# rebuilds. DDEV_VERSION only matters when building ddev-context images here; CLAUDE_VERSION and
+# GROK_VERSION are also the image tags (unless the *_TAG is set), so on a pulling VM they pick the tag
+# that is pulled and run.
+# Claude Code (Anthropic's native installer): an exact X.Y.Z, or a channel, latest | stable.
+# A pin is reproducible, and bumping it re-runs only the Claude installer stage. A
+# channel is resolved once and then cached: `nexus <persona> build --no-cache` to move to a newer
+# release. Pins below 2.1.118 ignore the image's lock on `claude update`. Current versions:
+#   curl -fsSL https://downloads.claude.ai/claude-code-releases/latest   (or …/stable)
+# Grok Build (xAI's installer): an exact X.Y.Z, or latest (the newest on its stable channel), cached once
+# built like a Claude channel. Current version:  curl -fsSL https://x.ai/cli/stable
+GROK_VERSION=latest
+# APM (Agent Package Manager, in both flavours), from PyPI's apm-cli: an exact X.Y.Z, or latest.
+# As with Claude, a pin bump re-runs only the APM stage and latest is cached once built. Current version:
+#   curl -fsSL https://pypi.org/pypi/apm-cli/json | jq -r .info.version
+APM_VERSION=latest
+# ddev context only: pin ddev to `ddev version` on this VM (config-tools does; the leading v is optional),
+# or the router gets recreated on every switch.
+DDEV_VERSION=
+
+# Per-container ceiling. Six parallel Claude sessions sit comfortably in this.
+# AGENT_CPUS must not exceed the VM's vCPU count (nproc), or the container won't start.
+AGENT_CPUS=3
+AGENT_MEMORY=8g
+CLAUDE_VERSION=2.1.302
+--- stderr
+(empty)
+## run 5: nexus c1 upgrade 2.1.400 -y  (b"CLAUDE_VERSION='2.1.303'\n")  [pipe]
+rc: 1
+--- stdout
+nexus: claude for c1: 2.1.303 -> 2.1.400
+--- stderr
+fake compose: the build of c1 failed
+nexus: the build for c1 failed (see above); CLAUDE_VERSION is back to 2.1.303
+## run 6: cat <S>/a/.env  [pipe]
+rc: 0
+--- stdout
+# /opt/agents/.env — per-VM settings. ./config-tools writes it from this template (re-run it to change
+# them, or edit by hand); docker compose reads it automatically.
+# Identity (AGENT_UID/AGENT_GID/DOCKER_GID/SSH_AUTH_SOCK) and AGENT_CA_CERTS are derived at launch by
+# ./nexus; don't set them here.
+# A variable exported in your shell takes precedence over this file (a persona's own projects root beats both).
+# Keep comments on their own lines: compose's .env parser mis-reads a comment after an empty value.
+
+# The VM's projects root: an absolute path, mounted at the identical path inside every persona that has no
+# root of its own (config-tools asks per persona; it is kept as root= in compose.personas.yml).
+# Without it, ./nexus uses $HOME/projects of the VM user.
+PROJECTS_ROOT=<P>
+
+# Where images come from. "local" = build on this VM (nexus <persona> build);
+# otherwise a registry you push the images to (e.g. registry.lan:5000) and `nexus <persona> pull`.
+REGISTRY=local
+# The tags default to the versions below, so a pinned image is tagged with its CLI's version.
+#CLAUDE_TAG=
+#GROK_TAG=
+
+# Build pins. `nexus <persona> upgrade` sets CLAUDE_VERSION or GROK_VERSION to the newest release and
+# rebuilds. DDEV_VERSION only matters when building ddev-context images here; CLAUDE_VERSION and
+# GROK_VERSION are also the image tags (unless the *_TAG is set), so on a pulling VM they pick the tag
+# that is pulled and run.
+# Claude Code (Anthropic's native installer): an exact X.Y.Z, or a channel, latest | stable.
+# A pin is reproducible, and bumping it re-runs only the Claude installer stage. A
+# channel is resolved once and then cached: `nexus <persona> build --no-cache` to move to a newer
+# release. Pins below 2.1.118 ignore the image's lock on `claude update`. Current versions:
+#   curl -fsSL https://downloads.claude.ai/claude-code-releases/latest   (or …/stable)
+# Grok Build (xAI's installer): an exact X.Y.Z, or latest (the newest on its stable channel), cached once
+# built like a Claude channel. Current version:  curl -fsSL https://x.ai/cli/stable
+GROK_VERSION=latest
+# APM (Agent Package Manager, in both flavours), from PyPI's apm-cli: an exact X.Y.Z, or latest.
+# As with Claude, a pin bump re-runs only the APM stage and latest is cached once built. Current version:
+#   curl -fsSL https://pypi.org/pypi/apm-cli/json | jq -r .info.version
+APM_VERSION=latest
+# ddev context only: pin ddev to `ddev version` on this VM (config-tools does; the leading v is optional),
+# or the router gets recreated on every switch.
+DDEV_VERSION=
+
+# Per-container ceiling. Six parallel Claude sessions sit comfortably in this.
+# AGENT_CPUS must not exceed the VM's vCPU count (nproc), or the container won't start.
+AGENT_CPUS=3
+AGENT_MEMORY=8g
+CLAUDE_VERSION=2.1.303
+--- stderr
+(empty)
+## run 7: nexus c1 upgrade 2.1.400 -y  (b'CLAUDE_VERSION = 2.1.304\n')  [pipe]
+rc: 1
+--- stdout
+nexus: claude for c1: 2.1.304 -> 2.1.400
+--- stderr
+fake compose: the build of c1 failed
+nexus: the build for c1 failed (see above); CLAUDE_VERSION is back to 2.1.304
+## run 8: cat <S>/a/.env  [pipe]
+rc: 0
+--- stdout
+# /opt/agents/.env — per-VM settings. ./config-tools writes it from this template (re-run it to change
+# them, or edit by hand); docker compose reads it automatically.
+# Identity (AGENT_UID/AGENT_GID/DOCKER_GID/SSH_AUTH_SOCK) and AGENT_CA_CERTS are derived at launch by
+# ./nexus; don't set them here.
+# A variable exported in your shell takes precedence over this file (a persona's own projects root beats both).
+# Keep comments on their own lines: compose's .env parser mis-reads a comment after an empty value.
+
+# The VM's projects root: an absolute path, mounted at the identical path inside every persona that has no
+# root of its own (config-tools asks per persona; it is kept as root= in compose.personas.yml).
+# Without it, ./nexus uses $HOME/projects of the VM user.
+PROJECTS_ROOT=<P>
+
+# Where images come from. "local" = build on this VM (nexus <persona> build);
+# otherwise a registry you push the images to (e.g. registry.lan:5000) and `nexus <persona> pull`.
+REGISTRY=local
+# The tags default to the versions below, so a pinned image is tagged with its CLI's version.
+#CLAUDE_TAG=
+#GROK_TAG=
+
+# Build pins. `nexus <persona> upgrade` sets CLAUDE_VERSION or GROK_VERSION to the newest release and
+# rebuilds. DDEV_VERSION only matters when building ddev-context images here; CLAUDE_VERSION and
+# GROK_VERSION are also the image tags (unless the *_TAG is set), so on a pulling VM they pick the tag
+# that is pulled and run.
+# Claude Code (Anthropic's native installer): an exact X.Y.Z, or a channel, latest | stable.
+# A pin is reproducible, and bumping it re-runs only the Claude installer stage. A
+# channel is resolved once and then cached: `nexus <persona> build --no-cache` to move to a newer
+# release. Pins below 2.1.118 ignore the image's lock on `claude update`. Current versions:
+#   curl -fsSL https://downloads.claude.ai/claude-code-releases/latest   (or …/stable)
+# Grok Build (xAI's installer): an exact X.Y.Z, or latest (the newest on its stable channel), cached once
+# built like a Claude channel. Current version:  curl -fsSL https://x.ai/cli/stable
+GROK_VERSION=latest
+# APM (Agent Package Manager, in both flavours), from PyPI's apm-cli: an exact X.Y.Z, or latest.
+# As with Claude, a pin bump re-runs only the APM stage and latest is cached once built. Current version:
+#   curl -fsSL https://pypi.org/pypi/apm-cli/json | jq -r .info.version
+APM_VERSION=latest
+# ddev context only: pin ddev to `ddev version` on this VM (config-tools does; the leading v is optional),
+# or the router gets recreated on every switch.
+DDEV_VERSION=
+
+# Per-container ceiling. Six parallel Claude sessions sit comfortably in this.
+# AGENT_CPUS must not exceed the VM's vCPU count (nproc), or the container won't start.
+AGENT_CPUS=3
+AGENT_MEMORY=8g
+CLAUDE_VERSION=2.1.304
+--- stderr
+(empty)
+## run 9: nexus c1 upgrade 2.1.400 -y  (b'# CLAUDE_VERSION=2.1.305\n#CLAUDE_VERSION=\n')  [pipe]
+rc: 1
+--- stdout
+nexus: claude for c1: latest -> 2.1.400
+--- stderr
+fake compose: the build of c1 failed
+nexus: the build for c1 failed (see above); CLAUDE_VERSION is back to latest
+## run 10: cat <S>/a/.env  [pipe]
+rc: 0
+--- stdout
+# /opt/agents/.env — per-VM settings. ./config-tools writes it from this template (re-run it to change
+# them, or edit by hand); docker compose reads it automatically.
+# Identity (AGENT_UID/AGENT_GID/DOCKER_GID/SSH_AUTH_SOCK) and AGENT_CA_CERTS are derived at launch by
+# ./nexus; don't set them here.
+# A variable exported in your shell takes precedence over this file (a persona's own projects root beats both).
+# Keep comments on their own lines: compose's .env parser mis-reads a comment after an empty value.
+
+# The VM's projects root: an absolute path, mounted at the identical path inside every persona that has no
+# root of its own (config-tools asks per persona; it is kept as root= in compose.personas.yml).
+# Without it, ./nexus uses $HOME/projects of the VM user.
+PROJECTS_ROOT=<P>
+
+# Where images come from. "local" = build on this VM (nexus <persona> build);
+# otherwise a registry you push the images to (e.g. registry.lan:5000) and `nexus <persona> pull`.
+REGISTRY=local
+# The tags default to the versions below, so a pinned image is tagged with its CLI's version.
+#CLAUDE_TAG=
+#GROK_TAG=
+
+# Build pins. `nexus <persona> upgrade` sets CLAUDE_VERSION or GROK_VERSION to the newest release and
+# rebuilds. DDEV_VERSION only matters when building ddev-context images here; CLAUDE_VERSION and
+# GROK_VERSION are also the image tags (unless the *_TAG is set), so on a pulling VM they pick the tag
+# that is pulled and run.
+# Claude Code (Anthropic's native installer): an exact X.Y.Z, or a channel, latest | stable.
+# A pin is reproducible, and bumping it re-runs only the Claude installer stage. A
+# channel is resolved once and then cached: `nexus <persona> build --no-cache` to move to a newer
+# release. Pins below 2.1.118 ignore the image's lock on `claude update`. Current versions:
+#   curl -fsSL https://downloads.claude.ai/claude-code-releases/latest   (or …/stable)
+# Grok Build (xAI's installer): an exact X.Y.Z, or latest (the newest on its stable channel), cached once
+# built like a Claude channel. Current version:  curl -fsSL https://x.ai/cli/stable
+GROK_VERSION=latest
+# APM (Agent Package Manager, in both flavours), from PyPI's apm-cli: an exact X.Y.Z, or latest.
+# As with Claude, a pin bump re-runs only the APM stage and latest is cached once built. Current version:
+#   curl -fsSL https://pypi.org/pypi/apm-cli/json | jq -r .info.version
+APM_VERSION=latest
+# ddev context only: pin ddev to `ddev version` on this VM (config-tools does; the leading v is optional),
+# or the router gets recreated on every switch.
+DDEV_VERSION=
+
+# Per-container ceiling. Six parallel Claude sessions sit comfortably in this.
+# AGENT_CPUS must not exceed the VM's vCPU count (nproc), or the container won't start.
+AGENT_CPUS=3
+AGENT_MEMORY=8g
+CLAUDE_VERSION=latest
+#CLAUDE_VERSION=
+--- stderr
+(empty)
+## run 11: nexus c1 upgrade 2.1.400 -y  (b'CLAUDE_VERSION=2.1.1\nX=1\nCLAUDE_VERSION=2.1.306\n')  [pipe]
+rc: 1
+--- stdout
+nexus: claude for c1: 2.1.306 -> 2.1.400
+--- stderr
+fake compose: the build of c1 failed
+nexus: the build for c1 failed (see above); CLAUDE_VERSION is back to 2.1.306
+## run 12: cat <S>/a/.env  [pipe]
+rc: 0
+--- stdout
+# /opt/agents/.env — per-VM settings. ./config-tools writes it from this template (re-run it to change
+# them, or edit by hand); docker compose reads it automatically.
+# Identity (AGENT_UID/AGENT_GID/DOCKER_GID/SSH_AUTH_SOCK) and AGENT_CA_CERTS are derived at launch by
+# ./nexus; don't set them here.
+# A variable exported in your shell takes precedence over this file (a persona's own projects root beats both).
+# Keep comments on their own lines: compose's .env parser mis-reads a comment after an empty value.
+
+# The VM's projects root: an absolute path, mounted at the identical path inside every persona that has no
+# root of its own (config-tools asks per persona; it is kept as root= in compose.personas.yml).
+# Without it, ./nexus uses $HOME/projects of the VM user.
+PROJECTS_ROOT=<P>
+
+# Where images come from. "local" = build on this VM (nexus <persona> build);
+# otherwise a registry you push the images to (e.g. registry.lan:5000) and `nexus <persona> pull`.
+REGISTRY=local
+# The tags default to the versions below, so a pinned image is tagged with its CLI's version.
+#CLAUDE_TAG=
+#GROK_TAG=
+
+# Build pins. `nexus <persona> upgrade` sets CLAUDE_VERSION or GROK_VERSION to the newest release and
+# rebuilds. DDEV_VERSION only matters when building ddev-context images here; CLAUDE_VERSION and
+# GROK_VERSION are also the image tags (unless the *_TAG is set), so on a pulling VM they pick the tag
+# that is pulled and run.
+# Claude Code (Anthropic's native installer): an exact X.Y.Z, or a channel, latest | stable.
+# A pin is reproducible, and bumping it re-runs only the Claude installer stage. A
+# channel is resolved once and then cached: `nexus <persona> build --no-cache` to move to a newer
+# release. Pins below 2.1.118 ignore the image's lock on `claude update`. Current versions:
+#   curl -fsSL https://downloads.claude.ai/claude-code-releases/latest   (or …/stable)
+# Grok Build (xAI's installer): an exact X.Y.Z, or latest (the newest on its stable channel), cached once
+# built like a Claude channel. Current version:  curl -fsSL https://x.ai/cli/stable
+GROK_VERSION=latest
+# APM (Agent Package Manager, in both flavours), from PyPI's apm-cli: an exact X.Y.Z, or latest.
+# As with Claude, a pin bump re-runs only the APM stage and latest is cached once built. Current version:
+#   curl -fsSL https://pypi.org/pypi/apm-cli/json | jq -r .info.version
+APM_VERSION=latest
+# ddev context only: pin ddev to `ddev version` on this VM (config-tools does; the leading v is optional),
+# or the router gets recreated on every switch.
+DDEV_VERSION=
+
+# Per-container ceiling. Six parallel Claude sessions sit comfortably in this.
+# AGENT_CPUS must not exceed the VM's vCPU count (nproc), or the container won't start.
+AGENT_CPUS=3
+AGENT_MEMORY=8g
+CLAUDE_VERSION=2.1.1
+X=1
+CLAUDE_VERSION=2.1.306
+--- stderr
+(empty)
+## run 13: nexus c1 upgrade 2.1.400 -y  (b'CLAUDE_VERSION=\n')  [pipe]
+rc: 1
+--- stdout
+nexus: claude for c1: latest -> 2.1.400
+--- stderr
+fake compose: the build of c1 failed
+nexus: the build for c1 failed (see above); CLAUDE_VERSION is back to latest
+## run 14: cat <S>/a/.env  [pipe]
+rc: 0
+--- stdout
+# /opt/agents/.env — per-VM settings. ./config-tools writes it from this template (re-run it to change
+# them, or edit by hand); docker compose reads it automatically.
+# Identity (AGENT_UID/AGENT_GID/DOCKER_GID/SSH_AUTH_SOCK) and AGENT_CA_CERTS are derived at launch by
+# ./nexus; don't set them here.
+# A variable exported in your shell takes precedence over this file (a persona's own projects root beats both).
+# Keep comments on their own lines: compose's .env parser mis-reads a comment after an empty value.
+
+# The VM's projects root: an absolute path, mounted at the identical path inside every persona that has no
+# root of its own (config-tools asks per persona; it is kept as root= in compose.personas.yml).
+# Without it, ./nexus uses $HOME/projects of the VM user.
+PROJECTS_ROOT=<P>
+
+# Where images come from. "local" = build on this VM (nexus <persona> build);
+# otherwise a registry you push the images to (e.g. registry.lan:5000) and `nexus <persona> pull`.
+REGISTRY=local
+# The tags default to the versions below, so a pinned image is tagged with its CLI's version.
+#CLAUDE_TAG=
+#GROK_TAG=
+
+# Build pins. `nexus <persona> upgrade` sets CLAUDE_VERSION or GROK_VERSION to the newest release and
+# rebuilds. DDEV_VERSION only matters when building ddev-context images here; CLAUDE_VERSION and
+# GROK_VERSION are also the image tags (unless the *_TAG is set), so on a pulling VM they pick the tag
+# that is pulled and run.
+# Claude Code (Anthropic's native installer): an exact X.Y.Z, or a channel, latest | stable.
+# A pin is reproducible, and bumping it re-runs only the Claude installer stage. A
+# channel is resolved once and then cached: `nexus <persona> build --no-cache` to move to a newer
+# release. Pins below 2.1.118 ignore the image's lock on `claude update`. Current versions:
+#   curl -fsSL https://downloads.claude.ai/claude-code-releases/latest   (or …/stable)
+# Grok Build (xAI's installer): an exact X.Y.Z, or latest (the newest on its stable channel), cached once
+# built like a Claude channel. Current version:  curl -fsSL https://x.ai/cli/stable
+GROK_VERSION=latest
+# APM (Agent Package Manager, in both flavours), from PyPI's apm-cli: an exact X.Y.Z, or latest.
+# As with Claude, a pin bump re-runs only the APM stage and latest is cached once built. Current version:
+#   curl -fsSL https://pypi.org/pypi/apm-cli/json | jq -r .info.version
+APM_VERSION=latest
+# ddev context only: pin ddev to `ddev version` on this VM (config-tools does; the leading v is optional),
+# or the router gets recreated on every switch.
+DDEV_VERSION=
+
+# Per-container ceiling. Six parallel Claude sessions sit comfortably in this.
+# AGENT_CPUS must not exceed the VM's vCPU count (nproc), or the container won't start.
+AGENT_CPUS=3
+AGENT_MEMORY=8g
+X=1
+CLAUDE_VERSION=latest
+--- stderr
+(empty)
+## run 15: nexus c1 upgrade 2.1.400 -y  (b'\tCLAUDE_VERSION=2.1.307\t# tab\n')  [pipe]
+rc: 1
+--- stdout
+nexus: claude for c1: 2.1.307 -> 2.1.400
+--- stderr
+fake compose: the build of c1 failed
+nexus: the build for c1 failed (see above); CLAUDE_VERSION is back to 2.1.307
+## run 16: cat <S>/a/.env  [pipe]
+rc: 0
+--- stdout
+# /opt/agents/.env — per-VM settings. ./config-tools writes it from this template (re-run it to change
+# them, or edit by hand); docker compose reads it automatically.
+# Identity (AGENT_UID/AGENT_GID/DOCKER_GID/SSH_AUTH_SOCK) and AGENT_CA_CERTS are derived at launch by
+# ./nexus; don't set them here.
+# A variable exported in your shell takes precedence over this file (a persona's own projects root beats both).
+# Keep comments on their own lines: compose's .env parser mis-reads a comment after an empty value.
+
+# The VM's projects root: an absolute path, mounted at the identical path inside every persona that has no
+# root of its own (config-tools asks per persona; it is kept as root= in compose.personas.yml).
+# Without it, ./nexus uses $HOME/projects of the VM user.
+PROJECTS_ROOT=<P>
+
+# Where images come from. "local" = build on this VM (nexus <persona> build);
+# otherwise a registry you push the images to (e.g. registry.lan:5000) and `nexus <persona> pull`.
+REGISTRY=local
+# The tags default to the versions below, so a pinned image is tagged with its CLI's version.
+#CLAUDE_TAG=
+#GROK_TAG=
+
+# Build pins. `nexus <persona> upgrade` sets CLAUDE_VERSION or GROK_VERSION to the newest release and
+# rebuilds. DDEV_VERSION only matters when building ddev-context images here; CLAUDE_VERSION and
+# GROK_VERSION are also the image tags (unless the *_TAG is set), so on a pulling VM they pick the tag
+# that is pulled and run.
+# Claude Code (Anthropic's native installer): an exact X.Y.Z, or a channel, latest | stable.
+# A pin is reproducible, and bumping it re-runs only the Claude installer stage. A
+# channel is resolved once and then cached: `nexus <persona> build --no-cache` to move to a newer
+# release. Pins below 2.1.118 ignore the image's lock on `claude update`. Current versions:
+#   curl -fsSL https://downloads.claude.ai/claude-code-releases/latest   (or …/stable)
+# Grok Build (xAI's installer): an exact X.Y.Z, or latest (the newest on its stable channel), cached once
+# built like a Claude channel. Current version:  curl -fsSL https://x.ai/cli/stable
+GROK_VERSION=latest
+# APM (Agent Package Manager, in both flavours), from PyPI's apm-cli: an exact X.Y.Z, or latest.
+# As with Claude, a pin bump re-runs only the APM stage and latest is cached once built. Current version:
+#   curl -fsSL https://pypi.org/pypi/apm-cli/json | jq -r .info.version
+APM_VERSION=latest
+# ddev context only: pin ddev to `ddev version` on this VM (config-tools does; the leading v is optional),
+# or the router gets recreated on every switch.
+DDEV_VERSION=
+
+# Per-container ceiling. Six parallel Claude sessions sit comfortably in this.
+# AGENT_CPUS must not exceed the VM's vCPU count (nproc), or the container won't start.
+AGENT_CPUS=3
+AGENT_MEMORY=8g
+X=1
+CLAUDE_VERSION=2.1.307
+--- stderr
+(empty)
+## run 17: nexus c1 upgrade 2.1.400 -y  (CRLF .env)  [pipe]
+rc: 1
+--- stdout
+nexus: claude for c1: 2.1.307 -> 2.1.400
+--- stderr
+fake compose: the build of c1 failed
+nexus: the build for c1 failed (see above); CLAUDE_VERSION is back to 2.1.307
+## run 18: cat <S>/a/.env  [pipe]
+rc: 0
+--- stdout
+# /opt/agents/.env — per-VM settings. ./config-tools writes it from this template (re-run it to change\r
+# them, or edit by hand); docker compose reads it automatically.\r
+# Identity (AGENT_UID/AGENT_GID/DOCKER_GID/SSH_AUTH_SOCK) and AGENT_CA_CERTS are derived at launch by\r
+# ./nexus; don't set them here.\r
+# A variable exported in your shell takes precedence over this file (a persona's own projects root beats both).\r
+# Keep comments on their own lines: compose's .env parser mis-reads a comment after an empty value.\r
+\r
+# The VM's projects root: an absolute path, mounted at the identical path inside every persona that has no\r
+# root of its own (config-tools asks per persona; it is kept as root= in compose.personas.yml).\r
+# Without it, ./nexus uses $HOME/projects of the VM user.\r
+PROJECTS_ROOT=<P>\r
+\r
+# Where images come from. "local" = build on this VM (nexus <persona> build);\r
+# otherwise a registry you push the images to (e.g. registry.lan:5000) and `nexus <persona> pull`.\r
+REGISTRY=local\r
+# The tags default to the versions below, so a pinned image is tagged with its CLI's version.\r
+#CLAUDE_TAG=\r
+#GROK_TAG=\r
+\r
+# Build pins. `nexus <persona> upgrade` sets CLAUDE_VERSION or GROK_VERSION to the newest release and\r
+# rebuilds. DDEV_VERSION only matters when building ddev-context images here; CLAUDE_VERSION and\r
+# GROK_VERSION are also the image tags (unless the *_TAG is set), so on a pulling VM they pick the tag\r
+# that is pulled and run.\r
+# Claude Code (Anthropic's native installer): an exact X.Y.Z, or a channel, latest | stable.\r
+# A pin is reproducible, and bumping it re-runs only the Claude installer stage. A\r
+# channel is resolved once and then cached: `nexus <persona> build --no-cache` to move to a newer\r
+# release. Pins below 2.1.118 ignore the image's lock on `claude update`. Current versions:\r
+#   curl -fsSL https://downloads.claude.ai/claude-code-releases/latest   (or …/stable)\r
+# Grok Build (xAI's installer): an exact X.Y.Z, or latest (the newest on its stable channel), cached once\r
+# built like a Claude channel. Current version:  curl -fsSL https://x.ai/cli/stable\r
+GROK_VERSION=latest\r
+# APM (Agent Package Manager, in both flavours), from PyPI's apm-cli: an exact X.Y.Z, or latest.\r
+# As with Claude, a pin bump re-runs only the APM stage and latest is cached once built. Current version:\r
+#   curl -fsSL https://pypi.org/pypi/apm-cli/json | jq -r .info.version\r
+APM_VERSION=latest\r
+# ddev context only: pin ddev to `ddev version` on this VM (config-tools does; the leading v is optional),\r
+# or the router gets recreated on every switch.\r
+DDEV_VERSION=\r
+\r
+# Per-container ceiling. Six parallel Claude sessions sit comfortably in this.\r
+# AGENT_CPUS must not exceed the VM's vCPU count (nproc), or the container won't start.\r
+AGENT_CPUS=3\r
+AGENT_MEMORY=8g\r
+X=1\r
+CLAUDE_VERSION=2.1.307
+--- stderr
+(empty)
+## run 19: nexus c1 upgrade 2.1.400 -y  (no newline at the end)  [pipe]
+rc: 1
+--- stdout
+nexus: claude for c1: 2.1.308 -> 2.1.400
+--- stderr
+fake compose: the build of c1 failed
+nexus: the build for c1 failed (see above); CLAUDE_VERSION is back to 2.1.308
+## run 20: cat <S>/a/.env  [pipe]
+rc: 0
+--- stdout
+REGISTRY=local
+CLAUDE_VERSION=2.1.308
+--- stderr
+(empty)
+## run 21: nexus c1 upgrade 2.1.400 -y  (empty .env)  [pipe]
+rc: 1
+--- stdout
+nexus: claude for c1: latest -> 2.1.400
+--- stderr
+fake compose: the build of c1 failed
+nexus: the build for c1 failed (see above); CLAUDE_VERSION is back to latest
+## run 22: cat <S>/a/.env  [pipe]
+rc: 0
+--- stdout
+CLAUDE_VERSION=latest
+--- stderr
+(empty)

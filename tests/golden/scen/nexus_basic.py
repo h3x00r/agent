@@ -301,13 +301,15 @@ def _(sb):
 
 @case("nexus/basic-top-octal")
 def _(sb):
-    # Bugs, recorded as they are: a limit or a time with a leading zero is taken for octal. 5H "09" makes
-    # bash print an arithmetic error (with a line number of nexus) and the row still shows 09%; a time of
-    # "0999" ends top with exit 1 before any table, so one bad snapshot hides every persona.
+    # A limit or a time with a leading zero. The bash took them for octal: 5H "09" printed an arithmetic
+    # error (with a line number of nexus) and the row still showed 09%, and a time like "0999" ended top
+    # with exit 1 before any table. The Python reads them as decimal (accepted@M3); the time is two days
+    # back, as a leading-zero epoch, so the row says 2d on any day.
     two_personas(sb)
     sb.container("c1", panes=[["%1", "0.0", "five-09", snapshot_line(five="09")]])
     sb.run("nexus", "top", "--once")
-    sb.container("c1", panes=[["%1", "0.0", "ok", snapshot_line()], ["%2", "0.0", "ts-0999", snap_with(1, "0999")]])
+    ts = "0" + snapshot_line(age=2 * 86400).split("\t")[1]
+    sb.container("c1", panes=[["%1", "0.0", "ok", snapshot_line()], ["%2", "0.0", "ts-0lead", snap_with(1, ts)]])
     sb.run("nexus", "top", "--once")
 
 

@@ -1,0 +1,12 @@
+## run 1: nexus c1 upgrade 2.1.400 -y  (2.1.399 built; TERM at the tag back)  [pipe]
+rc: 130
+--- stdout
+nexus: claude for c1: 2.1.300 (Claude Code) -> 2.1.400
+--- stderr
+ c1 Built  done
+## run 2: grep ^CLAUDE_VERSION= <A>/.env  [pipe]
+rc: 0
+--- stdout
+CLAUDE_VERSION=latest
+--- stderr
+(empty)

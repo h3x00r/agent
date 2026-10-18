@@ -66,3 +66,6 @@ jobs:
       # Not --strict: the secret scan has a job of its own, and the personas stage needs an image built here.
       - name: Run tests/run.sh without starting a persona
         run: tests/run.sh --no-containers
+      # The unit job runs them on 3.8, the oldest the tools take; this runner's python3 is a newer one.
+      - name: Run the unit tests on the runner's python3
+        run: python3 -B -m unittest discover -s tests/unit

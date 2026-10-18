@@ -2,8 +2,11 @@
 
 The tools were bash scripts; their behaviour is the contract (tests/run.sh, tests/golden). Where Python's
 own helpers differ from what bash or coreutils did, the difference lives here, once:
-- lexical(): `realpath -ms`: absolute, `.`/`..`/repeated slashes resolved, a leading `//` too
-  (os.path.normpath keeps that), no symlink followed;
+- lexical(): `$(realpath -ms …)`: absolute, `.`/`..`/repeated slashes resolved, a leading `//` too
+  (os.path.normpath keeps that), no symlink followed, trailing newlines stripped as $(…) strips them;
+- logical(): bash's $PWD after a logical `cd`, which keeps a leading `//`;
+- utf8_locale(): whether the locale is UTF-8 as bash judged it (the shim tells), which decides what a
+  character is for lengths, cuts, ere() and printf_q();
 - realpath_e(): `realpath -e`: every component must exist (os.path.realpath doesn't check);
 - under(): bash's `[[ "$p/" == "$root"/* ]]`, a string test, never os.path.commonpath;
 - bash_basename(): `basename`, which ignores trailing slashes (os.path.basename("x/") is "");
@@ -11,14 +14,66 @@ own helpers differ from what bash or coreutils did, the difference lives here, o
   collapses and is trimmed, any other IFS character delimits one field, and the last variable takes the
   rest of the line;
 - printf_q(): bash's `printf %q`, which shlex.quote doesn't match;
+- sort_lines(): sort(1)'s order, which follows the locale's collation;
+- mkdir_p(): `mkdir -p`, whose parents keep u+wx whatever the umask (os.makedirs' don't);
 - ere(): bash's `[[ $s =~ ^…$ ]]`: POSIX ERE, so `$` is the end of the string, never before a newline.
   Patterns spell their classes in ASCII ([0-9], [ \\t…]) and never use \\d or \\s, which match more.
+
+Pitfalls (each pinned where named):
+- lexical() (test_shellcompat.Lexical.test_cleans_like_realpath_ms,
+  test_shellcompat.Dirs.test_lexical_drops_trailing_newlines_as_command_substitution)
+- logical() (test_shellcompat.Dirs.test_logical_keeps_a_leading_double_slash, golden
+  nexus/edge-ls-agents-dir-dslash)
+- utf8_locale(): the shim's measure, not the locale's name (golden nexus/edge-top-locale-missing)
+- realpath_e() (test_shellcompat.Paths.test_realpath_e_needs_every_component)
+- under() (test_shellcompat.Paths.test_under_is_a_string_test)
+- bash_basename() (test_shellcompat.Paths.test_basename_ignores_trailing_slashes)
+- read_fields(): a tab collapses, \\037 doesn't
+  (test_shellcompat.Read.test_tab_ifs_collapses_and_the_last_takes_the_rest,
+  test_shellcompat.Read.test_other_ifs_keeps_empty_fields)
+- the last variable loses one trailing delimiter, not more: `x:y::` keeps `y::`
+  (test_shellcompat.Read.test_one_trailing_delimiter_after_the_last_field_goes)
+- read_array() (test_shellcompat.Read.test_array)
+- printf_q(), by the locale (test_shellcompat.PrintfQ.test_as_bash_writes_it, golden
+  nexus/edge-persona-printf-q)
+- sort_lines() (test_shellcompat.Sort.test_c_order_is_by_bytes,
+  test_shellcompat.Sort.test_a_locale_that_isnt_there_is_c)
+- mkdir_p() (test_shellcompat.Dirs.test_mkdir_p_parents_keep_u_wx_under_a_tight_umask, golden
+  nexus/edge-persona-umask)
+- ere(): a fullmatch, with DOTALL (test_shellcompat.Ere.test_dollar_is_the_end,
+  test_shellcompat.Ere.test_dot_matches_a_newline)
+- ere() in UTF-8: a byte that isn't UTF-8 matches nothing
+  (test_shellcompat.Ere.test_a_byte_that_isnt_utf8_matches_nothing_in_utf8)
+- ASCII classes (test_boot.AsciiClasses.test_no_unicode_classes_in_patterns)
+- logical_pwd(): the shim's $PWD (golden nexus/edge-persona-cwd-spellings)
 """
 import os
 import re
+import stat
+import unicodedata
 
 IFS_WHITESPACE = " \t\n"
 SPACE = " \t\n\r\f\v"   # [[:space:]]
+
+# The locale as bash saw it: whether a UTF-8 character counted as one character. The shims measure it in
+# bash itself and _boot sets it: Python's own view can differ (it takes a C locale for C.UTF-8, and a locale
+# that isn't installed for its name). None: judged from LC_ALL, LC_CTYPE and LANG (run without a shim).
+UTF8 = None
+
+
+def utf8_locale(env=None):
+    if env is None and UTF8 is not None:
+        return UTF8
+    env = os.environ if env is None else env
+    for k in ("LC_ALL", "LC_CTYPE", "LANG"):
+        v = env.get(k)
+        if v:
+            return "utf8" in v.lower().replace("-", "")
+    return False
+
+
+def _undecodable(s):
+    return any(0xDC80 <= ord(c) <= 0xDCFF for c in s)
 
 
 def lexical(path, cwd=None):
@@ -31,7 +86,13 @@ def lexical(path, cwd=None):
     out = os.path.normpath(path)
     if out.startswith("//"):
         out = "/" + out.lstrip("/")
-    return out
+    return out.rstrip("\n") or out      # as $(lexical …) had it: trailing newlines stripped
+
+
+def logical(path, cwd):
+    """bash's $PWD after a logical `cd PATH` from CWD: . and .. resolved by name (a symlink's path kept),
+    repeated slashes squeezed, but a leading `//` kept as it is, as POSIX lets it be."""
+    return os.path.normpath(path if path.startswith("/") else os.path.join(cwd, path))
 
 
 def realpath_e(path):
@@ -58,7 +119,10 @@ def bash_basename(path):
 
 
 def ere(pattern, text):
-    """A bash `[[ text =~ pattern ]]` test for an anchored pattern: the whole text must match."""
+    """A bash `[[ text =~ pattern ]]` test for an anchored pattern: the whole text must match. In a UTF-8
+    locale a byte that isn't UTF-8 matches nothing, not even `.`, so a text holding one never matches."""
+    if utf8_locale() and _undecodable(text):
+        return False
     return re.fullmatch(pattern, text, re.DOTALL) is not None
 
 
@@ -117,35 +181,36 @@ def read_array(line, ifs):
 
 
 # printf %q, as bash 5 writes it: these are backslashed anywhere, # and ~ only at the start, and a string
-# with a control character or a byte that isn't printable text comes out whole as $'…'.
+# with a character that isn't printable in the locale comes out whole as $'…', each such character as its
+# bytes in octal. In UTF-8 that is a control character (C0, DEL, C1), a byte that isn't UTF-8, and what
+# glibc's iswprint refuses besides (unassigned and private-use code points, U+2028, U+2029); in any other
+# locale, every byte outside ASCII.
 _Q_ANY = set("!\"$&'()*,;<>?[\\]^`{|} ")
 _Q_START = set("#~")
 _ANSI_NAMED = {7: "\\a", 8: "\\b", 9: "\\t", 10: "\\n", 11: "\\v", 12: "\\f", 13: "\\r", 27: "\\E",
                92: "\\\\", 39: "\\'"}
 
 
-def _needs_ansi(s):
-    for ch in s:
-        o = ord(ch)
-        if 0xDC80 <= o <= 0xDCFF:          # an undecodable byte (surrogateescape)
-            return True
-        if o < 0x20 or o == 0x7F or 0x80 <= o <= 0x9F:
-            return True
-    return False
+def _printable(ch, utf8):
+    o = ord(ch)
+    if o < 0x80:
+        return 0x20 <= o < 0x7F
+    if not utf8 or o <= 0x9F or 0xDC80 <= o <= 0xDCFF:
+        return False
+    return unicodedata.category(ch) not in ("Cn", "Co", "Cs", "Zl", "Zp")
 
 
-def printf_q(s):
+def printf_q(s, utf8=None):
     if s == "":
         return "''"
-    if _needs_ansi(s):
+    utf8 = utf8_locale() if utf8 is None else utf8
+    if not all(_printable(ch, utf8) for ch in s):
         out = []
         for ch in s:
             o = ord(ch)
             if o in _ANSI_NAMED:
                 out.append(_ANSI_NAMED[o])
-            elif 0x20 <= o < 0x7F:
-                out.append(ch)
-            elif o > 0x9F and not (0xDC80 <= o <= 0xDCFF):
+            elif _printable(ch, utf8):
                 out.append(ch)
             else:
                 for b in ch.encode("utf-8", "surrogateescape"):
@@ -158,6 +223,45 @@ def printf_q(s):
         else:
             out.append(ch)
     return "".join(out)
+
+
+def mkdir_p(path):
+    """`mkdir -p PATH`. Raises OSError as mkdir fails. Like mkdir -p, a parent it makes gets u+wx on top
+    of what the umask leaves, so a tight umask (0177) still lets it make the next one; PATH itself gets
+    the umask's mode."""
+    path = path.rstrip("/") or path
+    if os.path.isdir(path):
+        return
+    parent = os.path.dirname(path)
+    if parent and parent != path and not os.path.isdir(parent):
+        mkdir_p(parent)
+        mask = os.umask(0)
+        os.umask(mask)
+        want = (0o777 & ~mask) | 0o300
+        if stat.S_IMODE(os.stat(parent).st_mode) != want:
+            os.chmod(parent, want)
+    try:
+        os.mkdir(path)
+    except FileExistsError:
+        if not os.path.isdir(path):
+            raise
+
+
+def sort_lines(items):
+    """`printf '%s\n' ITEMS | sort`: in the order of the locale's collation (LC_ALL, LC_COLLATE or LANG,
+    as sort reads them; C if that locale isn't installed), ties broken byte by byte, as sort breaks them."""
+    import locale
+
+    def raw(x):
+        return x.encode("utf-8", "surrogateescape")
+    try:
+        locale.setlocale(locale.LC_COLLATE, "")
+        try:
+            return sorted(items, key=lambda x: (locale.strxfrm(x), raw(x)))
+        finally:
+            locale.setlocale(locale.LC_COLLATE, "C")
+    except (locale.Error, ValueError, OSError):
+        return sorted(items, key=raw)
 
 
 def logical_pwd():

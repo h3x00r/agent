@@ -1,0 +1,18 @@
+## run 1: nexus c1 start  (no docker on PATH)  [pipe]
+rc: 127
+--- stdout
+(empty)
+--- stderr
+docker: command-not-found
+## run 2: nexus c1 stop  (the same)  [pipe]
+rc: 127
+--- stdout
+(empty)
+--- stderr
+docker: command-not-found
+## run 3: nexus c1 ls  (the same)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: c1 isn't running; start it with: nexus c1

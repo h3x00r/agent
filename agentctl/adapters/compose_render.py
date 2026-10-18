@@ -6,6 +6,11 @@ config mount, older layouts), and compose expands the ${…} in it, not this cod
 render(personas, managed=…, env_files=…): the whole file. managed: whether personas/claude.managed.json
 exists (its mount is left out otherwise); env_files: a name → env file path map for the staged check
 before a commit (personas/NAME.env otherwise).
+
+Pitfalls (each pinned where named):
+- byte for byte, its comments too (test_adapters.Render.test_as_the_bash_wrote_it)
+- a key's path goes into '…' as it is: persona.key_path_ok must keep refusing ' and $ (golden
+  config/cli-bad-ssh)
 """
 from agentctl.domain import context, flavour
 from agentctl.domain.persona import meta_line

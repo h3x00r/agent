@@ -1,0 +1,55 @@
+## run 1: nexus top, then q  [tty-all]
+rc: 0
+--- stdout
+\e[?1049h\e[?25l\e[?7l\e[H\e[1mnexus top\e[0m  <HOST>  <HH:MM:SS>  \e[90mevery 30s, q quits, any other key redraws\e[0m\e[K
+\e[K
+\e[90mPERSONA  STATE        CPU  MEM  PANES\e[0m\e[K
+\e[1mc1\e[0m       \e[90mnot started\e[0m    -    -  -\e[K
+\e[1mg1\e[0m       \e[90mnot started\e[0m    -    -  -\e[K
+\e[K
+\e[90mno Claude Code or grok pane in a running persona\e[0m\e[K\e[J\e[?7h\e[?25h\e[?1049lrc=0
+after: echo icanon
+--- stderr
+(empty)
+## run 2: nexus top, then ctrl-c  [tty-all]
+rc: 0
+--- stdout
+\e[?1049h\e[?25l\e[?7l\e[H\e[1mnexus top\e[0m  <HOST>  <HH:MM:SS>  \e[90mevery 30s, q quits, any other key redraws\e[0m\e[K
+\e[K
+\e[90mPERSONA  STATE        CPU  MEM  PANES\e[0m\e[K
+\e[1mc1\e[0m       \e[90mnot started\e[0m    -    -  -\e[K
+\e[1mg1\e[0m       \e[90mnot started\e[0m    -    -  -\e[K
+\e[K
+\e[90mno Claude Code or grok pane in a running persona\e[0m\e[K\e[J\e[?7h\e[?25h\e[?1049ltrapped
+rc=0
+after: echo icanon
+--- stderr
+(empty)
+## run 3: nexus top, then term  [tty-all]
+rc: 0
+--- stdout
+\e[?1049h\e[?25l\e[?7l\e[H\e[1mnexus top\e[0m  <HOST>  <HH:MM:SS>  \e[90mevery 30s, q quits, any other key redraws\e[0m\e[K
+\e[K
+\e[90mPERSONA  STATE        CPU  MEM  PANES\e[0m\e[K
+\e[1mc1\e[0m       \e[90mnot started\e[0m    -    -  -\e[K
+\e[1mg1\e[0m       \e[90mnot started\e[0m    -    -  -\e[K
+\e[K
+\e[90mno Claude Code or grok pane in a running persona\e[0m\e[K\e[J\e[?7h\e[?25h\e[?1049ltrapped
+rc=0
+after: echo icanon
+--- stderr
+(empty)
+## run 4: nexus top, then hup  [tty-all]
+rc: 0
+--- stdout
+\e[?1049h\e[?25l\e[?7l\e[H\e[1mnexus top\e[0m  <HOST>  <HH:MM:SS>  \e[90mevery 30s, q quits, any other key redraws\e[0m\e[K
+\e[K
+\e[90mPERSONA  STATE        CPU  MEM  PANES\e[0m\e[K
+\e[1mc1\e[0m       \e[90mnot started\e[0m    -    -  -\e[K
+\e[1mg1\e[0m       \e[90mnot started\e[0m    -    -  -\e[K
+\e[K
+\e[90mno Claude Code or grok pane in a running persona\e[0m\e[K\e[J\e[?7h\e[?25h\e[?1049ltrapped
+rc=0
+after: echo icanon
+--- stderr
+(empty)

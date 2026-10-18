@@ -8,7 +8,9 @@ Modes:
   tty-all  stdin, stdout and stderr all on the pty (colours, Ctrl-C): one combined stream.
 
 Steps (tty modes) are (substring, answer) pairs: wait until the watched output has substring past the
-previous match, then type answer. Answers "<EOF>" and "<INT>" send ^D and ^C.
+previous match, then type answer. Answers "<EOF>" and "<INT>" send ^D and ^C; "<RAW>text" types text
+without a CR, "<SLEEP>secs" waits, "<WINCH>RxC" resizes the terminal, and "<SIG>NAME" sends a signal to
+the run's process group.
 """
 import fcntl
 import os
@@ -95,7 +97,16 @@ def _run_tty(argv, env, cwd, mode, steps, timeout):
                 pos = at + len(want.encode())
                 steps.pop(0)
                 time.sleep(0.05)   # the prompt is out; let the reader block on the terminal
-                if answer == "<EOF>":
+                if answer.startswith("<RAW>"):          # bytes as they are, no CR
+                    os.write(master, answer[5:].encode())
+                elif answer.startswith("<SLEEP>"):      # wait, type nothing
+                    time.sleep(float(answer[7:]))
+                elif answer.startswith("<WINCH>"):      # resize the terminal (SIGWINCH)
+                    r_, c_ = answer[7:].split("x")
+                    _winsize(master, int(r_), int(c_))
+                elif answer.startswith("<SIG>"):        # a signal to the run's process group
+                    os.killpg(p.pid, getattr(signal, "SIG" + answer[5:]))
+                elif answer == "<EOF>":
                     os.write(master, b"\x04")
                 elif answer == "<INT>":
                     os.write(master, b"\x03")

@@ -1,0 +1,32 @@
+## run 1: (no AGENT_UID, AGENT_GID, DOCKER_GID) nexus ls  [pipe]
+rc: 0
+--- stdout
+PERSONA  FLAVOUR  CONTEXT  SSH      STATE    PROJECTS ROOT
+c1       claude   docker   agent    healthy  <P>
+g1       grok     docker   own key  healthy  <P>
+x1       claude   docker   agent    healthy  <P>
+
+PERSONA  SESSION  WINDOWS  ATTACHED  DIR
+c1       main           1  no        <P>/
+g1       main           1  no        <P> 
+x1       main           1  no        rel/../p
+
+x1 still runs with the projects root it was created with, <A>/p: nexus x1 restart applies <P> (PROJECTS_ROOT in <A>/.env), and ends its sessions
+--- stderr
+(empty)
+## run 2: DOCKER_HOST=tcp://127.0.0.1:9 nexus ls  [pipe]
+rc: 0
+--- stdout
+PERSONA  FLAVOUR  CONTEXT  SSH      STATE    PROJECTS ROOT
+c1       claude   docker   agent    healthy  <P>
+g1       grok     docker   own key  healthy  <P>
+x1       claude   docker   agent    healthy  <P>
+
+PERSONA  SESSION  WINDOWS  ATTACHED  DIR
+c1       main           1  no        <P>/
+g1       main           1  no        <P> 
+x1       main           1  no        rel/../p
+
+x1 still runs with the projects root it was created with, <A>/p: nexus x1 restart applies <P> (PROJECTS_ROOT in <A>/.env), and ends its sessions
+--- stderr
+(empty)

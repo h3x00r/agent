@@ -1,0 +1,12 @@
+## run 1: nexus c1 start  (first c1 line bare)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: no persona 'c1' (set up: c1 c2 c1); add it with <A>/config-tools
+## run 2: nexus c2 start  (c2 has a bare line only)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: no persona 'c2' (set up: c1 c2 c1); add it with <A>/config-tools

@@ -1,0 +1,73 @@
+## run 1: nexus c1 headless -- --model x  [pipe, cwd projects/app]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: headless: give the prompt first, e.g. nexus c1 headless "list the TODOs" --output-format json; or pipe it in
+## run 2: nexus c1 headless ''  [pipe, cwd projects/app]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: headless: give the prompt first, e.g. nexus c1 headless "list the TODOs" --output-format json; or pipe it in
+## run 3: nexus c1 headless -- --  [pipe, cwd projects/app]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: headless: give the prompt first, e.g. nexus c1 headless "list the TODOs" --output-format json; or pipe it in
+## run 4: nexus c1 headless -  [pipe, cwd projects/app]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: headless: give the prompt first, e.g. nexus c1 headless "list the TODOs" --output-format json; or pipe it in
+## run 5: nexus c1 headless '-a b'  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+FAKE-REPLY
+--- stderr
+(empty)
+## run 6: nexus c1 headless '-- '  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+FAKE-REPLY
+--- stderr
+(empty)
+## run 7: nexus c1 headless $'--x=a\nb'  [pipe, cwd projects/app]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: headless: give the prompt first, e.g. nexus c1 headless "list the TODOs" --output-format json; or pipe it in
+## run 8: nexus c1 headless $'-a\nb'  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+FAKE-REPLY
+--- stderr
+(empty)
+## run 9: nexus c1 headless $'a \'b\' "c"\nd' --v  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+FAKE-REPLY
+--- stderr
+(empty)
+## run 10: nexus c1 headless -=x  [pipe, cwd projects/app]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: headless: give the prompt first, e.g. nexus c1 headless "list the TODOs" --output-format json; or pipe it in
+## run 11: nexus c1 headless -- '' -v  [pipe, cwd projects/app]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: headless: give the prompt first, e.g. nexus c1 headless "list the TODOs" --output-format json; or pipe it in
+## run 12: printf 'nxt piped' | nexus c1 headless '' --model=x  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+stdin: nxt piped
+FAKE-REPLY
+--- stderr
+(empty)

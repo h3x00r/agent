@@ -6,11 +6,26 @@ written by config-tools from its list.
   line without a newline isn't read, as `while read` didn't).
 - load(): the personas as config-tools reads them: each line checked (persona.parse_meta_line), a name
   that comes back updating the one before.
-- meta(name): the first line for NAME as nexus reads it, padded with a space at each end, or None; and
-  meta_get() the first `key=` value in it, as nexus's meta_get did.
+- meta(name): the first line for NAME as nexus reads it, padded with a space at each end, or None (also
+  when that first line has nothing after the name); and meta_get() the first `key=` value in it, as
+  nexus's meta_get did.
+A file that can't be read is an error (exit 2, as sed's); NUL bytes in it are dropped.
+
+Pitfalls (each pinned where named):
+- CRLF (golden nexus/basic-crlf-personas, golden config/cli-list-bad-line)
+- lines(): spaces around a line trimmed, as `read` trims them (golden nexus/edge-ls-line-spaces)
+- a last line without a newline: dropped by lines(), kept with unterminated=True
+  (test_boot.PersonasLines.test_a_last_line_without_a_newline)
+- meta(): the first line wins, a bare `# persona: NAME ` too (golden nexus/edge-persona-meta-empty, golden
+  nexus/edge-ls-line-empty-meta)
+- meta(): a space after the name, never a tab (golden nexus/edge-ls-line-tab)
+- NUL bytes (golden nexus/edge-ls-line-nul)
+- bytes that aren't UTF-8 kept (golden nexus/edge-ls-names-latin1, golden nexus/edge-upgrade-personas-bytes)
+- exit 2 (golden nexus/edge-ls-dotenv-unreadable)
 """
 import os
 
+from agentctl.core.errors import NexusError
 from agentctl.domain import persona as rules
 
 PREFIX = "# persona: "
@@ -23,8 +38,12 @@ class BadPersonasFile(Exception):
 
 
 def _text(path):
-    with open(path, "rb") as f:
-        return f.read().decode("utf-8", "surrogateescape")
+    """The file's text, NUL bytes dropped as bash's read and $(…) dropped them."""
+    try:
+        with open(path, "rb") as f:
+            return f.read().replace(b"\0", b"").decode("utf-8", "surrogateescape")
+    except OSError as e:
+        raise NexusError("can't read %s: %s" % (path, e.strerror), 2)
 
 
 def lines(path, unterminated=False):
@@ -76,7 +95,8 @@ def meta(path, name):
         if l.endswith("\r"):
             l = l[:-1]
         if l.startswith(PREFIX + name + " "):
-            return " %s " % l[len(PREFIX + name + " "):]
+            m = " %s " % l[len(PREFIX + name + " "):]
+            return None if m == "  " else m      # a bare `# persona: NAME ` is no persona, as for nexus
     return None
 
 

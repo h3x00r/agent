@@ -1,0 +1,24 @@
+## run 1: echo x | TMPDIR=<a missing dir> nexus c1 headless 'nxt t'  [pipe, cwd projects/app]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: headless: can't make a temp file for the input
+## run 2: echo x | TMPDIR=<a read-only dir> nexus c1 headless 'nxt t'  [pipe, cwd projects/app]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: headless: can't make a temp file for the input
+## run 3: echo x | TMPDIR=<relative, missing> nexus c1 headless 'nxt t'  [pipe, cwd projects/app]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: headless: can't make a temp file for the input
+## run 4: echo x | TMPDIR=<relative, in the cwd but not in the checkout nexus runs in> nexus c1 headless 'nxt t'  [pipe, cwd projects/app]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: headless: can't make a temp file for the input

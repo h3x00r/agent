@@ -1,0 +1,34 @@
+## run 1: nexus top --once  [pipe]
+rc: 0
+--- stdout
+nexus top  <HOST>  <HH:MM:SS>
+
+PERSONA  STATE         CPU     MEM  PANES
+c1       stopped         -       -  -
+c2       stopped         -       -  -
+c3       stopped         -       -  -
+c4       restarting      -       -  -
+c5       paused          -       -  -
+c6       unhealthy   0.50%  120MiB  no claude running
+c7       running     0.50%  120MiB  no claude running
+
+no Claude Code or grok pane in a running persona
+--- stderr
+(empty)
+## run 2: nexus top --once  [tty-all]
+rc: 0
+--- stdout
+\e[1mnexus top\e[0m  <HOST>  <HH:MM:SS>
+
+\e[90mPERSONA  STATE         CPU     MEM  PANES\e[0m
+\e[1mc1\e[0m       \e[90mstopped\e[0m         -       -  -
+\e[1mc2\e[0m       \e[90mstopped\e[0m         -       -  -
+\e[1mc3\e[0m       \e[90mstopped\e[0m         -       -  -
+\e[1mc4\e[0m       \e[33mrestarting\e[0m      -       -  -
+\e[1mc5\e[0m       \e[90mpaused\e[0m          -       -  -
+\e[1mc6\e[0m       \e[31munhealthy\e[0m   0.50%  120MiB  \e[90mno claude running\e[0m
+\e[1mc7\e[0m       \e[32mrunning\e[0m     0.50%  120MiB  \e[90mno claude running\e[0m
+
+\e[90mno Claude Code or grok pane in a running persona\e[0m
+--- stderr
+(empty)

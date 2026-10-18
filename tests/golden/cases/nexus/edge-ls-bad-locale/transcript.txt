@@ -1,0 +1,36 @@
+## run 1: LC_ALL=xx_YY.UTF-8 nexus ls  [pipe]
+rc: 0
+--- stdout
+PERSONA  FLAVOUR  CONTEXT  SSH      STATE        PROJECTS ROOT
+c1       claude   docker   agent    healthy      <P>
+g1       grok     docker   own key  not started  <P>
+
+PERSONA  SESSION  WINDOWS  ATTACHED  DIR
+c1       main           1  no        <P>
+c1       café          1  yes       <P>/café
+
+nexus <persona> starts one that isn't running
+--- stderr
+bash: warning: setlocale: LC_ALL: cannot change locale (xx_YY.UTF-8)
+## run 2: LANG=xx_YY.UTF-8 nexus ls  [pipe]
+rc: 0
+--- stdout
+PERSONA  FLAVOUR  CONTEXT  SSH      STATE        PROJECTS ROOT
+c1       claude   docker   agent    healthy      <P>
+g1       grok     docker   own key  not started  <P>
+
+PERSONA  SESSION  WINDOWS  ATTACHED  DIR
+c1       main           1  no        <P>
+c1       café          1  yes       <P>/café
+
+nexus <persona> starts one that isn't running
+--- stderr
+(empty)
+## run 3: LANG=xx_YY.UTF-8 nexus c1 ls  [pipe]
+rc: 0
+--- stdout
+SESSION  WINDOWS  ATTACHED  DIR
+main           1  no        <P>
+café          1  yes       <P>/café
+--- stderr
+(empty)

@@ -7,4 +7,9 @@ if ! python3 -I -c 'import sys; sys.exit(sys.version_info < (3, 8))' 2>/dev/null
   echo "config: needs Python 3.8 or newer; python3 here is $(python3 --version 2>&1 || echo missing)" >&2
   exit 1
 fi
+# Python takes a C locale for C.UTF-8 and exports that to its children (PEP 538), and judges a locale that
+# isn't installed by its name; bash did neither. So this says what bash made of the locale (whether é is one
+# character) and what LC_CTYPE was, and the Python measures text by the one and passes the other on.
+u=$'\xc3\xa9'
+export AGENTCTL_LOCALE="$(( ${#u} == 1 ))${LC_CTYPE+:$LC_CTYPE}"
 exec python3 -I -B -S "${self%/*}/agentctl/_boot.py" config "$@"

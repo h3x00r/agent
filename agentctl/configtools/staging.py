@@ -7,6 +7,14 @@ commit(staged, target, backup=None): the staged file in place. An existing targe
 rewritten through, so a link keeps pointing at its target and the file keeps its owner, mode and inode;
 an unchanged one isn't touched at all. A new target is the staged file renamed (mode 600 stays).
 bakname(path): PATH.bak, else .bak.2, .bak.3 … , so an older backup (it may hold a key) survives.
+
+Pitfalls (each pinned where named):
+- stage() (test_configtools.Staging.test_stage_is_private_and_named_like_mktemp)
+- cleanup() on every way out, ^C included (golden config/ask-int-tty)
+- commit() through a link (test_configtools.Staging.test_commit_writes_through_a_link_and_keeps_the_inode)
+- an unchanged target (test_configtools.Staging.test_an_unchanged_target_is_left_alone)
+- a new target (test_configtools.Staging.test_a_new_target_is_renamed_into_place)
+- bakname() skips a dangling .bak link too (test_configtools.Staging.test_bakname_keeps_older_backups)
 """
 import filecmp
 import os

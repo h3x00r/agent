@@ -1,0 +1,24 @@
+## run 1: HOSTNAME= nexus top --once  [pipe]
+rc: 0
+--- stdout
+nexus top    <HH:MM:SS>
+
+PERSONA  STATE        CPU  MEM  PANES
+c1       not started    -    -  -
+g1       not started    -    -  -
+
+no Claude Code or grok pane in a running persona
+--- stderr
+(empty)
+## run 2: HOSTNAME=box-7 nexus top --once  [pipe]
+rc: 0
+--- stdout
+nexus top  box-7  <HH:MM:SS>
+
+PERSONA  STATE        CPU  MEM  PANES
+c1       not started    -    -  -
+g1       not started    -    -  -
+
+no Claude Code or grok pane in a running persona
+--- stderr
+(empty)

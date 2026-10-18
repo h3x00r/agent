@@ -1,0 +1,7 @@
++ fresh  d 700
++ fresh/a  d 700
++ fresh/a/b  d 600
++ home/.ddev  d 600
++ home/.local  d 700
++ home/.local/share  d 700
++ home/.local/share/mkcert  d 600

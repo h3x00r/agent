@@ -1,0 +1,16 @@
+## run 1: AGENTS_DIR=/<A> nexus nope  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: no persona 'nope' (set up: c1 g1); add it with /<A>/config-tools
+## run 2: AGENTS_DIR=/<A> nexus ls  [pipe]
+rc: 0
+--- stdout
+PERSONA  FLAVOUR  CONTEXT  SSH      STATE        PROJECTS ROOT
+c1       claude   docker   agent    not started  <P>
+g1       grok     docker   own key  not started  <P>
+
+nexus <persona> starts one that isn't running
+--- stderr
+(empty)

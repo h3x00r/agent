@@ -1,0 +1,30 @@
+## run 1: nexus c1 headless 'nxt long'  (INT, then TERM during its kill)  [pipe, cwd projects/app]
+rc: 143
+--- stdout
+cli: running
+cli: got INT
+--- stderr
+nexus: INT: stopping the run in c1
+## run 2: nexus c1 headless 'nxt long'  (INT, then INT during its kill)  [pipe, cwd projects/app]
+rc: 130
+--- stdout
+cli: running
+cli: got INT
+--- stderr
+nexus: INT: stopping the run in c1
+## run 3: nexus c1 headless 'nxt long'  (TERM, then INT during its kill)  [pipe, cwd projects/app]
+rc: 130
+--- stdout
+cli: running
+cli: got TERM
+--- stderr
+nexus: TERM: stopping the run in c1
+## run 4: nexus c1 headless 'nxt long'  (INT twice, the CLI keeps going)  [pipe, cwd projects/app]
+rc: 130
+--- stdout
+cli: running
+cli: got INT (ignored)
+cli: got INT (ignored)
+FAKE-REPLY
+--- stderr
+nexus: INT: stopping the run in c1

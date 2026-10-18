@@ -1,0 +1,28 @@
+## run 1: nexus ls  [pipe]
+rc: 0
+--- stdout
+PERSONA  FLAVOUR  CONTEXT         SSH      STATE        PROJECTS ROOT
+c1       claude   context=docker  agent    not started  <P>
+g1       grok     docker          own key  not started  <P>
+
+nexus <persona> starts one that isn't running
+--- stderr
+(empty)
+## run 2: nexus c1 ls  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: c1 isn't running; start it with: nexus c1
+## run 3: nexus g1 ls  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: no persona 'g1' (set up: c1 g1	flavour=grok); add it with <A>/config-tools
+## run 4: nexus nope  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: no persona 'nope' (set up: c1 g1	flavour=grok); add it with <A>/config-tools

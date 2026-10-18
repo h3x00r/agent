@@ -6,6 +6,10 @@ key_problem(): why a private key wouldn't work inside a persona ("" when it woul
 the user's own, private (mode ?00) and without a passphrase.
 make_key(): an ed25519 key without a passphrase, as config-tools makes one (an existing one is never
 replaced: the caller checks).
+
+Pitfalls (each pinned where named):
+- key_problem(): mode ?00, the user's own, no passphrase (golden config/cli-bad-ssh)
+- no ssh-keygen: said, not a crash (golden config/cli-no-tools)
 """
 import os
 import shutil

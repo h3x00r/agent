@@ -49,7 +49,7 @@ rc: 1
 --- stdout
 (empty)
 --- stderr
-nexus: no personas set up yet: run <S>/other/config-tools
+nexus: no agentctl/ next to <S>/other/nexus: link it into your PATH (config-tools does) rather than copy it, or set AGENTS_DIR to the checkout
 ## run 9: AGENTS_DIR=<A> <S>/other/nexus ls  [pipe]
 rc: 0
 --- stdout

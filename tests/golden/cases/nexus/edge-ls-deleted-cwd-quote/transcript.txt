@@ -1,0 +1,33 @@
+## run 1: LC_ALL=C (in <P>/café, deleted) nexus ls  [pipe]
+rc: 0
+--- stdout
+PERSONA  FLAVOUR  CONTEXT  SSH      STATE        PROJECTS ROOT
+c1       claude   docker   agent    not started  <P>
+g1       grok     docker   own key  not started  <P>
+
+nexus <persona> starts one that isn't running
+--- stderr
+shell-init: error retrieving current directory: getcwd: cannot access parent directories: No such file or directory
+nexus: warning: this shell sits in a deleted directory; leave it, e.g. cd $'<P>/caf\303\251'
+## run 2: (in <P>/a<U+2028>b, deleted) nexus ls  [pipe]
+rc: 0
+--- stdout
+PERSONA  FLAVOUR  CONTEXT  SSH      STATE        PROJECTS ROOT
+c1       claude   docker   agent    not started  <P>
+g1       grok     docker   own key  not started  <P>
+
+nexus <persona> starts one that isn't running
+--- stderr
+shell-init: error retrieving current directory: getcwd: cannot access parent directories: No such file or directory
+nexus: warning: this shell sits in a deleted directory; leave it, e.g. cd $'<P>/a\342\200\250b'
+## run 3: (in <P>/café, deleted) nexus ls  [pipe]
+rc: 0
+--- stdout
+PERSONA  FLAVOUR  CONTEXT  SSH      STATE        PROJECTS ROOT
+c1       claude   docker   agent    not started  <P>
+g1       grok     docker   own key  not started  <P>
+
+nexus <persona> starts one that isn't running
+--- stderr
+shell-init: error retrieving current directory: getcwd: cannot access parent directories: No such file or directory
+nexus: warning: this shell sits in a deleted directory; leave it, e.g. cd <P>/café

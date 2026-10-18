@@ -6,6 +6,12 @@ Widths are measured on the plain text (colours take no room).
 
 An empty cell disappears and the cells after it move left, as they did when bash split a tab-joined row
 (a tab is IFS whitespace): give "-" for nothing.
+
+Pitfalls (each pinned where named):
+- an empty cell (test_ui.Table.test_an_empty_cell_disappears)
+- a tab inside a cell splits it, as `read -a` did (golden nexus/edge-top-persona-tab)
+- widths in characters, bytes outside UTF-8 (golden nexus/basic-ls-tty)
+- colours (test_ui.Table.test_header_dim_and_colours_unmeasured)
 """
 from agentctl.ui import text
 
@@ -13,7 +19,9 @@ from agentctl.ui import text
 def render(align, rows, palette, utf8=None):
     if utf8 is None:
         utf8 = text.utf8_locale()
-    rows = [[c for c in r if c != ""] for r in rows]
+    # A row's cells as bash's `IFS=$'\t' read -r -a` split them: on every tab (one inside a cell too), and
+    # never an empty cell.
+    rows = [[c for c in "\t".join(r).split("\t") if c != ""] for r in rows]
     widths = []
     for r in rows:
         for i, c in enumerate(r):

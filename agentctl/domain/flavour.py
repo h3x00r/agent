@@ -4,6 +4,12 @@ Each Flavour knows its command, the .env variables that pin and tag its image (C
 CLAUDE_TAG, GROK_VERSION / GROK_TAG), the release channels its upgrade understands (the first is the
 default) and where the newest version of one is published, the image tag compose resolves, and how to run
 one prompt headless (headless_argv).
+
+Pitfalls (each pinned where named):
+- claude's prompt goes after `--`, so one like `-x` is no option (test_domain.Flavours.test_headless)
+- grok ignores piped input next to a prompt: the prompt goes ahead of it, through --prompt-file (run.sh "a
+  prompt and piped input: one stream on --prompt-file, the prompt first")
+- grok's channels are stable and alpha, so `upgrade latest` is refused for grok (golden nexus/upgrade-args)
 """
 
 

@@ -1,0 +1,12 @@
+## run 1: nexus d1 start  (~/.ddev a file)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+mkdir: cannot create directory ‘<HOME>/.ddev’: File exists
+## run 2: nexus d1 start  (no HOME)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: HOME isn't set, so there is no ~/.ddev or mkcert CA to give d1
