@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # /etc/grok/statusline/statusline.sh inside grok personas with the statusline on: grok's status line.
-# compose.personas.yml, written by config.sh, mounts this directory read-only, and the persona's managed
+# compose.personas.yml, written by config-tools, mounts this directory read-only, and the persona's managed
 # config names this script (from settings.toml, next to it). Claude Code's is statusline/claude/.
 #
 # Reads grok's status line JSON on stdin (schema_version 1, as grok 1.0.62 sends it) and prints one line:

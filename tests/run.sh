@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# tests/run.sh — end-to-end tests for nexus and config.sh on this VM, in a scratch copy of this
+# tests/run.sh — end-to-end tests for nexus and config-tools on this VM, in a scratch copy of this
 # checkout: the real setup (.env, the personas, their containers and logins) is never read or changed.
 #
 #   tests/run.sh                  every stage this VM can run; one it can't is skipped, saying why
-#   tests/run.sh --no-containers  lint, config.sh and nexus without starting a persona (seconds)
+#   tests/run.sh --no-containers  lint, config-tools and nexus without starting a persona (seconds)
 #   tests/run.sh --image REF      the Claude persona image to run the test personas on (default: the
 #                                 newest agent-claude-docker image here, else agent-claude-ddev)
 #   tests/run.sh --keep           leave the scratch dir, containers, volumes and tags, for a look after
@@ -15,7 +15,8 @@
 #              gitleaks image is here
 #   goldens    tests/golden: what the tools print, call and write in scenarios this suite doesn't drive
 #              (questions on a terminal, upgrade, top), against fakes; compared with the recorded cases
-#   config.sh  --yes: refused names, specs and ssh keys, a setup, --list, --remove, kept env files and keys
+#   config     config-tools --yes: refused names, specs and ssh keys, a setup, --list, --remove, kept env
+#              files and keys
 #   nexus      before any persona runs: usage, errors, ls, top, upgrade's argument checks
 #   personas   a Claude persona against a stand-in Messages API (tests/fake-api.py, in a container of
 #              its own) and a grok persona with a stand-in grok (tests/fake-grok), both on that one
@@ -118,7 +119,7 @@ git -C "$REPO" ls-files -z --cached --others --exclude-standard \
   | tar -C "$REPO" --null -T - -cf - | tar -C "$A" -xf - \
   || { echo "tests: can't copy the checkout to $A" >&2; exit 2; }
 
-# nexus and config.sh run as from a fresh login: a scratch HOME and TMPDIR, this run's ssh-agent, and
+# nexus and config-tools run as from a fresh login: a scratch HOME and TMPDIR, this run's ssh-agent, and
 # none of the variables a shell may export that would beat the scratch .env or steer compose.
 NX_ENV=(-u PROJECTS_ROOT -u REGISTRY -u CLAUDE_VERSION -u CLAUDE_TAG -u GROK_VERSION -u GROK_TAG -u APM_VERSION
         -u DDEV_VERSION -u AGENTS_DIR -u AGENT_UID -u AGENT_GID -u DOCKER_GID -u AGENT_CPUS -u AGENT_MEMORY
@@ -127,7 +128,7 @@ for v in $(compgen -e | grep '^COMPOSE_'); do NX_ENV+=(-u "$v"); done
 NX_ENV+=(HOME="$T/home" DOCKER_CONFIG="${DOCKER_CONFIG:-$HOME/.docker}" SSH_AUTH_SOCK="$SOCK" TMPDIR="$T/tmp"
          TERM=xterm-256color)
 nx()  { env "${NX_ENV[@]}" "$A/nexus" "$@"; }
-cfg() { env "${NX_ENV[@]}" "$A/config.sh" "$@"; }
+cfg() { env "${NX_ENV[@]}" "$A/config-tools" "$@"; }
 # compose_t ARGS…: compose on the scratch checkout, as nexus calls it
 compose_t() {
   env "${NX_ENV[@]}" AGENT_UID="$(id -u)" AGENT_GID="$(id -g)" DOCKER_GID="$(stat -c %g /var/run/docker.sock)" \
@@ -136,7 +137,7 @@ compose_t() {
 
 # --- lint ------------------------------------------------------------------------------------------
 stage "lint"
-for f in nexus config.sh entrypoint.sh statusline/claude/statusline.sh statusline/grok/statusline.sh tests/run.sh \
+for f in nexus config-tools entrypoint.sh statusline/claude/statusline.sh statusline/grok/statusline.sh tests/run.sh \
          tests/secrets.sh; do
   if out="$(bash -n "$REPO/$f" 2>&1)"; then ok "bash -n $f"; else fail "bash -n $f" "$out"; fi
 done
@@ -159,7 +160,7 @@ elif (( docker_ok )) && docker image inspect koalaman/shellcheck:stable >/dev/nu
   SC=(docker run --rm -v "$REPO:/mnt:ro" -w /mnt koalaman/shellcheck:stable)
 fi
 if (( ${#SC[@]} )); then
-  for f in nexus config.sh entrypoint.sh statusline/grok/statusline.sh tests/run.sh tests/secrets.sh tests/fake-grok; do
+  for f in nexus config-tools entrypoint.sh statusline/grok/statusline.sh tests/run.sh tests/secrets.sh tests/fake-grok; do
     if out="$(cd "$REPO" && "${SC[@]}" "$f" 2>&1)"; then ok "shellcheck $f"; else fail "shellcheck $f" "$out"; fi
   done
   # Claude's statusline.sh keeps its colours in printf formats (SC2059).
@@ -187,10 +188,10 @@ else
 fi
 
 if (( ! docker_ok )); then
-  skip "config.sh, nexus, personas: Docker, its compose plugin or /var/run/docker.sock isn't usable here"
+  skip "config-tools, nexus, personas: Docker, its compose plugin or /var/run/docker.sock isn't usable here"
   summary
 fi
-if ! command -v ssh-keygen >/dev/null; then skip "config.sh, nexus, personas: no ssh-keygen (openssh-client) here"; summary; fi
+if ! command -v ssh-keygen >/dev/null; then skip "config-tools, nexus, personas: no ssh-keygen (openssh-client) here"; summary; fi
 
 # --- goldens ---------------------------------------------------------------------------------------
 stage "goldens"
@@ -199,8 +200,8 @@ for tool in config nexus; do
   then ok "goldens: $tool, as recorded ($(tail -n 1 <<< "$out"))"; else fail "goldens: $tool, as recorded" "$(grep -v '^ok ' <<< "$out")"; fi
 done
 
-# --- config.sh -------------------------------------------------------------------------------------
-stage "config.sh --yes"
+# --- config-tools -------------------------------------------------------------------------------------
+stage "config-tools --yes"
 t cfg --help </dev/null
 check "--help: the usage" 'rc 0 && out_has "--persona NAME:FLAVOUR:CONTEXT"'
 for spec in top:claude:docker ls:claude:docker all:claude:docker start:claude:docker Nxt:claude:docker \
@@ -251,7 +252,7 @@ check "  the grok one's managed config: personas/grok.toml, then its statusline;
       'grep -qx "theme = \"grokday\"" "$G" && grep -qx "command = \"/etc/grok/statusline/statusline.sh\"" "$G" \
        && [[ $(grep -c "^\[ui.status_line\]" "$G") == 1 && $(stat -c %a "$G") == 600 ]]'
 check "  and with --no-statusline: the settings alone" 'grep -qx "theme = \"grokday\"" "$GN" && ! grep -q "status_line" "$GN"'
-# An existing grok persona without the statusline, whose managed config config.sh hasn't written yet (one
+# An existing grok persona without the statusline, whose managed config config-tools hasn't written yet (one
 # set up before it did): a re-run writes it, and says to restart.
 mv "$GN" "$T/gn.toml"
 t cfg --yes --no-link --no-build </dev/null
@@ -284,6 +285,8 @@ t cfg --list </dev/null
 check "--list: all four, and how they sign in over ssh" \
       'rc 0 && out_re "^  $PC .* your agent$" && out_re "^  $PG .* personas/$PG.key$" && out_re "^  $PN .* none$" \
        && out_re "^  $PX .* $T/keys/link$"'
+t env "${NX_ENV[@]}" bash "$A/config-tools" --list </dev/null
+check "  run as \`bash config-tools\` too" 'rc 0 && out_re "^  $PC "'
 echo "NXT_MARK=kept" >> "$A/personas/$PC.env"
 pub="$(cat "$A/personas/$PG.key.pub")"
 t cfg --yes --no-link --no-build --remove "$PX" --persona "$PC:claude:docker" --ssh "$PG:new" </dev/null
@@ -311,14 +314,14 @@ t cfg --yes --no-link --no-build </dev/null
 if err_has "couldn't check personas/grok.toml"; then skip "a personas/grok.toml that isn't UTF-8: nothing here to check it with"
 else check "a personas/grok.toml that isn't UTF-8: refused too" 'rc 1 && err_has "TOML grok can read" && cmp -s "$G" "$T/g.before"'; fi
 # With nothing to check TOML with (a VM's first setup: no persona image yet, a python3 older than 3.11),
-# config.sh must say so rather than pass a file it couldn't check.
+# config-tools must say so rather than pass a file it couldn't check.
 mkdir -p "$T/fakebin"
 printf '#!/bin/sh\n[ "$1" = images ] && exit 0\nexec %q "$@"\n' "$(command -v docker)" > "$T/fakebin/docker"; chmod 755 "$T/fakebin/docker"
 if python3 -c 'import tomllib' 2>/dev/null; then
   skip "the couldn't-check warning: this VM's python3 checks TOML itself"
 else
   printf '[ui]\ntheme = "grokday"\n' > "$A/personas/grok.toml"
-  t env "${NX_ENV[@]}" PATH="$T/fakebin:$PATH" "$A/config.sh" --yes --no-link --no-build </dev/null
+  t env "${NX_ENV[@]}" PATH="$T/fakebin:$PATH" "$A/config-tools" --yes --no-link --no-build </dev/null
   check "with nothing to check the TOML with: it says so" 'rc 0 && err_has "couldn'"'"'t check personas/grok.toml"'
 fi
 printf '[ui]\ntheme = "grokday"\n\n[ ui . status_line ]\ntype = "builtin"\n' > "$A/personas/grok.toml"
@@ -345,14 +348,16 @@ mv "$T/claude.managed.json" "$A/personas/claude.managed.json"
 t cfg --yes --no-link --no-build </dev/null
 check "  and with it back: it is mounted again, and the persona is told to restart for it" \
       'rc 0 && grep -qF "./personas/claude.managed.json," "$P" && out_has "$PC: it gets personas/claude.managed.json as managed settings now"'
-# The lock config.sh and `nexus <persona> upgrade` share, held as another run would hold it (flock(1), the
-# same flock(2) lock the tools take); it stays held into the next stage, for upgrade's check.
-LOCK="$A/config.sh"
-( exec 9<"$LOCK"; flock -n 9 && exec sleep 60 ) &
+# The lock config-tools and `nexus <persona> upgrade` share, held as another run would hold it (flock(1), the
+# same flock(2) lock the tools take); it stays held into the next stage, for upgrade's check. Waited for: a
+# child of the run before may still hold it a moment (the bash tools left it open in their children).
+LOCK="$A/config-tools"
+( exec 9<"$LOCK"; flock -w 10 9 && exec sleep 60 ) &
 H=$!; BG+=("$H")
-wait_for 5 '! flock -n "$LOCK" true'
+held() { kill -0 "$H" 2>/dev/null && ! flock -n "$LOCK" true; }
+wait_for 15 held || fail "a run holding the lock, for the checks below" "$(ps -o pid,stat,args -p "$H" 2>&1)"
 t cfg --yes --no-link --no-build </dev/null
-check "with the lock held (another setup or an upgrade running): refused" 'rc 1 && err_has "is running in $A"'
+check "with the lock held (another setup or an upgrade running): refused" 'held && rc 1 && err_has "is running in $A"'
 t cfg --list </dev/null
 check "  --list takes no lock" 'rc 0 && out_re "^  $PC "'
 
@@ -387,7 +392,7 @@ t nx top --bogus </dev/null
 check "top: an unknown argument" 'rc 1 && err_has "unknown argument"'
 t nx "$PC" upgrade 9.9.9 -y </dev/null
 check "upgrade with the lock held: refused, the pin as it was" \
-      'rc 1 && err_has "another upgrade is running" && ! grep -q "^CLAUDE_VERSION=9.9.9" "$A/.env"'
+      'held && rc 1 && err_has "another upgrade is running" && ! grep -q "^CLAUDE_VERSION=9.9.9" "$A/.env"'
 kill "$H" 2>/dev/null; wait "$H" 2>/dev/null
 t nx "$PC" upgrade 1.2 </dev/null
 check "upgrade: neither a version nor a channel" 'rc 1 && err_has "neither a version"'
@@ -398,11 +403,11 @@ check "PERSONA ls before it runs" 'rc 1 && err_has "start it with"'
 cp "$P" "$T/personas.yml"; printf '      - ./statusline:/etc/claude-code/statusline:ro\n' >> "$P"
 t nx "$PC" start </dev/null
 check "a start from a personas file from before the statusline split: refused, saying what to do" \
-      'rc 1 && err_has "from before statusline/ was split" && err_has "config.sh"'
+      'rc 1 && err_has "from before statusline/ was split" && err_has "config-tools"'
 cp "$T/personas.yml" "$P"
 printf '      - { type: bind, source: ./personas/claude.json, target: /etc/claude-code/managed-settings.d/15-personas.json }\n' >> "$P"
 t nx "$PC" start </dev/null
-check "  and from before the Claude settings split: refused too" 'rc 1 && err_has "from before personas/claude.json was split" && err_has "config.sh"'
+check "  and from before the Claude settings split: refused too" 'rc 1 && err_has "from before personas/claude.json was split" && err_has "config-tools"'
 cp "$T/personas.yml" "$P"
 mv "$A/personas/claude.managed.json" "$T/claude.managed.json"
 t nx "$PC" start </dev/null

@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# config.sh — set this checkout up for one dev VM: which personas it runs, the flavour of each
+# config-tools — set this checkout up for one dev VM: which personas it runs, the flavour of each
 # (claude | grok), and the context each one works in:
 #   ddev     ddev projects: ddev inside, sharing the VM's ~/.ddev and mkcert CA
 #   docker   projects run with docker compose / Dockerfiles: no ddev at all
 #
-#   ./config.sh                  interactive; re-run it any time to add, change or remove personas
-#   ./config.sh --list           the personas set up so far
-#   ./config.sh --yes [options]  no questions, for scripts: current settings are kept, and the
+#   ./config-tools                  interactive; re-run it any time to add, change or remove personas
+#   ./config-tools --list           the personas set up so far
+#   ./config-tools --yes [options]  no questions, for scripts: current settings are kept, and the
 #                                 defaults below apply to new ones
 #     --persona NAME:FLAVOUR:CONTEXT[:ROOT]
 #                                      add or update a persona; repeatable. ROOT: its own projects root
@@ -485,8 +485,8 @@ write_personas() {  # write_personas FILE [staged]: the compose file for every p
                     # "staged" points env_file at the staged env files, for the check before commit
   local i n f c k tag base env more
   {
-    say "# compose.personas.yml — written by ./config.sh; re-run it to add, change or remove personas."
-    say "# config.sh and the nexus launcher read the \"# persona:\" lines back: keep them in step with"
+    say "# compose.personas.yml — written by ./config-tools; re-run it to add, change or remove personas."
+    say "# config-tools and the nexus launcher read the \"# persona:\" lines back: keep them in step with"
     say "# the services below if you edit this by hand."
     for i in "${!P_NAME[@]}"; do
       say "# persona: ${P_NAME[i]} flavour=${P_FLAVOUR[i]} context=${P_CONTEXT[i]} colour=${P_COLOUR[i]} statusline=${P_STATUSLINE[i]}${P_ROOT[i]:+ root=${P_ROOT[i]}}${P_SSH[i]:+ ssh=${P_SSH[i]}}"
@@ -538,7 +538,7 @@ EOF
 EOF
         fi
         cat <<EOF
-      # grok's managed config, written by config.sh: personas/grok.toml, then the statusline's
+      # grok's managed config, written by config-tools: personas/grok.toml, then the statusline's
       # [ui.status_line] with the statusline on. A key in the persona's ~/.grok/config.toml wins.
       - { type: bind, source: ./personas/$n.grok.toml, target: /etc/grok/managed_config.toml, read_only: true, bind: { create_host_path: false } }
 EOF
@@ -606,7 +606,7 @@ write_env_file() {  # write_env_file NAME FLAVOUR: a staged personas/NAME.env fr
 (( EUID != 0 )) || die "run this as the VM user who will use the personas, not as root (it asks for sudo only to link the launcher)"
 if (( ! LIST )); then
   exec 9< "$SELF"   # one run at a time per checkout: a lock on this script, no lock file
-  flock -n 9 || die "another config.sh, or a \`nexus <persona> upgrade\`, is running in $AGENTS_DIR; let it finish first"
+  flock -n 9 || die "another config-tools, or a \`nexus <persona> upgrade\`, is running in $AGENTS_DIR; let it finish first"
 fi
 FIRST=1; [[ -f "$PERSONAS_FILE" ]] && FIRST=0   # no registry yet: a first setup, or one from the fixed layout
 load
@@ -628,7 +628,7 @@ DEFAULT_CONTEXT=docker; [[ -n "$VM_DDEV" ]] && DEFAULT_CONTEXT=ddev
 
 # Nothing below writes a file until the commit step: answers go into staged temp files.
 # --- personas --------------------------------------------------------------------------------
-say "config.sh: setting up $AGENTS_DIR${VM_DDEV:+ (ddev $VM_DDEV on this VM)}"
+say "config-tools: setting up $AGENTS_DIR${VM_DDEV:+ (ddev $VM_DDEV on this VM)}"
 VM_ROOT_HINT="${OPT_ROOT:-$(get_kv .env PROJECTS_ROOT)}"   # for ask_root; the VM's root is asked after the personas
 if [[ -n "$VM_ROOT_HINT" ]]; then VM_ROOT_HINT="now $VM_ROOT_HINT"; else VM_ROOT_HINT="asked below"; fi
 for n in "${REMOVE[@]}"; do idx "$n" >/dev/null || die "--remove $n: no such persona"; drop "$n"; done
@@ -640,7 +640,7 @@ if (( ! YES )); then
   if (( ! ${#P_NAME[@]} )); then say "No personas yet; the first one:"; add_interactive; fi
   persona_menu
 fi
-(( ${#P_NAME[@]} )) || warn "no personas configured; add some with ./config.sh (or --persona NAME:FLAVOUR:CONTEXT)"
+(( ${#P_NAME[@]} )) || warn "no personas configured; add some with ./config-tools (or --persona NAME:FLAVOUR:CONTEXT)"
 for i in "${!P_NAME[@]}"; do
   n="${P_NAME[i]}"
   if [[ -n "${LOADED[$n]+x}" && "${LOADED[$n]}" != "${P_FLAVOUR[i]} ${P_CONTEXT[i]} ${P_STATUSLINE[i]} ${P_ROOT[i]} ${P_SSH[i]}" ]]; then
@@ -756,18 +756,18 @@ for i in "${!P_NAME[@]}"; do
   n="${P_NAME[i]}"
   stage tmp "personas/$n.grok.toml"
   {
-    say "# /etc/grok/managed_config.toml in grok persona $n, written by config.sh from personas/grok.toml"
+    say "# /etc/grok/managed_config.toml in grok persona $n, written by config-tools from personas/grok.toml"
     say "# (grok settings for every grok persona here) and, with the statusline on, statusline/grok/settings.toml."
-    say "# Edit those and re-run config.sh, not this file. A key in the persona's ~/.grok/config.toml wins."
+    say "# Edit those and re-run config-tools, not this file. A key in the persona's ~/.grok/config.toml wins."
     if [[ -f personas/grok.toml ]]; then say ""; cat personas/grok.toml; say ""; fi
     if [[ "${P_STATUSLINE[i]}" == yes ]] && ! grok_sets_statusline personas/grok.toml; then say ""; cat statusline/grok/settings.toml; fi
   } > "$tmp"
   settings_problem "$tmp" toml personas/grok.toml
-  [[ -z "$WHY" ]] || die "personas/grok.toml is TOML, but with the statusline config.sh adds for $n it isn't (does it set ui.status_line in a way config.sh missed?), so nothing was written; at personas/$n.grok.toml as it would be: $WHY"
+  [[ -z "$WHY" ]] || die "personas/grok.toml is TOML, but with the statusline config-tools adds for $n it isn't (does it set ui.status_line in a way config-tools missed?), so nothing was written; at personas/$n.grok.toml as it would be: $WHY"
   GSTAGED[$n]="$tmp"
 done
 for f in $(printf '%s\n' "${UNCHECKED[@]}" | sort -u); do
-  warn "couldn't check $f (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run config.sh after the build to check it"
+  warn "couldn't check $f (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run config-tools after the build to check it"
 done
 
 # --- stage compose.personas.yml and check the whole result ------------------------------------

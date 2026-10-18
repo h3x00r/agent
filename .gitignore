@@ -7,7 +7,7 @@ personas/*.env.*
 personas/*.key
 personas/*.key.pub
 personas/*.grok.toml
-# written by ./config.sh
+# written by ./config-tools
 compose.personas.yml
 compose.personas.yml.*
 # Python's own caches: the tools and tests run with -B, but a stray run without it mustn't add files

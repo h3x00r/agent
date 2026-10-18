@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# nexus — launcher for persona containers. ./config.sh sets up the personas and links this script,
+# nexus — launcher for persona containers. ./config-tools sets up the personas and links this script,
 # e.g. to /usr/local/bin/nexus.
 #
 #   nexus <persona> [session] [-- cmd ...]   attach to (or create) a tmux session in that persona,
@@ -22,7 +22,7 @@
 #                                            release (of CHANNEL), build or pull the images, recreate every
 #                                            persona of that flavour (asks first; -y doesn't), drop the old ones
 #
-# Examples, with personas named claude-ddev and grok-docker (the names config.sh suggests):
+# Examples, with personas named claude-ddev and grok-docker (the names config-tools suggests):
 #   cd ~/projects/billing && nexus claude-ddev            # session "billing", shell at that dir
 #   nexus claude-ddev review -- claude --resume           # new session "review", straight into Claude Code
 #   nexus grok-docker                                     # same project, other persona
@@ -45,7 +45,7 @@ here="$PWD"
 pwd -P >/dev/null 2>&1 || warn "this shell sits in a deleted directory; leave it, e.g. cd $(printf %q "$here")"
 cd "$AGENTS_DIR" 2>/dev/null || die "can't cd to $AGENTS_DIR"
 AGENTS_DIR="$PWD"
-# The personas, written by config.sh. Its "# persona: <name> key=value …" lines are read here too.
+# The personas, written by config-tools. Its "# persona: <name> key=value …" lines are read here too.
 PERSONAS_FILE="$AGENTS_DIR/compose.personas.yml"
 # -p: an exported COMPOSE_PROJECT_NAME would otherwise switch to fresh, empty home volumes.
 COMPOSE=(docker compose -p agents -f "$AGENTS_DIR/compose.yml" -f "$PERSONAS_FILE")
@@ -58,7 +58,7 @@ export DOCKER_GID="${DOCKER_GID:-$(stat -c %g /var/run/docker.sock)}"
 
 # env_get KEY: KEY's value in ./.env as compose reads it: the last KEY= line, in the dotenv forms
 # compose takes (export prefix, CRLF, '…', "…" with its escapes, trailing comment), but not ${VAR}
-# references. config.sh's get_kv reads it the same way.
+# references. config-tools's get_kv reads it the same way.
 env_get() {
   [[ -f "$AGENTS_DIR/.env" ]] || return 0
   sed -nE "s/\r\$//; s/^[[:space:]]*(export[[:space:]]+)?$1[[:space:]]*=[[:space:]]*//p" "$AGENTS_DIR/.env" | tail -n 1 \
@@ -67,7 +67,7 @@ env_get() {
               :dq; s/\\\\/\x01/g; s/\\n/\n/g; s/\\t/\t/g; s/\\r/\r/g; s/\\([$"])/\1/g; s/\x01/\\/g'
 }
 # env_set KEY VALUE: rewrite the KEY= line compose reads, else the first "# KEY=", else append one;
-# config.sh's set_kv, for values that need no quoting. Written through, as config.sh writes .env: a
+# config-tools's set_kv, for values that need no quoting. Written through, as config-tools writes .env: a
 # symlinked .env keeps its link, and the file keeps its owner, mode and inode.
 env_set() {
   local f="$AGENTS_DIR/.env" tmp
@@ -86,7 +86,7 @@ env_set() {
 }
 
 # The VM's projects root: shell, else ./.env, else ~/projects. A persona with its own (root= in its
-# "# persona:" line, set by config.sh) uses that instead. Compose gets it per call (COMPOSE, below) and
+# "# persona:" line, set by config-tools) uses that instead. Compose gets it per call (COMPOSE, below) and
 # this process's environment keeps the shell's value, so a nexus run from here works out its own.
 # vm_from: where it came from, for the messages that name it.
 if [[ -n "${PROJECTS_ROOT:-}" ]]; then vm_root="$PROJECTS_ROOT" vm_from="PROJECTS_ROOT in your shell"
@@ -189,7 +189,7 @@ state_colour() {  # state_colour VAR STATE: green when it runs, red unhealthy, y
 
 # set_roots CONTAINER…: ROOTS[container], the projects root each was created with: its PROJECTS_ROOT, as
 # compose set it (compose.yml mounts that dir at its own path and starts there). Compose applies another one
-# (root= from config.sh, or a new PROJECTS_ROOT) only when it creates the container: when a stopped one
+# (root= from config-tools, or a new PROJECTS_ROOT) only when it creates the container: when a stopped one
 # starts, or at a restart. A running one keeps its own, and a dir outside it isn't there. Each is lexical.
 declare -A ROOTS=()
 set_roots() {
@@ -242,7 +242,7 @@ cmd_ls_all() {
   local name rest c st fl cx how root lc idle=0 old note
   local -a rows=($'PERSONA\tFLAVOUR\tCONTEXT\tSSH\tSTATE\tPROJECTS ROOT') notes=() ups=()
   local -A known=() conf_root=() conf_from=()
-  [[ -f "$PERSONAS_FILE" ]] || die "no personas set up yet: run $AGENTS_DIR/config.sh"
+  [[ -f "$PERSONAS_FILE" ]] || die "no personas set up yet: run $AGENTS_DIR/config-tools"
   set_colours; ps_states
   SROWS=($'PERSONA\tSESSION\tWINDOWS\tATTACHED\tDIR')
   while read -r name rest; do
@@ -411,7 +411,7 @@ cmd_top() {
     esac
     shift
   done
-  [[ -f "$PERSONAS_FILE" ]] || die "no personas set up yet: run $AGENTS_DIR/config.sh"
+  [[ -f "$PERSONAS_FILE" ]] || die "no personas set up yet: run $AGENTS_DIR/config-tools"
   set_colours
   if (( once )) || [[ ! -t 1 ]]; then top_frame; return; fi
 
@@ -434,11 +434,11 @@ persona="$1"; shift
 [[ "$persona" == ls ]] && { cmd_ls_all; exit 0; }
 [[ "$persona" == top ]] && { cmd_top "$@"; exit 0; }
 
-[[ -f "$PERSONAS_FILE" ]] || die "no personas set up yet: run $AGENTS_DIR/config.sh"
+[[ -f "$PERSONAS_FILE" ]] || die "no personas set up yet: run $AGENTS_DIR/config-tools"
 [[ "$persona" =~ ^[a-z0-9][a-z0-9-]*$ ]] || die "not a persona name: '$persona'"
-meta=" $(sed -n "s/\r\$//; s/^# persona: $persona //p" "$PERSONAS_FILE" | head -n 1) "   # CRLF-safe, as config.sh
+meta=" $(sed -n "s/\r\$//; s/^# persona: $persona //p" "$PERSONAS_FILE" | head -n 1) "   # CRLF-safe, as config-tools
 [[ "$meta" != "  " ]] \
-  || die "no persona '$persona' (set up: $(sed -n 's/^# persona: \([^ ]*\).*/\1/p' "$PERSONAS_FILE" | paste -sd ' ')); add it with $AGENTS_DIR/config.sh"
+  || die "no persona '$persona' (set up: $(sed -n 's/^# persona: \([^ ]*\).*/\1/p' "$PERSONAS_FILE" | paste -sd ' ')); add it with $AGENTS_DIR/config-tools"
 
 meta_get() { local v="${meta#* "$1"=}"; [[ "$v" == "$meta" ]] || echo "${v%% *}"; }
 root="$(meta_get root)"; root="${root:-$vm_root}"; root="${root%/}"
@@ -685,11 +685,11 @@ cmd_upgrade() {
   [[ -n "$flavour" && -n "${CLI_PIN[$flavour]:-}" ]] || die "upgrade: no CLI known for $persona's flavour '$flavour'"
   cli="${CLI_CMD[$flavour]}"
   local pin="${CLI_PIN[$flavour]}" tagvar="${CLI_TAG[$flavour]}" channels="${CLI_CHANNELS[$flavour]}"
-  [[ -f "$AGENTS_DIR/.env" ]] || die "no $AGENTS_DIR/.env yet: run $AGENTS_DIR/config.sh"
+  [[ -f "$AGENTS_DIR/.env" ]] || die "no $AGENTS_DIR/.env yet: run $AGENTS_DIR/config-tools"
   ! printenv "$pin" >/dev/null || die "$pin is exported in this shell and beats $AGENTS_DIR/.env: unset it, then upgrade"
-  # One upgrade or config.sh at a time per checkout: they share config.sh's lock.
-  exec 8< "$AGENTS_DIR/config.sh"
-  flock -n 8 || die "config.sh or another upgrade is running in $AGENTS_DIR; let it finish first"
+  # One upgrade or config-tools at a time per checkout: they share config-tools's lock.
+  exec 8< "$AGENTS_DIR/config-tools"
+  flock -n 8 || die "config-tools or another upgrade is running in $AGENTS_DIR; let it finish first"
 
   # The version: the one given, or the newest of a channel.
   local version="${want#v}"
@@ -760,7 +760,7 @@ cmd_upgrade() {
   r="${ref_new[${builders[0]}]}"
   if [[ "${r##*:}" != "$version" ]]; then
     if [[ -z "$tag" || ( "$flavour" == grok && "$tag" == latest ) ]]; then   # a personas file or .env from before upgrade
-      warn "$r is still tagged ${r##*:}: re-run $AGENTS_DIR/config.sh once, and the tags follow $pin from then on"
+      warn "$r is still tagged ${r##*:}: re-run $AGENTS_DIR/config-tools once, and the tags follow $pin from then on"
     elif [[ "$tag" == latest ]]; then
       warn "$r is tagged by $tagvar=latest in $AGENTS_DIR/.env, not by the version: remove that line, and the tags follow $pin"
     fi
@@ -850,7 +850,7 @@ case "${1:-}" in
 esac
 
 # Preflight: mount sources must exist, or Docker creates them root-owned.
-if [[ -n "$(meta_get root)" ]]; then where="$persona's own, in $PERSONAS_FILE; change it with config.sh"
+if [[ -n "$(meta_get root)" ]]; then where="$persona's own, in $PERSONAS_FILE; change it with config-tools"
 else where="PROJECTS_ROOT from your shell or $AGENTS_DIR/.env; fix it, or unset it for ~/projects"; fi
 [[ "$root" == /?* ]] || die "the projects root must be an absolute path, not '$root' ($where)"
 mkdir -p "$root" 2>/dev/null || die "can't create the projects root $root ($where)"
@@ -864,7 +864,7 @@ if [[ "$meta" == *" context=ddev "* ]]; then
     export AGENT_CA_CERTS=""; no_ca=1
   fi
 fi
-# ssh= in its "# persona:" line (set by config.sh): instead of your agent, an ssh key of its own (its path)
+# ssh= in its "# persona:" line (set by config-tools): instead of your agent, an ssh key of its own (its path)
 # or no ssh at all (none). Its compose service puts /dev/null where the agent's socket would be, so
 # compose.yml's required SSH_AUTH_SOCK only needs a value here.
 own_ssh="$(meta_get ssh)" key=""
@@ -881,24 +881,24 @@ old=""
 if (( restart )) || ! running; then
   # A missing key would become a root-owned directory (Docker); a running persona has its key mounted already.
   [[ -z "$key" || ( -f "$key" && -r "$key" ) ]] \
-    || die "$persona's ssh key $key isn't there; config.sh makes one (SSH: new), or points it at another, none or your agent"
+    || die "$persona's ssh key $key isn't there; config-tools makes one (SSH: new), or points it at another, none or your agent"
   # So would the statusline paths a personas file from before statusline/ was split into claude/ and
   # grok/ still names.
   if grep -qE '\./statusline(:|/settings\.json:)' "$PERSONAS_FILE"; then
-    die "$PERSONAS_FILE is from before statusline/ was split into claude/ and grok/: re-run $AGENTS_DIR/config.sh (--yes keeps every setting), then start $persona again"
+    die "$PERSONAS_FILE is from before statusline/ was split into claude/ and grok/: re-run $AGENTS_DIR/config-tools (--yes keeps every setting), then start $persona again"
   fi
   # A personas file from before the Claude settings were split mounts the defaults as the managed drop-in,
   # and the settings meant to hold not at all.
   if grep -qF './personas/claude.json,' "$PERSONAS_FILE"; then
-    die "$PERSONAS_FILE is from before personas/claude.json was split into defaults and claude.managed.json: re-run $AGENTS_DIR/config.sh (--yes keeps every setting), then start $persona again"
+    die "$PERSONAS_FILE is from before personas/claude.json was split into defaults and claude.managed.json: re-run $AGENTS_DIR/config-tools (--yes keeps every setting), then start $persona again"
   fi
   # So would the settings files a persona's service mounts: personas/claude.managed.json (committed) and a
-  # grok persona's managed config, which config.sh writes.
+  # grok persona's managed config, which config-tools writes.
   if grep -qF "./personas/claude.managed.json," "$PERSONAS_FILE" && [[ "$meta" == *" flavour=claude "* && ! -f "$AGENTS_DIR/personas/claude.managed.json" ]]; then
-    die "$AGENTS_DIR/personas/claude.managed.json isn't there: restore it (git checkout personas/claude.managed.json), or re-run $AGENTS_DIR/config.sh without it"
+    die "$AGENTS_DIR/personas/claude.managed.json isn't there: restore it (git checkout personas/claude.managed.json), or re-run $AGENTS_DIR/config-tools without it"
   fi
   if grep -qF "./personas/$persona.grok.toml," "$PERSONAS_FILE" && [[ ! -f "$AGENTS_DIR/personas/$persona.grok.toml" ]]; then
-    die "$AGENTS_DIR/personas/$persona.grok.toml isn't there: re-run $AGENTS_DIR/config.sh, which writes it"
+    die "$AGENTS_DIR/personas/$persona.grok.toml isn't there: re-run $AGENTS_DIR/config-tools, which writes it"
   fi
   if (( no_ca )); then
     warn "no mkcert CA on this VM yet — run 'mkcert -install' here, then \`nexus $persona restart\`, or https://*.ddev.site stays untrusted inside"
@@ -959,7 +959,7 @@ fi
 
 # Attaching to a running persona whose personas file is from before a split: say what to do (a start refuses).
 if grep -qE '\./statusline(:|/settings\.json:)|\./personas/claude\.json,' "$PERSONAS_FILE"; then
-  warn "$PERSONAS_FILE is from before a split (statusline/, or the Claude settings): re-run $AGENTS_DIR/config.sh --yes, then nexus $persona restart"
+  warn "$PERSONAS_FILE is from before a split (statusline/, or the Claude settings): re-run $AGENTS_DIR/config-tools --yes, then nexus $persona restart"
 fi
 
 # Session name + command.
