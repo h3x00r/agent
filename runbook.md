@@ -122,7 +122,7 @@ rebuilds.
 
 **Optional: APM's default target.** `apm config set target claude` (`grok-build` in a grok persona), once per
 persona; it is kept in the home volume too. Then `apm install` deploys to this persona's tool in any project
-(section 2).
+whose `apm.yml` has no `targets:` list of its own (section 2).
 
 **Verification**
 - [ ] `nexus ls` lists `claude-ddev` as `healthy` (or `starting`, for its first half minute), and your session
@@ -158,13 +158,49 @@ session's command exits, tmux moves you to another session instead of dropping y
 
 **APM** ([Agent Package Manager](https://microsoft.github.io/apm/)) is in every persona. In a project,
 `apm install` installs what its `apm.yml` declares (skills, prompts, agents, MCP servers) and
-`apm install <owner>/<repo>` adds a package. Where it deploys: `--target` if given, else the persona's default
-from `apm config set target …` (setup step 4), else the folders the project has: `.claude/` (Claude Code),
-`.grok/` (Grok Build), `.github/` (Copilot). With none of these it stops and asks for `--target claude` or
-`--target grok-build`. `apm install -g` deploys to the persona's home (`~/.claude`, `~/.grok`), so to that
-persona only. Public GitHub packages need no token; for private ones run `gh auth login` inside the persona,
-or set `GH_TOKEN` or `GITHUB_APM_PAT` in its env file. MCP servers set up through APM run with what the image
+`apm install <owner>/<repo>` adds a package. Where it deploys, first match wins:
+
+1. `--target`, several with commas: `--target claude,grok-build`.
+2. The `targets:` list in the project's `apm.yml`. Every persona working in the project shares it, so it beats
+   each persona's own default: a grok persona in a project with `targets: [claude]` deploys to `.claude/`. List
+   both for a project both flavours work on. If the project has no `apm.yml` yet, `apm install <pkg> --target …`
+   creates one with that list in it; after `apm init` the list starts out commented out.
+3. The persona's default from `apm config set target …` (setup step 4).
+4. What the project already has: `.claude/` or `CLAUDE.md` (Claude Code), `.grok/` (Grok Build), and other tools'
+   markers such as `.github/copilot-instructions.md` (a bare `.github/` doesn't count), `.cursor/`, `.codex/` or
+   `GEMINI.md`. With exactly one tool's markers it deploys there, even when that tool isn't this persona's: a
+   project with only `.cursor/` gets Cursor's files. With none it stops with `No harness detected`; with two or
+   more (`.claude/` and `.grok/`, say, or `CLAUDE.md` and Copilot's instructions) it stops with `Multiple harnesses
+   detected: …`. Both stops exit 2.
+
+`apm install -g` deploys to the persona's home (`~/.claude`, `~/.grok`), so to that persona only. Public GitHub
+packages need no token; for private ones run `gh auth login` inside the persona, or set `GH_TOKEN` or
+`GITHUB_APM_PAT` in its env file. MCP servers set up through APM run with what the image
 has: `npx` and `docker` work, `uvx` (Python) doesn't.
+
+**Your team's marketplace.** A marketplace is a git repo holding a catalog of packages, on GitHub, GitLab or a
+git server of your own. Register it once per persona; the registration is kept in that persona's home
+(`~/.apm/marketplaces.json`):
+
+```bash
+apm marketplace add <org>/<repo> --ref v1.0.0 --name team   # pin a tag (#v1.0.0 works only on an https:// URL)
+apm marketplace browse team                                 # every package, with its install string
+apm search review@team                                      # search names, descriptions and tags
+apm install code-review@team                                # add one to this project
+```
+
+The install writes the package's real git source into `apm.yml` and pins its commit in `apm.lock.yaml`. Another
+persona, or a teammate, then gets it with a plain `apm install`, without registering the marketplace. A private
+marketplace, and the repos of the packages in it, need read access from the persona, as private packages do
+above: `gh auth login` inside it, or `GH_TOKEN` or `GITHUB_APM_PAT` in its env file. Without a token, APM reads
+GitHub-hosted catalogs through GitHub's API on the anonymous limit of 60 requests an hour. Every persona on the VM
+shares that limit, and one `marketplace add` uses about four requests. Once the limit is used up, reads fail with
+`403 … rate limit exceeded` until the hour resets.
+
+To make a marketplace, run `apm marketplace init` in its repo. It adds a `marketplace:` block, with an example
+entry under `packages:`, to that repo's `apm.yml`. Replace the example with your packages; for one in another repo,
+use `apm marketplace package add <owner>/<repo> …`. Then `apm pack` writes the catalog
+(`.claude-plugin/marketplace.json`), and you commit, tag and push.
 
 ## 3. Headless runs
 
@@ -398,7 +434,8 @@ which rebuilds every layer; `upgrade` pins an exact version instead.
 - APM is in every image: set `APM_VERSION=X.Y.Z` in `.env` (current:
   `curl -fsSL https://pypi.org/pypi/apm-cli/json | jq -r .info.version`), build one persona of each flavour and
   context, and restart all personas. Only the APM stage reruns. `apm self-update` is off in the image and says
-  so.
+  so. `APM_VERSION` pins `apm-cli` only. Its Python libraries are resolved when the image is built, so two builds of
+  one version can differ, and the built image is the real pin.
 - ddev: set `DDEV_VERSION` to the VM's `ddev version` (re-running config.sh does), build one persona of each
   ddev-context flavour, and restart all ddev personas.
 - Don't run `claude update` or `claude install` inside a persona. The image refuses them ("Updates are disabled
@@ -518,7 +555,10 @@ included, on throwaway personas. Nothing of your setup is read or changed, and w
 | `Updates are disabled by your administrator` | expected: the image is the updater | upgrade via section 6 |
 | `claude doctor`: `~/.local/bin is not in your PATH` | expected with the image's layout | nothing to do |
 | `The agent image is the APM updater: …` | `apm self-update` is off in the image | upgrade via section 6 |
-| `apm install` stops and lists `--target` options | the project has no `.claude/`, `.grok/` or `.github/` yet | `--target claude` (or `grok-build`), or set a default once (setup step 4) |
+| `apm install`: `No harness detected` (exit 2) | no `targets:` in the project's `apm.yml`, no default for the persona, and no `.claude/`, `CLAUDE.md`, `.grok/` or Copilot files yet | `--target claude` (or `grok-build`), a `targets:` list in `apm.yml`, or a default for the persona (setup step 4) |
+| `apm install`: `Multiple harnesses detected: …` (exit 2) | markers of two or more tools in the project (`.claude/` and `.grok/`, say, or `CLAUDE.md` and `.github/copilot-instructions.md`), and neither a `targets:` list nor a default for the persona | `targets: [claude, grok-build]` in `apm.yml`, `--target`, or a default for the persona (setup step 4) |
+| A grok persona's `apm install` writes `.claude/`, not `.grok/` | the project's `apm.yml` has `targets: [claude]`, which beats the persona's default | add `grok-build` to its `targets:` (section 2) |
+| `apm install …@<marketplace>` or `apm marketplace add` fails with `403 … rate limit exceeded` | a GitHub-hosted marketplace read without a token: 60 requests an hour, shared by every persona on the VM | `gh auth login` inside the persona; or `GH_TOKEN` or `GITHUB_APM_PAT` in its env file, then `nexus <persona> restart` |
 | `Permission denied` under `~/.claude` after a uid change | the home volume was seeded for the old uid | reset the persona's home (section 8) |
 | `warning: no mkcert CA on this VM yet` | ddev context, `mkcert -install` not run | `mkcert -install` on the VM, then `nexus <persona> restart` |
 | `https://*.ddev.site` untrusted in Claude or node | the container predates the CA | `nexus <persona> restart` |
@@ -558,7 +598,7 @@ both. `.env` feeds compose, and the launcher reads `PROJECTS_ROOT`, `REGISTRY` a
 | `REGISTRY` | no | `local` | Image name prefix. `local` = build on this VM; a registry host enables `nexus <persona> pull` |
 | `CLAUDE_VERSION` | no | `latest` | Claude Code build: `latest`, `stable` or `X.Y.Z`. Pins below 2.1.118 ignore the update lock |
 | `CLAUDE_TAG` | no | `CLAUDE_VERSION` | Tag of the Claude images |
-| `APM_VERSION` | no | `latest` | APM in every image: `latest` or `X.Y.Z` (PyPI's `apm-cli`); `latest` is cached once built |
+| `APM_VERSION` | no | `latest` | APM in every image: `latest` or `X.Y.Z` (PyPI's `apm-cli`, not its Python libraries); `latest` is cached once built |
 | `GROK_VERSION` | no | `latest` | Grok Build build: `latest` (newest on xAI's stable channel) or `X.Y.Z`; `upgrade` pins it |
 | `GROK_TAG` | no | `GROK_VERSION` | Tag of the grok images |
 | `DDEV_VERSION` | no | latest in the apt repo | ddev in ddev-context images; the VM's `ddev version` (leading `v` optional) |
