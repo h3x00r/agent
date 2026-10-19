@@ -21,6 +21,8 @@ nexus claude-team              # back into the same session
 Quitting Claude (`/exit`) ends the session instead; start it again with `-- claude`. A grok persona works
 the same way with `-- grok`. When a new Claude Code (or grok) comes out, `nexus claude-team upgrade` pins it,
 rebuilds, and recreates every persona of that flavour once you confirm.
+As committed, Claude runs its tools without asking; `nexus claude-team --skip-bypass-permissions review -- claude`
+opens a session whose Claude asks first ([Settings for every persona](#settings-for-every-persona)).
 How the pieces fit together, as diagrams: [Annex: how it works](#annex-how-it-works).
 
 **New to this?** [EXAMPLES.md](EXAMPLES.md) explains it in plain words and walks through the everyday tasks,
@@ -41,6 +43,8 @@ personas.json           the personas, written by nexus --config (gitignored)
 compose.personas.yml    their services, generated from personas.json by nexus --config; don't edit it (gitignored)
 Dockerfile              targets claude | grok, build arg CONTEXT=docker | ddev; no project toolchains on purpose
 entrypoint.sh           keeps the tmux server alive, paints the persona into the status bar
+claude-mode.sh          the image's `claude`: Claude Code (/usr/local/libexec/claude) in a session's permission mode,
+                        if nexus gave it one (--skip-bypass-permissions | --bypass-permissions); else unchanged
 tmux.conf               session-per-project ergonomics
 nexus                   launcher: `nexus <persona>` from any project dir; `nexus --config`: the setup (personas,
                         flavours, contexts, .env, launcher link, images)
@@ -58,6 +62,7 @@ LICENSE                 MIT, for the files in this repo (not the software the im
 personas/*.env.example  per-flavour templates → personas/<persona>.env: secrets + git identity (gitignored)
 personas/claude.json    Claude Code defaults for every Claude persona, on every VM (merged into its own settings)
 personas/claude.managed.json  Claude Code settings that hold in every Claude persona (a managed drop-in)
+personas/claude.ask.json  the permission mode a Claude persona set to ask starts in (a managed drop-in after that one)
 personas/grok.toml      grok settings for every grok persona, on every VM (its managed config, with the statusline)
 ```
 
@@ -120,6 +125,12 @@ Each persona mounts the VM's projects root, or a root of its own; several person
 
 Inside: `claude`, or open a new session straight into it with `nexus claude-ddev review -- claude`
 (the command only runs when the session is created; an existing session is just attached).
+`nexus claude-ddev --skip-bypass-permissions review -- claude` opens one whose Claude asks before running a tool,
+whatever the persona's setting, and `--bypass-permissions` one whose Claude doesn't (Claude personas only; the word
+goes anywhere before the `--`). The mode holds for that session as long as it lives, new windows and a claude started
+again included; an existing session in the other mode is refused, not attached. The words need an image with
+`claude-mode.sh`: `nexus claude-ddev build` (with a registry, `pull`) and `restart`, or the next `upgrade`; nexus
+refuses them on an older one.
 `Shift+←/→` hops between project sessions, `Prefix+s` lists them, `Prefix+d` detaches and leaves
 everything running. `nexus ls` shows every persona and its state, and the sessions of the running ones;
 `nexus top` keeps a live view of them (`q` quits), with Claude Code's own figures for each session.
@@ -175,18 +186,23 @@ enforced ([Settings for every persona](#settings-for-every-persona)).
   unattended `--dangerously-skip-permissions` run, no production secrets on dev VMs, egress
   allowlist at the hypervisor or router level (host networking rules out an in-container firewall).
   Building needs the hosts in the runbook's [prerequisites](runbook.md#prerequisites) on that allowlist.
+  For a person to approve Claude's tools first, set the persona to ask, or start the session with
+  `--skip-bypass-permissions` ([Settings for every persona](#settings-for-every-persona)); it is the mode Claude
+  starts in, not a lock.
 
 ## Settings for every persona
 
-Three committed files hold the settings every persona of a flavour gets, on every VM that pulls the repo. Each
-is either **defaults**, which a persona's own settings override key by key, or **enforced**, which win over
-them. Nothing is copied by hand; the two that are mounted are read-only, and the one written into a persona's
-home goes in through a merge that keeps the persona's own choices.
+Three committed files hold the settings every persona of a flavour gets, on every VM that pulls the repo, and a
+fourth the permission mode of a Claude persona set to ask. Each is either **defaults**, which a persona's own
+settings override key by key, or **enforced**, which win over them. Nothing is copied by hand; the three that are
+mounted are read-only, and the one written into a persona's home goes in through a merge that keeps the persona's
+own choices.
 
 | File | Kind | How it reaches each persona of its flavour | A change applies |
 |---|---|---|---|
 | `personas/claude.json` | defaults: `model`, effort per model, `theme`, `outputStyle`, `tui`, … | nexus merges it into the persona's own `~/.claude/settings.json` each time it creates or starts the container, before any Claude runs: Claude Code has no defaults layer of its own | at `nexus <persona> restart` |
-| `personas/claude.managed.json` | enforced: `permissions.defaultMode`, `skipDangerousModePermissionPrompt`, `env` | compose mounts it read-only as the managed drop-in `/etc/claude-code/managed-settings.d/15-personas.json`, which outranks every other layer | at `nexus <persona> restart`: a single-file mount keeps the version the container started with |
+| `personas/claude.managed.json` | enforced: `permissions.defaultMode`, `skipDangerousModePermissionPrompt`, `env` | compose mounts it read-only as the managed drop-in `/etc/claude-code/managed-settings.d/15-personas.json`, which outranks every other layer but a later drop-in (`16-ask.json`) | at `nexus <persona> restart`: a single-file mount keeps the version the container started with |
+| `personas/claude.ask.json` | enforced, for a Claude persona set to ask: `permissions.defaultMode` (`default` as committed: it asks before each tool that needs it; edit it for `acceptEdits`, `plan`, …) | compose mounts it read-only, in a persona set to ask only, as `/etc/claude-code/managed-settings.d/16-ask.json`: after `15-personas.json`, so its mode wins over `bypassPermissions` | at `nexus <persona> restart`, as above; until then a persona newly set to ask gets a warning at each start and attach |
 | `personas/grok.toml` | defaults: all of it | `nexus --config` writes it, with the statusline's `[ui.status_line]` where that's on, to `personas/<name>.grok.toml`; compose mounts that read-only as grok's `/etc/grok/managed_config.toml`, a layer below the persona's own `~/.grok/config.toml` | once `nexus --config` has re-run, at the next grok started in the persona: the file is rewritten in place, so no restart |
 
 - The merge records in `~/.claude/.nexus-defaults.json` the keys nexus owns. A key the persona doesn't have gets the
@@ -194,12 +210,27 @@ home goes in through a merge that keeps the persona's own choices.
   `opus[1m]`); one the persona had, set, changed (`/model`, `/config`) or took out stays its own; and a default
   dropped from `personas/claude.json` goes where nexus owned it. A `settings.json` that isn't JSON, or can't be
   written, is left alone, with a warning. nexus says which keys it set.
-- `nexus --config` checks the files first (JSON; TOML with tomllib) and writes nothing if one wouldn't parse: a broken
-  one would stop the CLI in every persona it reaches.
+- `nexus --config` checks the files first (JSON; TOML with tomllib; `claude.ask.json` only while a persona is set to
+  ask) and writes nothing if one wouldn't parse: a broken one would stop the CLI in every persona it reaches. While a
+  persona is set to ask, `nexus --config` writes nothing, and nexus won't start or restart that persona, if
+  `claude.ask.json` isn't there, can't be read, isn't JSON, sets no `permissions.defaultMode` or sets
+  `bypassPermissions`: the persona would bypass.
 - Effort as a Claude default goes per model (`modelSettings.opus.effortLevel`): Claude Code ignores a top-level
   `effortLevel` in a user's own settings.
 - As committed, they make every persona run its tools without asking: Claude in `bypassPermissions`, grok in
-  `always-approve`. Change that there if a persona should ask.
+  `always-approve`. A Claude persona can be set to ask instead, in `nexus --config` (add or change: "Let NAME run its
+  tools without asking …? [Y/n]", answer n) or with `nexus --config --permissions NAME:ask` (`NAME:bypass` undoes
+  it), applied at `nexus NAME restart`. Every claude in it then starts in `claude.ask.json`'s mode, headless runs
+  included; no rebuild needed. Grok can't be set to ask here: its mode is `permission_mode` in `personas/grok.toml`,
+  a default for every grok persona (re-run `nexus --config` after an edit) that a persona's own `~/.grok/config.toml`
+  overrides.
+- One session can differ from its persona: `nexus <persona> --skip-bypass-permissions [session]` starts one that asks
+  (in Claude Code's `default` mode, whatever `claude.ask.json` sets), `--bypass-permissions` one that doesn't even in
+  a persona set to ask (with `headless`: that run), so a session can be made less safe than its persona as well as
+  safer. Either way it is the mode Claude starts in, not a lock: a flag typed after `claude` still wins, so
+  `claude --dangerously-skip-permissions` in a session that asks still bypasses. Unlike the persona's setting, the
+  words need an image with `claude-mode.sh` (`nexus <persona> build`, with a registry `pull`, then `restart`); nexus
+  refuses them on an older one.
 - Details, and how to see what a persona got: runbook §5, [Settings for every persona](runbook.md#settings-for-every-persona).
 
 ## Headless / pipeline use
@@ -222,6 +253,11 @@ stops the run inside the persona too; a plain `docker exec` would leave it runni
 `Bash(ddev *)` allows every ddev subcommand, `ddev exec <anything>` included; in a docker-context persona
 allow what the project needs instead, e.g. `Bash(docker compose *)`. Docker access is root on the VM, so
 keep such runs to repos you trust ([runbook](runbook.md#3-headless-runs)).
+
+In a Claude persona set to ask, a headless run has nobody to approve a tool, so the tools that need it are denied:
+allow them with `--allowedTools`, or bypass for that run: `nexus claude-ddev --bypass-permissions headless "…"`.
+With `--skip-bypass-permissions`, a run in a persona that bypasses has them denied the same way. Both words need an
+image with `claude-mode.sh`.
 
 ## License
 
@@ -275,6 +311,8 @@ on the VM, in the checkout                         inside a Claude persona
 personas/claude.json ───── nexus, as it starts ──► ~/.claude/settings.json            merged: the persona's own keys stand
                                                    ~/.claude/.nexus-defaults.json     what nexus wrote, for the next merge
 personas/claude.managed.json ───── mount (ro) ───► /etc/claude-code/managed-settings.d/15-personas.json   wins
+personas/claude.ask.json ───────── mount (ro) ───► /etc/claude-code/managed-settings.d/16-ask.json        wins over 15's mode
+                                   (a persona set to ask)
 statusline/claude/settings.json ── mount (ro) ───► /etc/claude-code/managed-settings.d/20-statusline.json
                                   (the image's own 10-agent-image.json: its update lock)
 
@@ -291,7 +329,7 @@ nexus --config
   │  first run:  shared settings: projects root, registry, Claude Code version   ─► .env
   │              the launcher: links /usr/local/bin/nexus
   │              the first persona: flavour, context, name, statusline, projects root (- = the VM's), ssh,
-  │                then its sign-in key/token, git identity, GH_TOKEN               ─► saved, its image built
+  │                permissions (claude), then its sign-in key/token, git identity, GH_TOKEN ─► saved, its image built
   ▼
 what is set up (shared settings, launcher, personas, env files of no persona), and a menu:
   list · add · change · remove · shared · launcher · images · quit

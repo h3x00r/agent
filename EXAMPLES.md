@@ -38,6 +38,7 @@ You talk to all of it through one command: `nexus`.
 | **projects root** | The folder that holds your projects, `~/projects` by default. The persona works on the files inside it. It is **not a security wall**: a persona can also run Docker on the VM, and through Docker it can reach the rest of the VM. Use it on dev VMs only, and give it only work you would be OK running yourself. |
 | **flavour** | Which agent a persona runs: `claude` (Claude Code) or `grok` (Grok Build). |
 | **context** | What kind of projects it works on: `ddev` or `docker`. ddev is a tool that runs PHP web sites in containers; your project uses it if its folder has a `.ddev` folder inside. If it doesn't, or you're not sure, pick `docker` (docker compose, Go, Node, …). |
+| **bypassPermissions** | Claude Code's name for running its tools (editing files, running commands) without asking you first. Every Claude persona works this way unless you set it to ask (example 11). |
 
 ## Example 1: set up a VM for the first time
 
@@ -65,6 +66,8 @@ It asks a few questions. For each one, the default is shown in `[brackets]`, and
    - **SSH (git over ssh): type `none`.** The agent can still commit; you run `git pull` and `git push`
      yourself on the VM, in the same folder. The default, `agent`, lends the persona your ssh keys, but only
      while you are connected with them loaded (see "When something goes wrong" below), so start with `none`;
+   - whether it may run its tools without asking: press Enter for yes, so it works on its own. Type `n` if
+     you'd rather it ask you before it acts (example 11);
    - how it signs in to Claude (Enter for `login`: you log in inside it later);
    - your git name and email for this persona. Enter takes your own. If you'll have more than one persona,
      type a name that says which one, e.g. `Ana (claude-team)`, so `git log` can tell them apart;
@@ -202,7 +205,7 @@ It shows what is set up, then a menu:
 What next?
   1) list      the shared settings and the personas, again
   2) add       a new persona
-  3) change    one persona's flavour, context, statusline, projects root or ssh
+  3) change    one persona's flavour, context, statusline, projects root, ssh or permissions
   4) remove    one persona (its env file and home volume stay)
   5) shared    the settings every persona shares: projects root, image registry, Claude Code version
   6) launcher  link nexus into a directory on your PATH
@@ -213,8 +216,9 @@ choice [quit]:
 
 Type the number or the word. Each choice asks only what it needs, and saves when you finish it. For example,
 `add` asks the same questions as the first persona in example 1 (a grok one asks for its API key instead of a
-login). After a `change`, it tells you to run `nexus <persona> restart` so the change takes effect. That
-closes the persona's sessions, so finish your work first.
+login, and isn't asked whether it may run its tools without asking: it always does). After a `change`, it tells
+you to run `nexus <persona> restart` so the change takes effect. That closes the persona's sessions, so finish
+your work first.
 
 ## Example 10: a new Claude Code version is out
 
@@ -225,6 +229,77 @@ nexus claude-team upgrade
 It finds the newest version, builds it and checks it. If Claude personas are running, it lists their sessions
 and asks `Recreate them now? [y/N]` before it restarts them on the new version: answer `y` when nobody is in the
 middle of something. Your logins, settings and history are kept.
+
+## Example 11: make the agent ask before it acts
+
+By default, Claude **runs its tools without asking**: it edits files and runs commands (the tests, `git commit`,
+`ddev start`, …) on its own. Claude Code calls this `bypassPermissions`. It is what lets Claude keep working
+while you're away (example 3).
+
+Sometimes you'd rather it ask first: in a repo you don't know yet, in a demo, or while you're learning what it
+does. Then, before it edits a file or runs a command, Claude shows what it wants to do and waits for your
+answer. While it waits it does nothing, so an agent that asks is not one to leave working overnight.
+
+**For one session.** Add `--skip-bypass-permissions` when you open it:
+
+```bash
+cd ~/projects/billing
+nexus claude-team --skip-bypass-permissions -- claude
+```
+
+Only this session asks. The persona's other sessions work as before.
+
+- The session keeps that mode until it ends: every Claude you start in it, now or later, asks first.
+- An open session can't switch. If `billing` is already open in `claude-team` (as in example 5), Nexus refuses
+  and says so. End the old one first (`/exit` in its Claude, or `exit` in its shell), or give the new one a
+  name of its own: `nexus claude-team --skip-bypass-permissions billing-careful -- claude`. `main`, the
+  persona's shell, always works the persona's way and comes back if you end it: give the new session a name of
+  its own, or change the persona's setting (below).
+- The first time, Nexus may say `claude-team's image predates --skip-bypass-permissions`. Then rebuild the
+  persona's image once: `nexus claude-team build`, then `nexus claude-team restart`. That closes its sessions,
+  so finish your work first.
+- If the bar at the bottom shows the session as `--skip-bypass-permissions` instead of `billing`, this VM's
+  Nexus is older than this page and took the word for a session name, so that Claude doesn't ask. End that
+  session, update Nexus (`git -C ~/agents pull`, then `~/agents/nexus --config --yes --no-build`), and try again.
+
+**For the whole persona.** Run `nexus --config`, type `change` and pick the persona. Press Enter to keep each
+answer as it is, until this question:
+
+```text
+Let claude-team run its tools without asking (bypassPermissions; no: it asks first, as personas/claude.ask.json says)? [Y/n]:
+```
+
+Type `n`, then apply it (this closes the persona's sessions too):
+
+```bash
+nexus claude-team restart
+```
+
+From then on every Claude in `claude-team` asks first. This needs no rebuild. To go back, do the same and type
+`y` at that question.
+
+**The other way round.** In a persona that asks, `--bypass-permissions` opens one session that runs its tools
+without asking. The same rules apply as for one session above.
+
+```bash
+cd ~/projects/shop
+nexus claude-team --bypass-permissions -- claude
+```
+
+A `headless` run (example 7) has nobody to ask, so in a persona that asks, Claude can't use the tools that need
+a yes. Add `--bypass-permissions` for that run (it needs the rebuilt image too):
+
+```bash
+cd ~/projects/billing
+nexus claude-team --bypass-permissions headless "run the tests"
+```
+
+Two more things to know:
+
+- Only Claude personas have this. A grok persona always runs its tools without asking (`personas/grok.toml` sets
+  that for every grok persona), and Nexus refuses both words for one.
+- It sets how Claude starts; it isn't a lock. If you type `claude --dangerously-skip-permissions` yourself in a
+  session that asks, that Claude doesn't ask.
 
 ## When something goes wrong
 
@@ -237,6 +312,8 @@ middle of something. Your logins, settings and history are kept.
 | `headless: … is outside claude-docker's projects root (…)` | You ran `headless` from a folder the persona can't see. | `cd` into a project under the projects root first. |
 | `… is outside claude-docker's projects root; starting in …` | You started it from a folder it can't see, so it opened at the projects root instead. | Next time, `cd` into the project first. |
 | `required variable SSH_AUTH_SOCK is missing a value: run an ssh-agent on the VM, …` | The persona was set up to borrow your ssh keys for git (SSH `agent`), and this login has no keys to lend. | Easiest: `nexus --config` → `change` → the persona → SSH `none`, then `nexus <persona> restart`. Or connect with `ssh -A you@your-vm`, which lends your laptop's keys to the VM for that login only: you have to do it every time, and a persona started with it needs `nexus <persona> restart` after you reconnect. |
+| `claude-team's image predates --skip-bypass-permissions: rebuild it …` (or `… predates --bypass-permissions …`) | The persona's image was built before Nexus had the words `--skip-bypass-permissions` and `--bypass-permissions`. | Rebuild it once: `nexus claude-team build` (if your team uses an image registry: `nexus claude-team pull`), then `nexus claude-team restart`. That closes its sessions, so finish your work first. |
+| `session billing already runs its tools without asking (…)` or `… already asks before running tools (…)`, or `session main is claude-team's shell, in its own mode …` | You asked for the other mode, but that session is already open, and an open session can't switch (example 11). | Give the new session a name of its own, with the same word you typed: e.g. `nexus claude-team --skip-bypass-permissions billing-careful -- claude`. For `billing`, you can also end the old one first; for `main`, change the persona's setting instead (example 11). |
 
 Anything else: the message usually says what to run. The full list is in
 [runbook.md, Troubleshooting](runbook.md#troubleshooting).
@@ -253,6 +330,9 @@ Anything else: the message usually says what to run. The full list is in
 | list a persona's sessions | `nexus <persona> ls` |
 | see everything | `nexus ls`, `nexus top` |
 | ask one question from a script | `nexus <persona> headless "…"` |
+| make one session ask before it acts | `nexus <persona> --skip-bypass-permissions -- claude` |
+| let one session act without asking, in a persona that asks | `nexus <persona> --bypass-permissions -- claude` |
+| make a whole persona ask | `nexus --config` → `change` → the persona → `n` at "Let … run its tools without asking", then `nexus <persona> restart` |
 | upgrade Claude Code | `nexus <persona> upgrade` |
 | apply a change to a running persona | `nexus <persona> restart` |
 
