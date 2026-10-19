@@ -180,9 +180,7 @@ class Headless:
                 piped = False
             elif rc:
                 piped = False
-        f = flavours.get(self.p.flavour)
-        if f is None:
-            die("headless: no one-shot mode known for %s's flavour '%s'" % (self.p.name, self.p.flavour))
+        f = flavours.get(self.p.flavour)     # one personas.json takes: load_json refuses any other
         argv, feed = f.headless_argv(prompt, piped, args)
         if piped:
             try:

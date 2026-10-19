@@ -103,3 +103,33 @@ Where they still differ, the bash was broken or depended on the host, and the ca
     en_US); the Python drops C0, DEL and C1 everywhere and keeps U+2028.
   - bash's [a-z0-9] took é, ä and ß under en_US.UTF-8, so `nexus café` was "no persona" rather than
     "not a persona name".
+
+## Changed on purpose in M4 (personas.json)
+personas.json holds the personas now; compose.personas.yml is generated from it, without `# persona:` lines.
+The cases that edited those lines by hand were rewritten: they now put the checkout back as it was before
+personas.json (`before_personas_json`), edit the lines, and let config-tools move them (`move_lines`), so both
+trees read them with their own parser; a field set by hand goes through `set_field`, into whichever file the
+tree keeps. Where the two still differ, accepted@M4:
+- **Lines config-tools won't move:** a bare `# persona: NAME `, a line without a colour or a flavour, extra
+  lines a hand edit added. config.sh refused them too, but bash's nexus read them as they were; nexus now says
+  to run config-tools --yes, which names the bad line.
+- **A hand-edited personas.json** that its rules refuse (a relative root, an unknown flavour, a key twice, an
+  unknown key, another version) is refused by both tools when they read it, naming the file and what is
+  wrong. The "no CLI known for flavour" refusals of upgrade and headless can't happen any more.
+- **Older layouts:** the refusals for a compose file from before the statusline and Claude settings splits
+  are retired. A hand edit of compose.personas.yml (or one an older config-tools wrote) is now "out of step
+  with personas.json": refused when a container would be created from it and by upgrade, a warning at an
+  attach. The key, managed-settings and grok.toml checks come first.
+- **No personas:** no personas.json and no `# persona:` line is "no personas set up yet".
+- **tree.txt:** personas.json (and personas.json.bak, the one before) next to the generated file. Removing the
+  last persona keeps personas.json.bak and removes the generated file. personas.json is written by a rename,
+  so its inode changes where the bash's write-through kept the compose file's.
+- **Which file wins:** `# persona:` lines in compose.personas.yml win over a personas.json beside them (one
+  from before a rollback, or from a run cut short): they are what the tools last ran on, so they are moved
+  again, and the file is kept first. A generated compose.personas.yml without personas.json is refused by
+  both tools, which point at personas.json.bak when there is one.
+- **The managed-settings mount** may be in the generated file or not: personas/claude.managed.json comes and
+  goes with the checkout, and nexus checks for it on its own. A restart asked for after the move compares
+  each service whole, its comments and CRs aside.
+- **New cases** (recorded from the Python, nothing to compare): config/migrate-*, config/personas-json-refused,
+  config/m4-* and the nexus/m4-* cases on new behaviour, from the review of M4.

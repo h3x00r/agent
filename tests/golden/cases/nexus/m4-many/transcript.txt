@@ -1,0 +1,55 @@
+## run 1: nexus ls  [pipe]
+rc: 0
+--- stdout
+PERSONA  FLAVOUR  CONTEXT  SSH      STATE        PROJECTS ROOT
+c1       claude   docker   agent    not started  <P>
+g2       grok     docker   agent    not started  <P>
+c3       claude   ddev     none     not started  <P>
+g4       grok     docker   own key  not started  <P>
+c5       claude   docker   agent    healthy      <P>
+g6       grok     ddev     agent    not started  <P>
+c7       claude   docker   agent    not started  <P>
+g8       grok     docker   agent    not started  <P>
+c9       claude   ddev     agent    not started  <P>
+g10      grok     docker   agent    healthy      <P>
+
+PERSONA  SESSION  WINDOWS  ATTACHED  DIR
+c5       main           1  no        <P>
+g10      main           1  no        <P>
+
+nexus <persona> starts one that isn't running
+--- stderr
+(empty)
+## run 2: nexus top --once  [pipe]
+rc: 0
+--- stdout
+nexus top  <HOST>  <HH:MM:SS>
+
+PERSONA  STATE          CPU     MEM  PANES
+c1       not started      -       -  -
+g2       not started      -       -  -
+c3       not started      -       -  -
+g4       not started      -       -  -
+c5       healthy      0.50%  120MiB  no claude running
+g6       not started      -       -  -
+c7       not started      -       -  -
+g8       not started      -       -  -
+c9       not started      -       -  -
+g10      healthy      0.50%  120MiB  no grok running
+
+no Claude Code or grok pane in a running persona
+--- stderr
+(empty)
+## run 3: nexus nope  (the list of names)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: no persona 'nope' (set up: c1 g2 c3 g4 c5 g6 c7 g8 c9 g10); add it with <A>/config-tools
+## run 4: nexus c7 start  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-c7  Started
+nexus: c7: Claude defaults from personas/claude.json: model, modelSettings.opus.effortLevel, outputStyle, teammateMode, theme, tui, worktree.baseRef

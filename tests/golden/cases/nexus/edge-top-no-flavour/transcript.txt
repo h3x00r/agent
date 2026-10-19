@@ -1,17 +1,6 @@
 ## run 1: nexus top --once  [pipe]
-rc: 0
+rc: 1
 --- stdout
-nexus top  <HOST>  <HH:MM:SS>
-
-PERSONA  STATE          CPU     MEM  PANES
-c1       not started      -       -  -
-g1       not started      -       -  -
-n1       healthy      0.50%  120MiB  1 
-
-PERSONA  SESSION  MODEL      CONTEXT   5H   7D   COST  SEEN
-n1       main     Opus 5.5  38k/200k  12%  40%  $1.23    3d
-
-CONTEXT used/size; 5H, 7D: the plan's limits used; COST: the session's, at API prices
-SEEN: since the CLI last drew its statusline, which it does as the session works
---- stderr
 (empty)
+--- stderr
+nexus: the personas are still in <A>/compose.personas.yml, from before personas.json: run <A>/config-tools --yes (it keeps every setting)

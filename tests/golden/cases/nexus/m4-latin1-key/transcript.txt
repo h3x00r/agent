@@ -1,0 +1,16 @@
+## run 1: nexus ls  [pipe]
+rc: 0
+--- stdout
+PERSONA  FLAVOUR  CONTEXT  SSH      STATE        PROJECTS ROOT
+c1       claude   docker   own key  not started  <P>
+
+nexus <persona> starts one that isn't running
+--- stderr
+(empty)
+## run 2: nexus c1 start  (a key path with a latin1 byte)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-c1  Started
+nexus: c1: Claude defaults from personas/claude.json: model, modelSettings.opus.effortLevel, outputStyle, teammateMode, theme, tui, worktree.baseRef

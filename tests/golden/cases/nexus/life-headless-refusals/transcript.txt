@@ -39,4 +39,4 @@ rc: 1
 --- stdout
 (empty)
 --- stderr
-nexus: headless: no one-shot mode known for c1's flavour 'other'
+nexus: <A>/personas.json persona 'c1' has flavour 'other', not claude or grok: fix it

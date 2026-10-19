@@ -1,3 +1,3 @@
 {
-  "provenance": "accepted: M3: a clearer refusal: 'latest stable' isn't a channel, an unreadable personas file is an error (not an empty list), and a closed stdout stops the run at once (ODDITIES: refusals)"
+  "provenance": "accepted: M3 and M4: bytes that aren't UTF-8 are kept (ODDITIES: bytes that aren't UTF-8), an unreadable personas file (now personas.json) is an error, and the personas move into personas.json (tree.txt)"
 }

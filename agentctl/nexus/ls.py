@@ -12,8 +12,8 @@ Pitfalls (each pinned where named):
 - 10 s, the probe's whole process group (golden nexus/edge-ls-probe-hang, golden
   nexus/edge-ls-probe-hang-child)
 - a probe that fails gets the same row (golden nexus/edge-ls-probe-rc)
-- the persona lines as `while read` gives them, split on spaces and tabs (golden nexus/edge-ls-line-spaces,
-  golden nexus/edge-ls-line-tab)
+- the personas as personas.json has them, in its order; lines edited by hand reach it only through
+  config-tools (golden nexus/edge-ls-line-spaces, golden nexus/edge-ls-line-tab)
 - a root compared as lexical() spells it, a trailing newline gone (golden nexus/edge-ls-root-newline)
 - orphan containers in sort(1)'s order (golden nexus/basic-ls-orphan)
 """
@@ -42,30 +42,22 @@ def session_rows(container, lead, in_loop=False):
     return rows, True
 
 
-def _field(rest, key):
-    """`${rest#* KEY=}` up to the next space: the value of the first ` KEY=` (all of REST if none)."""
-    i = rest.find(" %s=" % key)
-    v = rest[i + len(key) + 2:] if i >= 0 else rest
-    return v.split(" ", 1)[0]
-
-
 def ls_all(ctx):
     ctx.need_personas()
     p = Palette.for_stdout()
+    personas = ctx.personas()
     st = docker.States(ctx.agents_dir)
     rows = [["PERSONA", "FLAVOUR", "CONTEXT", "SSH", "STATE", "PROJECTS ROOT"]]
     srows = [["PERSONA", "SESSION", "WINDOWS", "ATTACHED", "DIR"]]
     known, conf_root, conf_from, ups, idle = set(), {}, {}, [], False
-    for line in ctx.personas_lines():
-        name, rest = read_fields(line, " \t\n", 2)
-        rest = " %s " % rest
-        c = "agent-" + name
+    for per in personas:
+        name, c = per.name, per.container
         known.add(c)
-        fl, cx = _field(rest, "flavour"), _field(rest, "context")
-        how = "none" if " ssh=none " in rest else "own key" if " ssh=" in rest else "agent"
+        fl, cx = per.flavour, per.context
+        how = "none" if per.ssh == "none" else "own key" if per.ssh else "agent"
         root, conf_from[c] = ctx.vm_root, " (%s)" % ctx.vm_from
-        if " root=" in rest:
-            root, conf_from[c] = _field(rest, "root"), ""
+        if per.root:
+            root, conf_from[c] = per.root, ""
         conf_root[c] = lexical(root)
         root = clean(root[:-1] if root.endswith("/") else root)
         state = st.state.get(c, "not started")

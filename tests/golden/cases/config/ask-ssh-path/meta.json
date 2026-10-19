@@ -1,3 +1,3 @@
 {
-  "provenance": "oracle@a8e58fc"
+  "provenance": "accepted: M4: tree.txt only: personas.json (and its .bak) beside a compose.personas.yml generated from it, without the # persona: lines, under a new header; checked case by case against the bash's tree"
 }

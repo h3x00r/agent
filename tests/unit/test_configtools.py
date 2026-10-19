@@ -87,6 +87,19 @@ class Staging(unittest.TestCase):
         staging.commit(t, "n")
         self.assertEqual(stat.S_IMODE(os.stat("n").st_mode), 0o600)
 
+    def test_replace_renames_into_place_and_keeps_the_old_one(self):
+        put("p.json", "old\n")
+        ino = os.stat("p.json").st_ino
+        t = staging.stage("p.json")
+        staging.write(t, "new\n")
+        staging.replace(t, "p.json", "p.json.bak")
+        self.assertEqual((read("p.json"), read("p.json.bak")), ("new\n", "old\n"))
+        self.assertNotEqual(os.stat("p.json").st_ino, ino)          # a rename: never half a file
+        t = staging.stage("p.json")
+        staging.write(t, "new\n")
+        staging.replace(t, "p.json", "p.json.bak")                  # unchanged: left alone, no backup of it
+        self.assertEqual((read("p.json.bak"), os.path.exists(t)), ("old\n", False))
+
     def test_bakname_keeps_older_backups(self):
         self.assertEqual(staging.bakname("f"), "f.bak")
         open("f.bak", "w").close()

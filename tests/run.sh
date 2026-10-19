@@ -17,6 +17,8 @@
 #              (questions on a terminal, upgrade, top), against fakes; compared with the recorded cases
 #   config     config-tools --yes: refused names, specs and ssh keys, a setup, --list, --remove, kept env
 #              files and keys
+#   the move   config-tools moving a checkout's `# persona:` lines into personas.json, in a second scratch
+#              checkout: as config.sh left one, and one from before the statusline and settings splits
 #   nexus      before any persona runs: usage, errors, ls, top, upgrade's argument checks
 #   personas   a Claude persona against a stand-in Messages API (tests/fake-api.py, in a container of
 #              its own) and a grok persona with a stand-in grok (tests/fake-grok), both on that one
@@ -88,7 +90,7 @@ git -C "$REPO" rev-parse --is-inside-work-tree >/dev/null 2>&1 \
 T="$(mktemp -d "${TMPDIR:-/tmp}/nxt.XXXXXX")" || exit 2
 ID="nxt-$$"
 PC="$ID-c" PG="$ID-g" PN="$ID-n" PX="$ID-x" REG="$ID.invalid" API="$ID-api"
-A="$T/agents" P="$T/agents/compose.personas.yml" ROOT="$T/projects" S="$T/projects/.nxt-bin" SOCK="$T/ssh.sock"
+A="$T/agents" P="$T/agents/compose.personas.yml" J="$T/agents/personas.json" ROOT="$T/projects" S="$T/projects/.nxt-bin" SOCK="$T/ssh.sock"
 AGENT_PID="" TAGS=() BG=() BG_PID=""
 
 cleanup() {
@@ -129,6 +131,19 @@ NX_ENV+=(HOME="$T/home" DOCKER_CONFIG="${DOCKER_CONFIG:-$HOME/.docker}" SSH_AUTH
          TERM=xterm-256color)
 nx()  { env "${NX_ENV[@]}" "$A/nexus" "$@"; }
 cfg() { env "${NX_ENV[@]}" "$A/config-tools" "$@"; }
+# pj line NAME | pj names: personas.json read back (python3 -I, nothing else): NAME's settings in the order
+# the `# persona:` lines had them, so a check reads as it did; or the names, in persona order.
+pj() {
+  python3 -I -c 'import json, sys
+d = json.load(open(sys.argv[1]))["personas"]
+if sys.argv[2] == "names":
+    print(" ".join(d))
+else:
+    p = d[sys.argv[3]]
+    s = "%s flavour=%s context=%s colour=%s statusline=%s" % (sys.argv[3], p["flavour"], p["context"], p["colour"],
+                                                           "yes" if p["statusline"] else "no")
+    print(s + "".join(" %s=%s" % (k, p[k]) for k in ("root", "ssh") if p.get(k)))' "$J" "$@" 2>/dev/null
+}
 # compose_t ARGS…: compose on the scratch checkout, as nexus calls it
 compose_t() {
   env "${NX_ENV[@]}" AGENT_UID="$(id -u)" AGENT_GID="$(id -g)" DOCKER_GID="$(stat -c %g /var/run/docker.sock)" \
@@ -150,6 +165,11 @@ if command -v python3 >/dev/null; then
     then ok "python3 parses $f"; else fail "python3 parses $f" "$out"; fi
   done < <(git -C "$REPO" ls-files -z --cached --others --exclude-standard '*.py')
 fi
+# This VM's personas never go into git: personas.json and its backups are ignored, as the env files are.
+if git -C "$REPO" -c core.excludesFile=/dev/null check-ignore -q personas.json \
+   && git -C "$REPO" -c core.excludesFile=/dev/null check-ignore -q personas.json.bak; then
+  ok ".gitignore: personas.json and its backups"
+else fail ".gitignore: personas.json and its backups" "git check-ignore doesn't ignore them"; fi
 
 docker_ok=0
 if command -v docker >/dev/null && docker info >/dev/null 2>&1 && docker compose version >/dev/null 2>&1 \
@@ -237,7 +257,7 @@ for k in "$PG" "$PG:rel/key" "$PG:$T/keys/open" "$PG:$T/keys/pass" "$PG:$T/keys/
   esac
   check "refuses --ssh ${k#"$T/keys/"}: $why" 'rc 1 && err_has "--ssh $k: " && err_has "$why"'
 done
-check "  a refused run writes nothing" '[[ ! -e $A/.env && ! -e $P && ! -e $A/personas/$PG.key ]]'
+check "  a refused run writes nothing" '[[ ! -e $A/.env && ! -e $P && ! -e $J && ! -e $A/personas/$PG.key ]]'
 
 # Settings for every Claude and every grok persona, in place of the committed ones.
 printf '{"model": "opus", "modelSettings": {"opus": {"effortLevel": "low"}}}\n' > "$A/personas/claude.json"
@@ -247,17 +267,19 @@ t cfg --yes --no-link --no-build --projects-root "$ROOT" --registry "$REG" \
       --persona "$PC:claude:docker" --persona "$PG:grok:docker" --persona "$PX:claude:docker:$T/own" \
       --ssh "$PG:new" --ssh "$PX:$T/keys/link" </dev/null
 check "sets up three personas" 'rc 0'
-check "  a Claude one, statusline on, your agent" 'grep -qxE "# persona: $PC flavour=claude context=docker colour=colour[0-9]+ statusline=yes" "$P"'
+check "  a Claude one, statusline on, your agent" 'pj line "$PC" | grep -qxE "$PC flavour=claude context=docker colour=colour[0-9]+ statusline=yes"'
 check "  a grok one, statusline on, a key made for it" \
-      'grep -qxE "# persona: $PG flavour=grok context=docker colour=colour[0-9]+ statusline=yes ssh=personas/$PG.key" "$P"'
+      'pj line "$PG" | grep -qxE "$PG flavour=grok context=docker colour=colour[0-9]+ statusline=yes ssh=personas/$PG.key"'
 check "  one with its own projects root, created, and a key given (a symlink to one)" \
-      'grep -qxE "# persona: $PX flavour=claude context=docker colour=colour[0-9]+ statusline=yes root=$T/own ssh=$T/keys/link" "$P" && [[ -d $T/own ]]'
+      'pj line "$PX" | grep -qxE "$PX flavour=claude context=docker colour=colour[0-9]+ statusline=yes root=$T/own ssh=$T/keys/link" && [[ -d $T/own ]]'
+check "  personas.json: the three in the order given, mode 644; the compose file has no # persona: lines" \
+      '[[ $(pj names) == "$PC $PG $PX" && $(stat -c %a "$J") == 644 ]] && ! grep -q "^# persona:" "$P"'
 check "  the key made: private, and its public half shown to add" \
       '[[ $(stat -c %a "$A/personas/$PG.key") == 600 ]] && out_has "$(cut -d " " -f 1,2 "$A/personas/$PG.key.pub")"'
 t cfg --yes --no-link --no-build --persona "$PN:grok:docker" --ssh "$PN:none" --no-statusline </dev/null
 check "adds a fourth: grok, with --no-statusline and no ssh; the others as they were" \
-      'rc 0 && grep -qxE "# persona: $PN flavour=grok context=docker colour=colour[0-9]+ statusline=no ssh=none" "$P" \
-       && grep -qE "^# persona: $PG .* statusline=yes " "$P" && grep -qE "^# persona: $PC .* statusline=yes$" "$P"'
+      'rc 0 && pj line "$PN" | grep -qxE "$PN flavour=grok context=docker colour=colour[0-9]+ statusline=no ssh=none" \
+       && pj line "$PG" | grep -qE "^$PG .* statusline=yes " && pj line "$PC" | grep -qE "^$PC .* statusline=yes$"'
 G="$A/personas/$PG.grok.toml" GN="$A/personas/$PN.grok.toml"
 check "  the grok one's managed config: personas/grok.toml, then its statusline; private" \
       'grep -qx "theme = \"grokday\"" "$G" && grep -qx "command = \"/etc/grok/statusline/statusline.sh\"" "$G" \
@@ -302,7 +324,8 @@ echo "NXT_MARK=kept" >> "$A/personas/$PC.env"
 pub="$(cat "$A/personas/$PG.key.pub")"
 t cfg --yes --no-link --no-build --remove "$PX" --persona "$PC:claude:docker" --ssh "$PG:new" </dev/null
 check "--remove, with a persona given again" \
-      'rc 0 && ! grep -q "^# persona: $PX " "$P" && grep -q "^# persona: $PC " "$P" && grep -q "^# persona: $PG " "$P"'
+      'rc 0 && [[ " $(pj names) " != *" $PX "* && " $(pj names) " == *" $PC "* && " $(pj names) " == *" $PG "* ]] \
+       && ! grep -qF "\"$PX\":" "$P"'
 check "  the removed one's env file stays" '[[ -f $A/personas/$PX.env ]]'
 check "  an existing env file is kept as it is" 'grep -qxF NXT_MARK=kept "$A/personas/$PC.env"'
 check "  and an existing key: new keeps it" '[[ $(cat "$A/personas/$PG.key.pub") == "$pub" ]] && ! out_has "made personas/$PG.key"'
@@ -311,7 +334,7 @@ t cfg --yes --no-link --no-build --ssh "$PG:new" </dev/null
 check "a key made anew for an existing persona: shown, with the restart that brings it in" \
       'rc 0 && out_has "made personas/$PG.key" && out_has "nexus $PG restart"'
 mv -f "$T/keys/pg" "$A/personas/$PG.key"; mv -f "$T/keys/pg.pub" "$A/personas/$PG.key.pub"   # the first one, for the tests below
-check "  the personas file before it is backed up" '[[ -f $P.bak ]]'
+check "  personas.json before it is backed up (the one with the persona removed since)" '[[ -f $J.bak ]] && grep -qF "\"$PX\":" "$J.bak"'
 printf '[ui\ntheme = "broken"\n' > "$A/personas/grok.toml"; cp "$G" "$T/g.before"
 t cfg --yes --no-link --no-build </dev/null
 if err_has "couldn't check personas/grok.toml"; then
@@ -343,13 +366,13 @@ check "a personas/grok.toml with a status line of its own: that one stands, once
 printf '[models]\ndefault_reasoning_effort = "xhigh"\n\n[ui]\ntheme = "grokday"\n' > "$A/personas/grok.toml"
 t cfg --yes --no-link --no-build </dev/null
 check "  and back: the statusline's again" 'rc 0 && grep -qx "command = \"/etc/grok/statusline/statusline.sh\"" "$G"'
-cp "$A/personas/claude.json" "$T/claude.json"; printf '{"model": }\n' > "$A/personas/claude.json"; cp "$P" "$T/p.before"
+cp "$A/personas/claude.json" "$T/claude.json"; printf '{"model": }\n' > "$A/personas/claude.json"; cp "$P" "$T/p.before"; cp "$J" "$T/j.before"
 t cfg --yes --no-link --no-build </dev/null
 if err_has "couldn't check personas/claude.json"; then
   skip "a broken personas/claude.json: no python3 here, nor a persona image, to check it with"
 else
   check "a personas/claude.json Claude Code couldn't read: refused, nothing written" \
-        'rc 1 && err_has "JSON Claude Code can read" && cmp -s "$P" "$T/p.before"'
+        'rc 1 && err_has "JSON Claude Code can read" && cmp -s "$P" "$T/p.before" && cmp -s "$J" "$T/j.before"'
 fi
 cp "$T/claude.json" "$A/personas/claude.json"
 mv "$A/personas/claude.managed.json" "$T/claude.managed.json"; cfg --yes --no-link --no-build </dev/null >/dev/null 2>&1
@@ -360,6 +383,98 @@ t cfg --yes --no-link --no-build </dev/null
 check "no Python bytecode in the checkout" '[[ -z $(find "$A" -name __pycache__ -o -name "*.pyc") ]]'
 check "  and with it back: it is mounted again, and the persona is told to restart for it" \
       'rc 0 && grep -qF "./personas/claude.managed.json," "$P" && out_has "$PC: it gets personas/claude.managed.json as managed settings now"'
+# --- the move into personas.json ------------------------------------------------------------------
+stage "config-tools: the move from # persona: lines into personas.json"
+# A second scratch checkout, $T/legacy, with this one's personas as config.sh left them: the `# persona:` lines
+# in compose.personas.yml and no personas.json. Two fixtures: as config.sh wrote it, and one from before the
+# statusline and Claude settings splits (install.sh's day). Generic names only, as everywhere here.
+L="$T/legacy" LP="$T/legacy/compose.personas.yml" LJ="$T/legacy/personas.json"
+OLD_HEADER='# compose.personas.yml — written by ./config-tools; re-run it to add, change or remove personas.
+# config-tools and the nexus launcher read the "# persona:" lines back: keep them in step with
+# the services below if you edit this by hand.'
+legacy() {   # legacy config.sh|install.sh: $L afresh, its compose.personas.yml from before personas.json
+  rm -rf "$L"; mkdir -p "$L" || fail "a scratch checkout in $L"
+  (cd "$A" && tar --exclude=./personas.json --exclude='./personas.json.*' --exclude='./compose.personas.yml*' -cf - .) \
+    | tar -C "$L" -xf - || fail "a copy of $A in $L"
+  { printf '%s\n' "$OLD_HEADER"; for n in $(pj names); do echo "# persona: $(pj line "$n")"; done; tail -n +4 "$P"; } > "$LP"
+  sed -i '/^ *#/s/config-tools/config.sh/g' "$LP"   # its comments named the tool by its name then
+  if [[ $1 == install.sh ]]; then
+    sed -i -e '/statusline\/claude\/settings.json:/d' -e 's|\./statusline/claude:/etc/claude-code/statusline:ro|./statusline:/etc/claude-code/statusline:ro|' \
+           -e 's|source: \./personas/claude\.managed\.json, target: /etc/claude-code/managed-settings\.d/15-personas\.json, read_only: true, bind: { create_host_path: false }|source: ./personas/claude.json, target: /etc/claude-code/managed-settings.d/15-personas.json|' "$LP"
+  fi
+}
+lcfg() { env "${NX_ENV[@]}" "$L/config-tools" "$@"; }
+lnx()  { env "${NX_ENV[@]}" "$L/nexus" "$@"; }
+compose_l() {
+  env "${NX_ENV[@]}" AGENT_UID="$(id -u)" AGENT_GID="$(id -g)" DOCKER_GID="$(stat -c %g /var/run/docker.sock)" \
+    PROJECTS_ROOT="$ROOT" docker compose -p agents -f "$L/compose.yml" -f "$LP" "$@"
+}
+legacy config.sh
+was="$PWD"; cd "$ROOT" || exit 2
+t lnx ls </dev/null
+check "nexus before the move: refused, saying to run config-tools --yes" \
+      'rc 1 && err_has "still in $LP" && err_has "$L/config-tools --yes (it keeps every setting)"'
+cp "$LP" "$T/lp.before"
+t lcfg --list </dev/null
+check "--list: the personas, from their lines; nothing written" \
+      'rc 0 && out_re "^  $PC +claude " && out_re "^  $PG +grok " && cmp -s "$LP" "$T/lp.before" && [[ ! -e $LJ ]]'
+hash_before="$(compose_l --profile all config --hash '*' 2>&1)"; hash_rc=$?   # every service is in a profile
+echo "# an older backup" > "$LP.bak"; cp "$LP.bak" "$T/lpbak.before"
+for f in "$L"/personas/*.env; do cp "$f" "$T/$(basename "$f").before"; done
+t lcfg --yes --no-link --no-build </dev/null
+check "--yes: personas.json, line for line what the # persona: lines said" \
+      'rc 0 && [[ -f $LJ ]] && diff <(sed -n "s/^# persona: //p" "$T/lp.before") \
+         <(for n in $(J="$LJ" pj names); do J="$LJ" pj line "$n"; done) >/dev/null'
+check "  the old file kept as .bak.2 (the older .bak as it was), and said so" \
+      'cmp -s "$LP.bak.2" "$T/lp.before" && cmp -s "$LP.bak" "$T/lpbak.before" && out_has "the old file is kept as compose.personas.yml.bak.2"'
+check "  the env files as they were" '( for f in "$L"/personas/*.env; do cmp -s "$f" "$T/$(basename "$f").before" || exit 1; done )'
+check "  the services the same for compose: config --hash unchanged, no restart asked for" \
+      '[[ $hash_rc == 0 && -n $hash_before && $(compose_l --profile all config --hash "*" 2>&1) == "$hash_before" ]] \
+       && ! out_has "restart"'
+cp "$LJ" "$T/lj.after"; cp "$LP" "$T/lp.after"
+t lcfg --yes --no-link --no-build </dev/null
+check "  a second run: nothing changes" 'rc 0 && cmp -s "$LJ" "$T/lj.after" && cmp -s "$LP" "$T/lp.after" && ! out_has "moved"'
+t lnx ls </dev/null
+check "  and nexus reads them" 'rc 0 && out_re "^$PC +claude +docker "'
+# The rollback the runbook gives: the bash tools again (from git: the last commit before nexus was Python),
+# with the kept file put back; and forward again, where the lines win over the personas.json left behind.
+if git -C "$REPO" cat-file -e 6d95be3:nexus 2>/dev/null; then
+  git -C "$REPO" show 6d95be3:nexus > "$L/nexus"
+  cp "$LP.bak.2" "$LP"
+  t lnx ls </dev/null
+  check "  rolled back (the bash nexus, the kept file): it reads the personas as before" \
+        'rc 0 && out_re "^$PC +claude +docker " && out_re "^$PG +grok +docker "'
+  cp "$A/nexus" "$L/nexus"
+  t lcfg --yes --no-link --no-build </dev/null
+  check "  and forward again: the lines moved anew, over the personas.json left from before" \
+        'rc 0 && out_has "moved from" && [[ $(J="$LJ" pj names) == "$(pj names)" ]]'
+else
+  skip "the rollback to the bash tools: their commit (6d95be3) isn't in this clone"
+fi
+legacy install.sh
+t lcfg --yes --no-link --no-build </dev/null
+check "from before the splits: moved, the layout of today, a restart asked for the Claude one" \
+      'rc 0 && [[ -f $LJ ]] && ! grep -q "\./statusline:" "$LP" && ! grep -q "source: ./personas/claude.json," "$LP" \
+       && grep -qF "./personas/claude.managed.json," "$LP" && out_has "nexus $PC restart"'
+legacy config.sh
+printf '%s\n' "# persona: $PC flavour=claude context=docker colour=colour1 statusline=maybe" >> "$LP"; cp "$LP" "$T/lp.before"
+t lcfg --yes --no-link --no-build </dev/null
+check "a bad # persona: line: refused, naming it; nothing written" \
+      'rc 1 && err_has "persona '"'"'$PC'"'"' has a bad line" && cmp -s "$LP" "$T/lp.before" && [[ ! -e $LJ ]]'
+legacy config.sh
+sed -i 's/$/\r/' "$LP"
+t lcfg --yes --no-link --no-build </dev/null
+check "a CRLF file: moved all the same" 'rc 0 && [[ $(J="$LJ" pj names) == "$(pj names)" ]]'
+for bad in '{"version": 1, "personas": {' '{"version": 2, "personas": {}}' \
+           '{"version": 1, "personas": {"a": {}, "a": {}}}' '{"version": 1, "personas": {}, "theme": 1}'; do
+  printf '%s\n' "$bad" > "$LJ"
+  t lcfg --list </dev/null; r1=$RC e1="$ERR"
+  t lnx ls </dev/null
+  check "a personas.json that isn't one: refused by both ($bad)" \
+        '[[ $r1 == 1 && $e1 == *"$LJ "* ]] && rc 1 && err_has "$LJ "'
+done
+rm -rf "$L"; cd "$was" || exit 2
+
 # The lock config-tools and `nexus <persona> upgrade` share, held as another run would hold it (flock(1), the
 # same flock(2) lock the tools take); it stays held into the next stage, for upgrade's check. Waited for: a
 # child of the run before may still hold it a moment (the bash tools left it open in their children).
@@ -419,12 +534,8 @@ t nx "$PC" ls </dev/null
 check "PERSONA ls before it runs" 'rc 1 && err_has "start it with"'
 cp "$P" "$T/personas.yml"; printf '      - ./statusline:/etc/claude-code/statusline:ro\n' >> "$P"
 t nx "$PC" start </dev/null
-check "a start from a personas file from before the statusline split: refused, saying what to do" \
-      'rc 1 && err_has "from before statusline/ was split" && err_has "config-tools"'
-cp "$T/personas.yml" "$P"
-printf '      - { type: bind, source: ./personas/claude.json, target: /etc/claude-code/managed-settings.d/15-personas.json }\n' >> "$P"
-t nx "$PC" start </dev/null
-check "  and from before the Claude settings split: refused too" 'rc 1 && err_has "from before personas/claude.json was split" && err_has "config-tools"'
+check "a start from a compose.personas.yml edited by hand: refused, saying how to write it again" \
+      'rc 1 && err_has "compose.personas.yml is out of step with personas.json" && err_has "config-tools --yes"'
 cp "$T/personas.yml" "$P"
 mv "$A/personas/claude.managed.json" "$T/claude.managed.json"
 t nx "$PC" start </dev/null
@@ -736,17 +847,18 @@ t nx ls </dev/null
 check "ls: a stopped persona" 'out_re "^$PG +grok +docker +own key +stopped +$ROOT$" && ! out_re "^$PG +main "'
 
 stage "a projects root changed while a persona runs"
-moved_root() { cp "$T/personas.yml" "$P"; sed -i "s|^# persona: $PC .*|& root=$1|" "$P"; }
-cp "$P" "$T/personas.yml"
+# A root of its own for PC, set as config-tools sets it ("": none, the VM's again).
+set_root() { cfg --yes --no-link --no-build --persona "$PC:claude:docker:$1" </dev/null >/dev/null 2>&1 \
+               || fail "config-tools --persona $PC:claude:docker:$1"; }
 cd "$ROOT/app" || exit 2
 t nx "$PC" start </dev/null
 check "start, the root as it was: no warning" 'rc 0 && ! err_has "still runs with"'
-moved_root "$ROOT/app"
+set_root "$ROOT/app"
 t nx "$PC" headless "nxt say hi" </dev/null
 check "moved to a dir in the old root: headless still runs, warning that a restart applies it" \
       'rc 0 && out_is FAKE-REPLY && err_has "$PC still runs with the projects root it was created with, $ROOT: nexus $PC restart applies $ROOT/app, and ends its sessions"'
 mkdir -p "$T/moved/proj"
-moved_root "$T/moved"
+set_root "$T/moved"
 cd "$T/moved/proj" || exit 2
 t nx "$PC" headless "nxt say hi" </dev/null
 check "moved out of it: headless refuses, saying why" \
@@ -780,7 +892,7 @@ tx detach-client -s =app >/dev/null 2>&1
 pty_end 20
 check "    an attach from there: a new session at that dir, with the warning" 'rc 0 && [[ $pp == "$ROOT/app" ]] && out_has "applies $T/moved"'
 tx kill-session -t =app 2>/dev/null
-cp "$T/personas.yml" "$P"
+set_root ""
 cd "$ROOT/app" || exit 2
 t env "${NX_ENV[@]}" PROJECTS_ROOT="$T/moved" "$A/nexus" "$PC" start </dev/null
 check "  the VM's root from the shell: the warning says so" 'rc 0 && err_has "applies $T/moved (PROJECTS_ROOT in your shell), and ends"'
@@ -789,14 +901,14 @@ check "    and ls" \
       'rc 0 && out_line "$PC still runs with the projects root it was created with, $ROOT: nexus $PC restart applies $T/moved (PROJECTS_ROOT in your shell), and ends its sessions"'
 t env "${NX_ENV[@]}" PROJECTS_ROOT="$T//projects/" "$A/nexus" "$PC" start </dev/null
 check "another spelling of the same root: no warning" 'rc 0 && ! err_has "still runs with"'
-moved_root "$T/moved"
+set_root "$T/moved"
 t nx "$PC" restart </dev/null
 pr() { docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "agent-$PC" | sed -n 's/^PROJECTS_ROOT=//p'; }
 check "restart applies it" 'rc 0 && [[ $(pr) == "$T/moved" ]]'
 cd "$T/moved/proj" || exit 2
 t nx "$PC" headless "nxt say hi" </dev/null
 check "  a headless run in the new root works, and the warning is gone" 'rc 0 && out_is FAKE-REPLY && ! err_has "still runs with"'
-cp "$T/personas.yml" "$P"
+set_root ""
 t nx "$PC" stop </dev/null
 t nx "$PC" start </dev/null
 check "a stopped one: start applies it (compose recreates it)" 'rc 0 && [[ $(pr) == "$ROOT" ]] && ! err_has "still runs with"'

@@ -50,12 +50,11 @@ class Rules(unittest.TestCase):
 
 
 class Lines(unittest.TestCase):
-    def test_round_trip(self):
-        p = Persona("g1", "grok", "docker", "colour28", True, "/srv/p", "personas/g1.key")
-        line = persona.meta_line(p)
-        self.assertEqual(line, "g1 flavour=grok context=docker colour=colour28 statusline=yes root=/srv/p "
-                               "ssh=personas/g1.key")
-        self.assertEqual(persona.parse_meta_line(line), p)
+    def test_a_line_as_config_sh_wrote_it(self):
+        # What the move into personas.json reads.
+        line = "g1 flavour=grok context=docker colour=colour28 statusline=yes root=/srv/p ssh=personas/g1.key"
+        self.assertEqual(persona.parse_meta_line(line),
+                         Persona("g1", "grok", "docker", "colour28", True, "/srv/p", "personas/g1.key"))
 
     def test_reading_rules(self):
         p = persona.parse_meta_line("  c1  flavour=x flavour=claude context=docker colour=colour1 statusline=no odd=1 ")

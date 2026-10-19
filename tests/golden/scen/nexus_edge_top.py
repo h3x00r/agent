@@ -2,7 +2,7 @@
 import re
 import time
 
-from scen import case, snapshot_line, two_personas
+from scen import before_personas_json, case, move_lines, snapshot_line, two_personas  # noqa: F401
 
 
 def hms(text):
@@ -17,6 +17,8 @@ def snap_with(i, value, **kw):
 
 
 def add_persona_lines(sb, *lines):
+    """`# persona:` lines added by hand, in a checkout from before personas.json (then move_lines)."""
+    before_personas_json(sb)
     p = sb.a + "/compose.personas.yml"
     with open(p, "a") as f:
         for l in lines:
@@ -80,6 +82,7 @@ def _(sb):
     # Hand-edited personas file: a non-ASCII name under LC_ALL=C (room for the session), no flavour.
     two_personas(sb)
     add_persona_lines(sb, "éééééééééé flavour=claude context=docker statusline=yes")
+    move_lines(sb)
     sb.container("c1", panes=[["%1", "0.0", "abcdefghijklmnopq", snapshot_line()]])
     sb.run("nexus", "top", "--once", env={"LC_ALL": "C"}, label="LC_ALL=C nexus top --once")
 
@@ -88,6 +91,7 @@ def _(sb):
 def _(sb):
     two_personas(sb)
     add_persona_lines(sb, "n1 context=docker statusline=yes")
+    move_lines(sb)
     sb.container("n1", panes=[["%1", "0.0", "main", snapshot_line()]])
     sb.run("nexus", "top", "--once")
 
@@ -247,6 +251,7 @@ def _(sb):
 def _(sb):
     two_personas(sb)
     add_persona_lines(sb, "t1\tx flavour=claude context=docker statusline=yes")
+    move_lines(sb)
     sb.run("nexus", "top", "--once")
 
 
@@ -261,13 +266,15 @@ def _(sb):
 
 @case("nexus/edge-top-no-persona-lines", norm=hms)
 def _(sb):
-    # A personas file without any "# persona:" line (and one with only a CRLF line).
+    # A personas file from before personas.json without any "# persona:" line (and one with only a CRLF line).
     two_personas(sb)
+    before_personas_json(sb)
     with open(sb.a + "/compose.personas.yml") as f:
         keep = [l for l in f if not l.startswith("# persona: ")]
     with open(sb.a + "/compose.personas.yml", "w") as f:
         f.writelines(keep)
     sb.run("nexus", "top", "--once")
     add_persona_lines(sb, "c1 flavour=claude context=docker statusline=yes\r")
+    move_lines(sb)
     sb.container("c1", panes=[["%1", "0.0", "main", snapshot_line()]])
     sb.run("nexus", "top", "--once")

@@ -15,6 +15,9 @@ The Sandbox, in short (golden.py has the rest):
   sb.hold_lock()              a context manager: the tools' lock taken, as another run would hold it
   sb.a, sb.home, sb.projects, sb.tmp, sb.cfg (the setup tool's file name in this tree)
 """
+import json
+import os
+import subprocess
 import time
 
 CASES = []
@@ -35,6 +38,67 @@ def case(name, fakes=(), norm=None):
 
 
 NO_LINK = ("--no-link", "--no-build")
+
+# The header config.sh wrote above its `# persona:` lines, before personas.json.
+OLD_HEADER = (
+    "# compose.personas.yml — written by ./config-tools; re-run it to add, change or remove personas.\n"
+    "# config-tools and the nexus launcher read the \"# persona:\" lines back: keep them in step with\n"
+    "# the services below if you edit this by hand.\n"
+)
+
+
+def move_lines(sb):
+    """After a hand edit of the `# persona:` lines (see before_personas_json): config-tools --yes, not recorded,
+    which moves them into personas.json (the bash's config.sh wrote them out anew); a line it refuses leaves
+    the file as it is, in either tree."""
+    sb.setup("config", "--yes", "--no-link", "--no-build", ok=(0, 1))
+
+
+def set_field(sb, name, key, value):
+    """A hand edit of one persona's KEY (VALUE None: taken out), wherever the tree keeps it: in personas.json,
+    or in the `# persona:` line of a tree from before it (root= before ssh=, as config.sh wrote them)."""
+    j = os.path.join(sb.a, "personas.json")
+    if os.path.exists(j):
+        with open(j, encoding="utf-8", errors="surrogateescape") as f:
+            data = json.load(f)
+        rec = data["personas"][name]
+        if value is None:
+            rec.pop(key, None)
+        else:
+            rec[key] = value == "yes" if key == "statusline" else value
+        with open(j, "w", encoding="utf-8", errors="surrogateescape") as f:
+            f.write(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
+        return
+    p = os.path.join(sb.a, "compose.personas.yml")
+    with open(p) as f:
+        lines = f.read().split("\n")
+    for i, l in enumerate(lines):
+        if not l.startswith("# persona: %s " % name):
+            continue
+        words = [w for w in l[len("# persona: "):].split(" ") if not w.startswith(key + "=")]
+        if value is not None:
+            at = next((n for n, w in enumerate(words) if key == "root" and w.startswith("ssh=")), len(words))
+            words.insert(at, "%s=%s" % (key, value))
+        lines[i] = "# persona: " + " ".join(words)
+        break
+    with open(p, "w") as f:
+        f.write("\n".join(lines))
+
+
+def before_personas_json(sb):
+    """The checkout as it was before personas.json: the personas as `# persona:` lines in compose.personas.yml,
+    so a scenario can edit them, or check their move. A tree that keeps personas.json gets that file (from
+    personas-view) and loses personas.json; the bash's is that way already."""
+    j = os.path.join(sb.a, "personas.json")
+    if not os.path.exists(j):
+        return
+    lines = subprocess.run([os.path.join(sb.bin, "personas-view")], cwd=sb.a, stdout=subprocess.PIPE).stdout.decode()
+    p = os.path.join(sb.a, "compose.personas.yml")
+    with open(p) as f:
+        text = f.read()
+    with open(p, "w") as f:
+        f.write(OLD_HEADER + lines + text[text.index("\nservices:\n"):])
+    os.unlink(j)
 
 
 def two_personas(sb):

@@ -1,0 +1,3 @@
+{
+  "provenance": "accepted: M4: new: upgrade refuses a compose.personas.yml out of step with personas.json, before any pin (no bash to record it from)"
+}

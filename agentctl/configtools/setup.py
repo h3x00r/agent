@@ -20,6 +20,19 @@ Pitfalls (each pinned where named):
 - AGENT_CPUS against `nproc`, which honours OMP_NUM_THREADS where os.cpu_count() doesn't (golden
   config/cli-env-legacy)
 - the free space from `df -Pk`, as the bash's awk read it (golden config/ask-build-low-disk)
+- the `# persona:` lines moved into personas.json once, the old file kept as .bak (or .bak.N), and a restart
+  asked for each service that came out different (golden config/migrate-config-sh-era, golden
+  config/migrate-older-layout, golden config/migrate-keeps-bak)
+- a bad line refuses the move and writes nothing (golden config/cli-list-bad-line)
+- personas.json in persona order, by a rename under the lock, then the compose file generated from it
+  (run.sh "personas.json: the three in the order given, mode 644; the compose file has no # persona: lines")
+- a personas.json its rules refuse: nothing done, the file and the backup named (golden config/personas-json-refused)
+- the compose file from before personas.json kept first, before anything is written (golden
+  config/m4-crash-window)
+- a restart asked for only where a service changed: compared whole, comments and CRs aside (golden
+  config/m4-configsh-era-grok, golden config/m4-crlf-restart, golden config/m4-tail-edit-no-note)
+- personas.json or its .bak not a file: refused before anything is written (golden config/m4-json-dir, golden
+  config/m4-json-bak-dir-zero); a link to it is written through to its target (golden config/m4-json-symlink)
 """
 import os
 import pwd
@@ -41,6 +54,7 @@ from agentctl.domain.persona import Persona
 from agentctl.ui.prompts import Prompter
 
 PERSONAS_FILE = "compose.personas.yml"
+JSON_FILE = personas_store.JSON
 MIN_FREE_GB = 3
 
 FLAVOURS = ["claude   Claude Code (Anthropic)", "grok     Grok Build (xAI)"]
@@ -137,6 +151,24 @@ class Setup:
         for p in self.personas:
             self.say(row(p.name, p.flavour, p.context, "yes" if p.statusline else "no", p.root or "the VM's",
                          p.ssh or "your agent"))
+
+    def moved_notes(self, old, kept):
+        """After the move from the `# persona:` lines: where the old file is, and which persona's service
+        came out different (an older layout), so that it needs a restart; one already told to, isn't. A service
+        is compared whole, without its comments and CRs (config.sh named itself in them)."""
+        if not self.personas:
+            self.later.append("personas: none left; %s from before personas.json is kept as %s" % (PERSONAS_FILE, kept))
+            return
+        self.later.append("personas: moved from %s's `# persona:` lines into %s/%s; the old file is kept as %s"
+                          % (PERSONAS_FILE, self.a, JSON_FILE, kept))
+        managed = os.path.isfile("personas/claude.managed.json")
+        told = "\n".join(self.later)
+        for p in self.personas:
+            if p.name not in self.loaded or _service_in(compose_render.service(p, managed), old):
+                continue
+            if "`nexus %s restart`" % p.name not in told:
+                self.later.append("%s: its service is written from personas.json now, a little differently; `nexus %s "
+                                  "restart` applies it (that ends its tmux sessions)" % (p.name, p.name))
 
     # --- 0. the flags, before anything is asked ---
     def check_flags(self):
@@ -378,9 +410,21 @@ class Setup:
             die("run this as the VM user who will use the personas, not as root (it asks for sudo only to link the launcher)")
         if not o.list and not lock.take(self.a):
             die("another config-tools, or a `nexus <persona> upgrade`, is running in %s; let it finish first" % self.a)
-        self.first = not os.path.isfile(PERSONAS_FILE)
+        # personas.json, or (to move them into it) the `# persona:` lines of a compose.personas.yml from before
+        # it, which win over a personas.json beside them (personas_store.where); neither: a first setup.
+        self.where = personas_store.where(".")
+        if self.where == "lost":
+            die(personas_store.lost(self.a))
+        self.migrating = self.where == "lines"
+        self.first = self.where == "none"
         try:
-            self.personas = personas_store.load(PERSONAS_FILE)
+            if self.where == "json":
+                self.personas = personas_store.load_json(JSON_FILE)
+            else:
+                self.personas = personas_store.load(PERSONAS_FILE)
+        except personas_store.BadPersonasJson as e:
+            hint = personas_store.restore_hint(os.path.join(self.a, JSON_FILE))
+            die("%s/%s %s: fix it%s, then run config-tools again" % (self.a, JSON_FILE, e, ", or " + hint if hint else ""))
         except personas_store.BadPersonasFile as e:
             die("%s: persona '%s' has a bad line (edited by hand?): '# persona: %s'; it takes flavour=claude|grok "
                 "context=ddev|docker colour=colourN statusline=yes|no [root=/dir] [ssh=none|/path|personas/NAME.key]"
@@ -561,6 +605,9 @@ class Setup:
         personas_new = None
         if self.personas:
             managed = os.path.isfile("personas/claude.managed.json")
+            json_new = staging.stage(os.path.realpath(JSON_FILE))   # a link's target, renamed onto in its own dir
+            os.chmod(json_new, 0o644)
+            staging.write(json_new, personas_store.dumps(self.personas))
             personas_new = staging.stage(PERSONAS_FILE)
             os.chmod(personas_new, 0o644)
             staging.write(personas_new, compose_render.render(self.personas, managed))
@@ -632,10 +679,13 @@ class Setup:
                     self.later.append("images: skipped for lack of disk space; after freeing some, run: " + "; ".join(cmds))
 
         # 9. commit
-        for t in [".", "personas", ".env", PERSONAS_FILE] + ["personas/%s.env" % n for n in self.staged] \
+        for t in [".", "personas", ".env", JSON_FILE, PERSONAS_FILE] + ["personas/%s.env" % n for n in self.staged] \
                 + ["personas/%s.grok.toml" % n for n in self.gstaged]:
             if os.path.exists(t) and not os.access(t, os.W_OK):
                 die("can't write %s/%s (check its owner and mode), so nothing was written" % (self.a, t))
+        for t in (JSON_FILE, JSON_FILE + ".bak"):
+            if os.path.lexists(t) and not os.path.isfile(t):
+                die("%s/%s isn't a file (a directory, or a dangling link?), so nothing was written" % (self.a, t))
         handlers = {s: signal.signal(s, signal.SIG_IGN) for s in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP)}
         try:
             for n, tmp in self.staged.items():
@@ -655,10 +705,31 @@ class Setup:
                 elif n in self.loaded and self.loaded[n] == self.state(p) and not staging.same(tmp, t):
                     self.later.append("%s: its grok settings changed; the next grok started in it reads them" % n)
                 staging.commit(tmp, t)
+            # A compose.personas.yml that isn't one config-tools generated (the `# persona:` lines from before
+            # personas.json, or one made by hand) is kept first, as .bak or .bak.N: before anything is written, so
+            # a run cut short still has it. Then personas.json (the one before as personas.json.bak), then the
+            # compose file generated from it.
+            kept = None
+            if os.path.isfile(PERSONAS_FILE) and self.where in ("lines", "none"):
+                kept = staging.bakname(PERSONAS_FILE)
+                shutil.copy2(PERSONAS_FILE, kept)
+            old_compose = read_or_empty(kept) if kept else ""
             if self.personas:
-                staging.commit(personas_new, PERSONAS_FILE, PERSONAS_FILE + ".bak")
-            elif os.path.isfile(PERSONAS_FILE):
-                os.replace(PERSONAS_FILE, PERSONAS_FILE + ".bak")
+                staging.replace(json_new, os.path.realpath(JSON_FILE), JSON_FILE + ".bak")
+                staging.commit(personas_new, PERSONAS_FILE)
+            else:
+                if os.path.isfile(JSON_FILE):
+                    shutil.copy2(JSON_FILE, JSON_FILE + ".bak")
+                    os.unlink(os.path.realpath(JSON_FILE))
+                    if os.path.lexists(JSON_FILE):     # it was a link: that goes too, not left dangling
+                        os.unlink(JSON_FILE)
+                if os.path.isfile(PERSONAS_FILE):
+                    os.unlink(PERSONAS_FILE)
+            if self.migrating:
+                self.moved_notes(old_compose, kept)
+            elif kept:
+                self.later.append("personas: the %s that was here isn't one config-tools wrote; it is kept as %s"
+                                  % (PERSONAS_FILE, kept))
         finally:
             for s, h in handlers.items():
                 signal.signal(s, h)
@@ -827,6 +898,28 @@ def readlink_f(path):
 def read_bytes(path):
     with open(path, "rb") as f:
         return f.read()
+
+
+def _bare(text):
+    """Service text without its comment lines and CRs, for comparing two files' services."""
+    return [l for l in text.replace("\r", "").split("\n") if not l.lstrip().startswith("#")]
+
+
+def _service_in(service, old):
+    """Whether OLD has SERVICE (one persona's, as compose_render writes it) whole: the same lines, from its
+    name to the next service or the volumes, comments and CRs aside."""
+    want = [l for l in _bare(service) if l]
+    lines = _bare(old)
+    if want[0] not in lines:
+        return False
+    i = lines.index(want[0])
+    have = []
+    for l in lines[i:]:
+        if have and (l.startswith('  "') or l == "volumes:"):
+            break
+        if l:
+            have.append(l)
+    return have == want
 
 
 def read_or_empty(path):

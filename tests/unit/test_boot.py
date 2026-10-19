@@ -83,7 +83,6 @@ class PersonasLines(unittest.TestCase):
         with open(p, "w") as f:
             f.write("# persona: c1 flavour=claude\r\n# persona: g1 flavour=grok")
         self.assertEqual(personas_store.lines(p), ["c1 flavour=claude"])                 # as `while read`
-        self.assertEqual(personas_store.lines(p, unterminated=True), ["c1 flavour=claude", "g1 flavour=grok"])
 
 
 class AsciiClasses(unittest.TestCase):

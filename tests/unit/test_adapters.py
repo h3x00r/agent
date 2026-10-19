@@ -30,7 +30,9 @@ def golden_file(path, name):
 
 class Render(unittest.TestCase):
     @unittest.skipUnless(os.path.exists(GOLDEN), "the golden case isn't recorded")
-    def test_as_the_bash_wrote_it(self):
+    def test_as_the_goldens_have_it(self):
+        # The services byte for byte as the bash wrote them (the cases were recorded from it), under the
+        # header that says personas.json is where they come from.
         ps = [Persona("c1", "claude", "docker", "colour25", True), Persona("g1", "grok", "docker", "colour28", True,
                                                                            ssh="personas/g1.key")]
         self.assertEqual(compose_render.render(ps, managed=True), golden_file(GOLDEN, "a/compose.personas.yml"))
@@ -118,3 +120,40 @@ class SignalsAtStart(unittest.TestCase):
         out = subprocess.run([sys.executable, "-I", "-c", code, root], stdout=subprocess.PIPE,
                              preexec_fn=ignore_int).stdout.decode().strip()
         self.assertEqual(out, "['SIGTERM'] True")
+
+
+class PersonasJson(unittest.TestCase):
+    from agentctl.adapters import personas_store as store
+
+    def load(self, text):
+        d = tempfile.mkdtemp()
+        p = os.path.join(d, "personas.json")
+        with open(p, "wb") as f:
+            f.write(text.encode("utf-8", "surrogateescape"))
+        return self.store.load_json(p)
+
+    def test_a_round_trip_keeps_order_and_bytes(self):
+        ps = [Persona("z9", "grok", "ddev", "colour28", False, "/srv/caf\udce9", "personas/z9.key"),
+              Persona("a1", "claude", "docker", "colour25", True, "", "none")]
+        text = self.store.dumps(ps)
+        self.assertTrue(text.endswith("}\n") and text.index('"z9"') < text.index('"a1"'))
+        self.assertEqual(self.load(text), ps)
+
+    def test_what_it_refuses(self):
+        ok = '"flavour": "claude", "context": "docker", "colour": "colour25", "statusline": true'
+        for text, why in (
+                ('{"version": 1, "personas": {"c1": {%s}, "c1": {%s}}}' % (ok, ok), "has 'c1' twice"),
+                ('{"version": 1, "personas": {"c1": {%s, "colour": "colour1"}}}' % ok, "has 'colour' twice"),
+                ('{"version": 1, "personas": {"c1": {%s, "x": 1}}}' % ok, "doesn't take: 'x'"),
+                ('{"version": 1, "personas": {}, "x": 1}', "doesn't take: 'x'"),
+                ('{"version": 2, "personas": {}}', "is version 2"),
+                ('{"version": 1}', 'no "personas"'),
+                ('{"version": 1, "personas": {"c1": {%s}}}' % ok.replace("true", '"yes"'), "true or false"),
+                ('{"version": 1, "personas": {"C1": {%s}}}' % ok, "isn't a persona name"),
+                ('{"version": 1, "personas": {"c1": {%s}}}' % ok.replace('"claude"', '"other"'), "flavour 'other'"),
+                ('{"version": 1, "personas": {"c1": {%s, "root": "rel/dir"}}}' % ok, "root 'rel/dir'"),
+                ('{"version": 1, "personas": {"c1": {%s, "ssh": "personas/g1.key"}}}' % ok, "ssh 'personas/g1.key'"),
+                ("{nope", "isn't valid JSON")):
+            with self.assertRaises(self.store.BadPersonasJson) as c:
+                self.load(text)
+            self.assertIn(why, str(c.exception), text)

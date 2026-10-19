@@ -6,6 +6,9 @@ secret), removed at the end of the run whatever happens (cleanup()).
 commit(staged, target, backup=None): the staged file in place. An existing target (or a symlink) is
 rewritten through, so a link keeps pointing at its target and the file keeps its owner, mode and inode;
 an unchanged one isn't touched at all. A new target is the staged file renamed (mode 600 stays).
+replace(staged, target, backup=None): the staged file renamed into place, atomically (a reader sees the old
+file or the new one, never half of one), the old one kept as BACKUP first; an unchanged target is left
+alone. For personas.json, which nothing mounts, so its inode needn't stay.
 bakname(path): PATH.bak, else .bak.2, .bak.3 … , so an older backup (it may hold a key) survives.
 
 Pitfalls (each pinned where named):
@@ -15,18 +18,27 @@ Pitfalls (each pinned where named):
 - an unchanged target (test_configtools.Staging.test_an_unchanged_target_is_left_alone)
 - a new target (test_configtools.Staging.test_a_new_target_is_renamed_into_place)
 - bakname() skips a dangling .bak link too (test_configtools.Staging.test_bakname_keeps_older_backups)
+- replace() renames, keeping the old one as the backup, and leaves an unchanged target alone
+  (test_configtools.Staging.test_replace_renames_into_place_and_keeps_the_old_one)
+- stage() in a directory it can't write: one line, nothing written (golden config/m4-migrate-readonly)
 """
 import filecmp
 import os
 import shutil
 import tempfile
 
+from agentctl.core.errors import NexusError
+
 _staged = []
 
 
 def stage(target, source=None):
     d, base = os.path.split(target)
-    fd, path = tempfile.mkstemp(prefix=base + ".", dir=d or ".")
+    try:
+        fd, path = tempfile.mkstemp(prefix=base + ".", dir=d or ".")
+    except OSError as e:     # a read-only checkout: as config.sh's mktemp failing, one line and exit 1
+        raise NexusError("can't make a file next to %s (%s), so nothing was written" % (os.path.abspath(target),
+                                                                                       e.strerror))
     if not d:
         path = os.path.basename(path)   # spelt as mktemp spells it: no "./" in front
     _staged.append(path)
@@ -87,3 +99,13 @@ def commit(staged, target, backup=None):
         os.unlink(staged)
     else:
         os.rename(staged, target)
+
+
+def replace(staged, target, backup=None):
+    if os.path.lexists(target):
+        if same(staged, target):
+            os.unlink(staged)
+            return
+        if backup and os.path.exists(target):
+            shutil.copy2(target, backup)
+    os.rename(staged, target)

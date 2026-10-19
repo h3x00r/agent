@@ -33,18 +33,23 @@ Day-to-day use, upgrades and troubleshooting: runbook.md
 --- stderr
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
 config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run config-tools after the build to check it
-## run 3: grep ^# persona: |source: '|50-nexus compose.personas.yml  [pipe, cwd a]
+## run 3: grep ^# persona:  compose.personas.yml  [pipe, cwd a]
 rc: 0
 --- stdout
 # persona: g1 flavour=grok context=docker colour=colour25 statusline=yes ssh=personas/g1.key
 # persona: c1 flavour=claude context=docker colour=colour28 statusline=yes ssh=<HOME>/keys/c1
+--- stderr
+(empty)
+## run 4: grep source: '|50-nexus compose.personas.yml  [pipe, cwd a]
+rc: 0
+--- stdout
         source: './personas/g1.key'
       - ./ssh/key.conf:/etc/ssh/ssh_config.d/50-nexus-key.conf:ro
         source: '<HOME>/keys/c1'
       - ./ssh/key.conf:/etc/ssh/ssh_config.d/50-nexus-key.conf:ro
 --- stderr
 (empty)
-## run 4: config --yes --no-link --no-build --persona x1:claude:docker --ssh x1:new  [pipe]
+## run 5: config --yes --no-link --no-build --persona x1:claude:docker --ssh x1:new  [pipe]
 rc: 0
 --- stdout
 config-tools: setting up <A>

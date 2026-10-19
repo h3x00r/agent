@@ -1,0 +1,12 @@
+## run 1: nexus c1 upgrade 2.1.400 -y  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: <A>/compose.personas.yml is out of step with personas.json (edited by hand, or written by an older config-tools): <A>/config-tools --yes writes it again from personas.json
+## run 2: grep ^CLAUDE_VERSION= <A>/.env  [pipe]
+rc: 0
+--- stdout
+CLAUDE_VERSION=latest
+--- stderr
+(empty)

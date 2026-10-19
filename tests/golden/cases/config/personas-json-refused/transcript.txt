@@ -1,0 +1,79 @@
+## run 1: config --list  (personas.json: cut short)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: <A>/personas.json isn't valid JSON (Expecting ',' delimiter: line 10 column 4 (char 162)): fix it, then run config-tools again
+## run 2: nexus c1  (personas.json: cut short)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: <A>/personas.json isn't valid JSON (Expecting ',' delimiter: line 10 column 4 (char 162)): fix it
+## run 3: config --list  (personas.json: version 2)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: <A>/personas.json is version 2; this checkout reads version 1: fix it, then run config-tools again
+## run 4: nexus c1  (personas.json: version 2)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: <A>/personas.json is version 2; this checkout reads version 1: fix it
+## run 5: config --list  (personas.json: a key twice)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: <A>/personas.json has 'colour' twice: fix it, then run config-tools again
+## run 6: nexus c1  (personas.json: a key twice)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: <A>/personas.json has 'colour' twice: fix it
+## run 7: config --list  (personas.json: an unknown key)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: <A>/personas.json persona 'c1' has a key personas.json doesn't take: 'theme': fix it, then run config-tools again
+## run 8: nexus c1  (personas.json: an unknown key)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: <A>/personas.json persona 'c1' has a key personas.json doesn't take: 'theme': fix it
+## run 9: config --list  (personas.json: statusline "yes")  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: <A>/personas.json persona 'c1' has a statusline that isn't true or false: fix it, then run config-tools again
+## run 10: nexus c1  (personas.json: statusline "yes")  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: <A>/personas.json persona 'c1' has a statusline that isn't true or false: fix it
+## run 11: config --list  (personas.json: a name it doesn't take)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: <A>/personas.json persona 'C1' isn't a persona name: it takes a lowercase letter, then lowercase letters, digits or -; at most 31, not ending in -; not ls, top, all or start: fix it, then run config-tools again
+## run 12: nexus c1  (personas.json: a name it doesn't take)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: <A>/personas.json persona 'C1' isn't a persona name: it takes a lowercase letter, then lowercase letters, digits or -; at most 31, not ending in -; not ls, top, all or start: fix it
+## run 13: config --list  (personas.json as it was)  [pipe]
+rc: 0
+--- stdout
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+--- stderr
+(empty)

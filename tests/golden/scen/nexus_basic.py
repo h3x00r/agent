@@ -1,7 +1,7 @@
 """nexus before and around a persona: usage, errors, ls, top."""
 import re
 
-from scen import NO_LINK, case, images, snapshot_line, two_personas  # noqa: F401
+from scen import NO_LINK, before_personas_json, case, images, move_lines, snapshot_line, two_personas  # noqa: F401
 
 
 def hms(text):
@@ -84,9 +84,11 @@ def _(sb):
 def _(sb):
     # A personas file with CRLF line ends (edited on Windows, say): read as without them.
     two_personas(sb)
+    before_personas_json(sb)
     with open(sb.a + "/compose.personas.yml") as f:
         text = f.read()
     sb.write("a/compose.personas.yml", text.replace("\n", "\r\n"))
+    move_lines(sb)
     sb.container("c1")
     sb.run("nexus", "ls")
     sb.run("nexus", "nope")

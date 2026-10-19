@@ -1,0 +1,21 @@
+## run 1: config --yes --no-link --no-build --persona c2:claude:docker  [pipe]
+rc: 0
+--- stdout
+config-tools: setting up <A>
+-- personas/c2.env
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  c2                              claude   docker   yes        the VM's             your agent
+
+Start one from a project directory:  cd <P>/<project> && nexus c1
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+## run 2: readlink a/personas.json  [pipe, cwd .]
+rc: 0
+--- stdout
+<S>/shared/personas.json
+--- stderr
+(empty)

@@ -43,5 +43,8 @@
     | # AGENT_CPUS must not exceed the VM's vCPU count (nproc), or the container won't start.
     | AGENT_CPUS=3
     | AGENT_MEMORY=8g
-~ a/compose.personas.yml  f 644 inode=same
++ a/compose.personas.yml.bak.2  f 644
+    (binary, sha256 6c4961d0e2b74f26)
++ a/compose.personas.yml.bak.3  f 644
     (binary, sha256 52a6eb1e6a344006)
+~ a/personas.json  f 644 inode=new (same content)

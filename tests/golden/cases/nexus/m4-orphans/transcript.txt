@@ -1,0 +1,32 @@
+## run 1: nexus ls  [pipe]
+rc: 0
+--- stdout
+PERSONA  FLAVOUR  CONTEXT  SSH      STATE        PROJECTS ROOT
+c1       claude   docker   agent    healthy      <P>
+g1       grok     docker   own key  not started  <P>
+
+PERSONA  SESSION  WINDOWS  ATTACHED  DIR
+c1       main           1  no        <P>
+
+nexus <persona> starts one that isn't running
+agent-c2 is healthy, and no persona has it any more: docker rm -f agent-c2 removes it
+--- stderr
+(empty)
+## run 2: nexus top --once  [pipe]
+rc: 0
+--- stdout
+nexus top  <HOST>  <HH:MM:SS>
+
+PERSONA  STATE          CPU     MEM  PANES
+c1       healthy      0.50%  120MiB  no claude running
+g1       not started      -       -  -
+
+no Claude Code or grok pane in a running persona
+--- stderr
+(empty)
+## run 3: nexus c2  (removed, still running)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: no persona 'c2' (set up: c1 g1); add it with <A>/config-tools

@@ -5,7 +5,7 @@ import os
 import re
 import socket
 
-from scen import NO_LINK, case, images, snapshot_line, two_personas  # noqa: F401
+from scen import NO_LINK, before_personas_json, case, images, move_lines, set_field, snapshot_line, two_personas  # noqa: F401
 
 # Fake image ids, so ${id:7:12} (the short id upgrade prints for an untagged image) reads as one.
 OLD = "sha256:" + "a" * 64        # Claude Code 2.1.300, at local/agent-claude-docker:latest
@@ -125,10 +125,10 @@ def _(sb):
     # grok's channels are stable and alpha: latest, the .env template's value for GROK_VERSION, is neither.
     sb.run("nexus", "g1", "upgrade", "latest")
     sb.run("nexus", "g1", "upgrade", "2.1")
-    edit(sb, "a/compose.personas.yml", "# persona: c1 flavour=claude ", "# persona: c1 flavour=other ")
+    set_field(sb, "c1", "flavour", "other")
     sb.run("nexus", "c1", "upgrade", "2.1.400", label="nexus c1 upgrade 2.1.400  (flavour=other, by hand)")
     sb.run("nexus", "c1", "upgrade", "-x", label="nexus c1 upgrade -x  (flavour=other: the option first)")
-    edit(sb, "a/compose.personas.yml", "# persona: c1 flavour=other ", "# persona: c1 flavour=claude ")
+    set_field(sb, "c1", "flavour", "claude")
 
 
 @case("nexus/upgrade-no-env")
@@ -491,11 +491,25 @@ def _(sb):
     # A personas file with CRLF line ends (edited on Windows): its persona lines are read all the same.
     personas(sb, "c1:claude:docker", "c2:claude:docker", "g1:grok:docker", extra=("--ssh", "c2:new", "--ssh", "g1:new"))
     templates(sb)
+    before_personas_json(sb)
     p = sb.path("a/compose.personas.yml")
     with open(p) as f:
         text = f.read()
     with open(p, "w") as f:
         f.write(text.replace("\n", "\r\n"))
+    move_lines(sb)
     sb.container("c2", image=OLD)
     old_claude(sb)
     sb.run("nexus", "c2", "upgrade", "2.1.400", "-y")
+
+
+@case("nexus/upgrade-out-of-step")
+def _(sb):
+    # A compose.personas.yml edited by hand (or written by an older config-tools): upgrade builds from it and may
+    # recreate the containers, so it refuses before any pin, as a start does (M4: new, from the Python).
+    personas(sb, "c1:claude:docker")
+    templates(sb)
+    with open(sb.path("a/compose.personas.yml"), "a") as f:
+        f.write("# a line added by hand\n")
+    sb.run("nexus", "c1", "upgrade", "2.1.400", "-y")
+    pin(sb)

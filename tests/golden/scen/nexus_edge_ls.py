@@ -1,9 +1,13 @@
 """Review of the nexus port, lines 1-274 of the bash launcher: the top level, the tables and nexus ls."""
-from scen import case, two_personas  # noqa: F401
+import os
+
+from scen import before_personas_json, case, move_lines, two_personas  # noqa: F401
 
 
 def edit_line(sb, name, fn):
-    """The `# persona: NAME ` line of the personas file (bytes) replaced by fn(line)."""
+    """The `# persona: NAME ` line of the personas file (bytes) replaced by fn(line): a hand edit of a checkout
+    from before personas.json (move_lines then has config-tools move them)."""
+    before_personas_json(sb)
     p = sb.a + "/compose.personas.yml"
     with open(p, "rb") as f:
         lines = f.read().split(b"\n")
@@ -67,11 +71,14 @@ def _(sb):
     # .env or the personas file there but unreadable (written by root, say): made so only for the run.
     two_personas(sb)
     sb.container("c1")
-    for f, args in ((".env", ["ls"]), ("compose.personas.yml", ["ls"]), ("compose.personas.yml", ["c1", "ls"])):
-        w = sb.script("wrap/locked-" + f + "-" + args[0],
+    # The personas file is personas.json, or compose.personas.yml in a tree from before it.
+    pf = "personas.json" if os.path.exists(sb.a + "/personas.json") else "compose.personas.yml"
+    for f, args in ((".env", ["ls"]), (pf, ["ls"]), (pf, ["c1", "ls"])):
+        what = ".env" if f == ".env" else "the personas file"
+        w = sb.script("wrap/locked-" + what.replace(" ", "-") + "-" + args[0],
                       'chmod 000 "%s/%s"; "%s/nexus" "$@"; rc=$?; chmod 644 "%s/%s"; exit $rc'
                       % (sb.a, f, sb.a, sb.a, f))
-        sb.run(w, *args, label="(%s unreadable) nexus %s" % (f, " ".join(args)))
+        sb.run(w, *args, label="(%s unreadable) nexus %s" % (what, " ".join(args)))
 
 
 @case("nexus/edge-ls-dotenv-fifo")
@@ -99,6 +106,7 @@ def _(sb):
     # A persona line with a Latin-1 byte (its root): the bash's "set up:" list keeps what .* can't match.
     two_personas(sb)
     edit_line(sb, "c1", lambda l: l + b" root=" + sb.s.encode() + b"/caf\xe9")
+    move_lines(sb)
     sb.run("nexus", "nope")
     sb.run("nexus", "ls")
 
@@ -109,6 +117,7 @@ def _(sb):
     two_personas(sb)
     edit_line(sb, "c1", lambda l: l.replace(b" context=", b"\tcontext="))
     edit_line(sb, "g1", lambda l: l.replace(b"# persona: g1 ", b"# persona: g1\t"))
+    move_lines(sb)
     sb.run("nexus", "ls")
     sb.run("nexus", "c1", "ls")
     sb.run("nexus", "g1", "ls")
@@ -121,6 +130,7 @@ def _(sb):
     two_personas(sb)
     sb.container("c1")
     edit_line(sb, "c1", lambda l: b"# persona: c1 ")
+    move_lines(sb)
     sb.run("nexus", "c1", "ls")
     sb.run("nexus", "ls")
 
@@ -132,6 +142,7 @@ def _(sb):
     edit_line(sb, "c1", lambda l: l.replace(b"# persona: c1 ", b"# persona:   c1   ").replace(b" ", b"  ") + b"   ")
     edit_line(sb, "g1", lambda l: l + b"\n# persona: g1 flavour=claude context=ddev")
     edit_line(sb, "g1", lambda l: l + b"\n# persona: \n\n# persona:\tc9 flavour=claude\n#  persona: c8 flavour=grok")
+    move_lines(sb)
     sb.container("c1")
     sb.run("nexus", "ls")
     sb.run("nexus", "c1", "ls")
@@ -143,6 +154,7 @@ def _(sb):
     two_personas(sb)
     sb.container("c1")
     edit_line(sb, "c1", lambda l: l.replace(b"# persona: c1 ", b"# persona: c\x001 "))
+    move_lines(sb)
     sb.run("nexus", "ls")
 
 

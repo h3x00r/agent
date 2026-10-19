@@ -63,14 +63,9 @@ rc: 0
 command = "/etc/grok/statusline/statusline.sh"
 --- stderr
 (empty)
-## run 6: grep statusline compose.personas.yml  [pipe, cwd a]
+## run 6: grep statusline/ compose.personas.yml  [pipe, cwd a]
 rc: 0
 --- stdout
-# persona: g1 flavour=grok context=docker colour=colour25 statusline=yes
-# persona: c1 flavour=claude context=docker colour=colour28 statusline=no
-      # grok's statusline: the script's directory, so edits and pulls show up live.
       - ./statusline/grok:/etc/grok/statusline:ro
-      # grok's managed config, written by config-tools: personas/grok.toml, then the statusline's
-      # [ui.status_line] with the statusline on. A key in the persona's ~/.grok/config.toml wins.
 --- stderr
 (empty)

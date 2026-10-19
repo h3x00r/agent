@@ -1,0 +1,55 @@
+## run 1: nexus ls  [pipe]
+rc: 0
+--- stdout
+PERSONA  FLAVOUR  CONTEXT  SSH      STATE        PROJECTS ROOT
+c1       claude   docker   own key  not started  <S>/own
+g1       grok     docker   none     not started  <P>
+
+nexus <persona> starts one that isn't running
+--- stderr
+(empty)
+## run 2: nexus c1 start  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-c1  Started
+nexus: c1: Claude defaults from personas/claude.json: model, modelSettings.opus.effortLevel, outputStyle, teammateMode, theme, tui, worktree.baseRef
+## run 3: nexus ls  (c1 running on an older root)  [pipe]
+rc: 0
+--- stdout
+PERSONA  FLAVOUR  CONTEXT  SSH      STATE        PROJECTS ROOT
+c1       claude   docker   own key  healthy      <S>/own
+g1       grok     docker   none     not started  <P>
+
+PERSONA  SESSION  WINDOWS  ATTACHED  DIR
+c1       main           1  no        <S>/older
+
+c1 still runs with the projects root it was created with, <S>/older: nexus c1 restart applies <S>/own, and ends its sessions
+nexus <persona> starts one that isn't running
+--- stderr
+(empty)
+## run 4: nexus c1 start  (running, older root)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+nexus: warning: c1 still runs with the projects root it was created with, <S>/older: nexus c1 restart applies <S>/own, and ends its sessions
+## run 5: nexus c1  (running, older root, from own)  [pipe, cwd own]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: c1 still runs with the projects root it was created with, <S>/older, which <S>/own isn't in: nexus c1 restart applies <S>/own, and ends its sessions (until then, a session it runs can be attached to by name: nexus c1 ls lists them)
+## run 6: nexus top --once  [pipe]
+rc: 0
+--- stdout
+nexus top  <HOST>  <HH:MM:SS>
+
+PERSONA  STATE          CPU     MEM  PANES
+c1       healthy      0.50%  120MiB  no claude running
+g1       not started      -       -  -
+
+no Claude Code or grok pane in a running persona
+--- stderr
+(empty)

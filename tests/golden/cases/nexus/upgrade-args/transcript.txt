@@ -69,10 +69,10 @@ rc: 1
 --- stdout
 (empty)
 --- stderr
-nexus: upgrade: no CLI known for c1's flavour 'other'
+nexus: <A>/personas.json persona 'c1' has flavour 'other', not claude or grok: fix it
 ## run 13: nexus c1 upgrade -x  (flavour=other: the option first)  [pipe]
 rc: 1
 --- stdout
 (empty)
 --- stderr
-nexus: upgrade: unknown option '-x'
+nexus: <A>/personas.json persona 'c1' has flavour 'other', not claude or grok: fix it

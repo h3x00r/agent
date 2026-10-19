@@ -7,9 +7,10 @@ which decides which error wins:
      mkcert dir, and its CA if there is one; a persona with ssh= of its own gets no agent;
   3. upgrade, if that was asked;
   4. a restart, or a persona that isn't running: the checks that keep Docker from making root-owned
-     files (its ssh key, the settings files its service mounts) or a broken mount (an older personas
-     file), the warnings (no mkcert CA, an empty or stale ssh-agent), then compose up and the Claude
-     defaults; a running one: the projects root it was created with, if that isn't the persona's now;
+     files (its ssh key, the settings files its service mounts), then that compose.personas.yml is what
+     personas.json gives (a hand edit isn't used to create one), the warnings (no mkcert CA, an empty or
+     stale ssh-agent), then compose up and the Claude defaults; a running one: the projects root it was
+     created with, if that isn't the persona's now, and a warning if compose.personas.yml is out of step;
   5. start stops here; otherwise where to start (domain.roots.place), then headless or the attach:
      `docker exec -it … tmux new-session -A`, which takes this process over.
 
@@ -27,9 +28,11 @@ Pitfalls (each pinned where named):
 - the session name as $(basename …) gives it, trailing newlines gone, then . and : as _ (golden
   nexus/edge-persona-session-newline, golden nexus/life-attach-names)
 - no TERM: infocmp is asked for dumb, as bash set it (golden nexus/life-attach-term)
+- before creating a container: the key, claude.managed.json, the grok.toml, then compose.personas.yml in step
+  with personas.json (golden nexus/edge-persona-refusal-order, golden nexus/life-legacy-claude-json)
+- out of step at an attach to a running one: a warning, not a refusal (golden nexus/life-legacy-statusline)
 """
 import os
-import re
 import shutil
 
 from agentctl.adapters import docker
@@ -39,9 +42,6 @@ from agentctl.core.shellcompat import bash_basename, mkdir_p, realpath_e, utf8_l
 from agentctl.domain.roots import moved, place
 from agentctl.nexus import headless, ls, upgrade
 from agentctl.nexus.context import Persona, is_socket
-
-SPLIT_STATUSLINE = re.compile(r"\./statusline(:|/settings\.json:)")
-
 
 def die(msg):
     raise NexusError(msg)
@@ -66,13 +66,17 @@ class Run:
         proc.execvp(argv, e)
 
     def personas_text(self):
-        with open(self.ctx.personas_file, "rb") as f:
-            return f.read().decode("utf-8", "surrogateescape")
+        try:
+            with open(self.ctx.personas_file, "rb") as f:
+                return f.read().decode("utf-8", "surrogateescape")
+        except OSError:
+            return ""
+
 
     # --- the defaults merge, after compose up ---
     def claude_defaults(self):
         src = os.path.join(self.ctx.agents_dir, "personas", "claude.json")
-        if not (self.p.has(" flavour=claude ") and os.path.isfile(src)):
+        if not (self.p.flavour == "claude" and os.path.isfile(src)):
             return
         try:
             f = open(src, "rb")
@@ -111,8 +115,8 @@ class Run:
             is_headless, args = True, args[1:]
 
         # 2. preflight
-        if p.get("root"):
-            where = "%s's own, in %s; change it with config-tools" % (p.name, self.ctx.personas_file)
+        if p.own_root:
+            where = "%s's own, in %s; change it with config-tools" % (p.name, self.ctx.json_file)
         else:
             where = "PROJECTS_ROOT from your shell or %s/.env; fix it, or unset it for ~/projects" % a
         if not (len(p.root) >= 2 and p.root.startswith("/")):
@@ -122,7 +126,7 @@ class Run:
         except OSError:
             die("can't create the projects root %s (%s)" % (p.root, where))
         no_ca = False
-        if p.has(" context=ddev "):
+        if p.context == "ddev":
             if "HOME" not in self.env:
                 die("HOME isn't set, so there is no ~/.ddev or mkcert CA to give %s" % p.name)
             home = self.env["HOME"]
@@ -142,13 +146,13 @@ class Run:
             else:
                 self.env["AGENT_CA_CERTS"] = ""
                 no_ca = True
-        own_ssh, key = p.get("ssh"), ""
+        own_ssh, key = p.ssh, ""
         if own_ssh:
             if own_ssh != "none":
                 key = own_ssh if own_ssh.startswith("/") else os.path.join(a, own_ssh)
             self.env["SSH_AUTH_SOCK"] = self.env.get("SSH_AUTH_SOCK") or "/dev/null"
 
-        # 3. upgrade
+        # 3. upgrade: it builds from compose.personas.yml and may recreate the containers, so only from one in step
         if is_upgrade:
             upgrade.Upgrade(self, args).run()
             return 0
@@ -160,18 +164,15 @@ class Run:
                 die("%s's ssh key %s isn't there; config-tools makes one (SSH: new), or points it at another, none or your "
                     "agent" % (p.name, key))
             text = self.personas_text()
-            if SPLIT_STATUSLINE.search(text):
-                die("%s is from before statusline/ was split into claude/ and grok/: re-run %s/config-tools (--yes keeps "
-                    "every setting), then start %s again" % (self.ctx.personas_file, a, p.name))
-            if "./personas/claude.json," in text:
-                die("%s is from before personas/claude.json was split into defaults and claude.managed.json: re-run "
-                    "%s/config-tools (--yes keeps every setting), then start %s again" % (self.ctx.personas_file, a, p.name))
-            if "./personas/claude.managed.json," in text and p.has(" flavour=claude ") \
+            if "./personas/claude.managed.json," in text and p.flavour == "claude" \
                     and not os.path.isfile(os.path.join(a, "personas", "claude.managed.json")):
                 die("%s/personas/claude.managed.json isn't there: restore it (git checkout personas/claude.managed.json), "
                     "or re-run %s/config-tools without it" % (a, a))
             if "./personas/%s.grok.toml," % p.name in text and not os.path.isfile(os.path.join(a, "personas", p.name + ".grok.toml")):
                 die("%s/personas/%s.grok.toml isn't there: re-run %s/config-tools, which writes it" % (a, p.name, a))
+            why = self.ctx.step_problem()
+            if why:
+                die(why)
             if no_ca:
                 self.out.warn("no mkcert CA on this VM yet — run 'mkcert -install' here, then `nexus %s restart`, or "
                               "https://*.ddev.site stays untrusted inside" % p.name)
@@ -223,10 +224,9 @@ class Run:
 
     def attach(self, pl, old, args):
         p, a = self.p, self.ctx.agents_dir
-        text = self.personas_text()
-        if SPLIT_STATUSLINE.search(text) or "./personas/claude.json," in text:
-            self.out.warn("%s is from before a split (statusline/, or the Claude settings): re-run %s/config-tools --yes, "
-                          "then nexus %s restart" % (self.ctx.personas_file, a, p.name))
+        why = self.ctx.step_problem()
+        if why:     # a running one was made from some file: a restart makes it from the one written again
+            self.out.warn("%s, then `nexus %s restart`" % (why, p.name))
         session, cmd = "", []
         if args and args[0] != "--":
             session, args = args[0], args[1:]

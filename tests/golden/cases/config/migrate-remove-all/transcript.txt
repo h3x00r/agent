@@ -1,0 +1,20 @@
+## run 1: config --yes --no-link --no-build --remove c1  [pipe]
+rc: 0
+--- stdout
+config-tools: setting up <A>
+
+Personas:
+  (none yet)
+c1: removed. Its env file and home volume stay; to delete them:
+    docker rm -f agent-c1; docker volume rm agents_c1-home; rm -f <A>/personas/c1.env <A>/personas/c1.key <A>/personas/c1.key.pub <A>/personas/c1.grok.toml 
+personas: none left; compose.personas.yml from before personas.json is kept as compose.personas.yml.bak
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: warning: no personas configured; add some with ./config-tools (or --persona NAME:FLAVOUR:CONTEXT)
+## run 2: nexus ls  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: no personas set up yet: run <A>/config-tools

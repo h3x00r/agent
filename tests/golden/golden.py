@@ -78,6 +78,9 @@ class Sandbox:
                 os.symlink(p, os.path.join(self.bin, t))
         for f in FAKES + tuple(fakes):
             self.fake(f)
+        with open(os.path.join(self.bin, "personas-view"), "w") as f:
+            f.write("#!/bin/sh\nexec %s -I -B %s \"$@\"\n" % (sys.executable, os.path.join(HERE, "personas_view.py")))
+        os.chmod(os.path.join(self.bin, "personas-view"), 0o755)
         with open(os.path.join(self.home, ".gitconfig"), "w") as f:
             f.write("[user]\n\tname = Test User\n\temail = test@example.invalid\n")
         self.world = {"containers": {}, "images": {}, "service_images": {}}

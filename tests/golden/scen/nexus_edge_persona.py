@@ -2,7 +2,7 @@
 cwd mapping and the attach, where the existing life-/basic- scenarios are thin."""
 import os
 
-from scen import case, images, two_personas  # noqa: F401
+from scen import before_personas_json, case, images, move_lines, two_personas  # noqa: F401
 from scen.nexus_edge_ls import no_cnf
 from scen.nexus_lifecycle import LEGACY_CLAUDE_JSON, LEGACY_STATUSLINE, append, defaults, edit, unix_socket, world
 
@@ -18,11 +18,13 @@ def gone_wrapper(sb, rel, nopwd=False):
 def _(sb):
     # A `# persona: c1 ` line with nothing after the name, before c1's real one; and c2 with only that.
     sb.personas("c1:claude:docker")
+    before_personas_json(sb)
     p = sb.path("a/compose.personas.yml")
     with open(p) as f:
         text = f.read()
     with open(p, "w") as f:
         f.write(text.replace("# persona: c1 ", "# persona: c1 \n# persona: c2 \n# persona: c1 ", 1))
+    move_lines(sb)
     sb.run("nexus", "c1", "start", label="nexus c1 start  (first c1 line bare)")
     sb.run("nexus", "c2", "start", label="nexus c2 start  (c2 has a bare line only)")
 

@@ -1,0 +1,36 @@
++ ctr  d 755
++ ctr/c7  d 755
++ ctr/c7/home  d 755
++ ctr/c7/home/.claude  d 755
++ ctr/c7/home/.claude/.nexus-defaults.json  f 644
+    | {
+    |   "model": "opus",
+    |   "modelSettings": {
+    |     "opus": {
+    |       "effortLevel": "xhigh"
+    |     }
+    |   },
+    |   "outputStyle": "Concise",
+    |   "teammateMode": "tmux",
+    |   "theme": "auto",
+    |   "tui": "fullscreen",
+    |   "worktree": {
+    |     "baseRef": "head"
+    |   }
+    | }
++ ctr/c7/home/.claude/settings.json  f 644
+    | {
+    |   "model": "opus",
+    |   "modelSettings": {
+    |     "opus": {
+    |       "effortLevel": "xhigh"
+    |     }
+    |   },
+    |   "outputStyle": "Concise",
+    |   "teammateMode": "tmux",
+    |   "theme": "auto",
+    |   "tui": "fullscreen",
+    |   "worktree": {
+    |     "baseRef": "head"
+    |   }
+    | }

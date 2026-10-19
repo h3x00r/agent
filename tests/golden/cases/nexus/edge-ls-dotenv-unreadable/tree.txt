@@ -43,9 +43,9 @@
     | # AGENT_CPUS must not exceed the VM's vCPU count (nproc), or the container won't start.
     | AGENT_CPUS=3
     | AGENT_MEMORY=8g
-+ wrap/locked-compose.personas.yml-c1  f 755
++ wrap/locked-the-personas-file-c1  f 755
     | #!/bin/sh
-    | chmod 000 "<A>/compose.personas.yml"; "<A>/nexus" "$@"; rc=$?; chmod 644 "<A>/compose.personas.yml"; exit $rc
-+ wrap/locked-compose.personas.yml-ls  f 755
+    | chmod 000 "<A>/personas.json"; "<A>/nexus" "$@"; rc=$?; chmod 644 "<A>/personas.json"; exit $rc
++ wrap/locked-the-personas-file-ls  f 755
     | #!/bin/sh
-    | chmod 000 "<A>/compose.personas.yml"; "<A>/nexus" "$@"; rc=$?; chmod 644 "<A>/compose.personas.yml"; exit $rc
+    | chmod 000 "<A>/personas.json"; "<A>/nexus" "$@"; rc=$?; chmod 644 "<A>/personas.json"; exit $rc

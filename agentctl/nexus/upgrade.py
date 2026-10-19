@@ -23,6 +23,7 @@ Pitfalls (each pinned where named):
 - peers() keeps the CRs (golden nexus/upgrade-crlf-personas)
 - a pin exported in the shell is refused, an empty one too (golden nexus/upgrade-pin-exported)
 - the lock (golden nexus/upgrade-lock)
+- a compose.personas.yml out of step with personas.json: refused before any pin (golden nexus/upgrade-out-of-step)
 """
 import os
 import re
@@ -32,7 +33,6 @@ import urllib.request
 
 from agentctl.core import dotenv, lock, proc, sigs
 from agentctl.core.errors import Exit, Interrupted, NexusError
-from agentctl.core.shellcompat import read_fields
 from agentctl.domain import flavour as flavours
 from agentctl.nexus.context import is_socket
 
@@ -168,25 +168,18 @@ class Upgrade:
         die(msg)
 
     def peers(self):
-        """The personas of this flavour (`grep '^# persona: ' FILE | while read -r _ _ name rest`: no CR
-        stripped), those with ssh of their own, and the first of each context (it builds that image)."""
-        with open(self.ctx.personas_file, "rb") as f:
-            text = f.read().decode("utf-8", "surrogateescape")
+        """The personas of this flavour, in their order; those with ssh of their own; and the first of each
+        context, which builds that context's image."""
         peers, builders, own, seen = [], [], set(), set()
-        for line in text.split("\n"):        # grep ends a last line without a newline with one: it is read
-            if not line.startswith("# persona: "):
+        for per in self.ctx.personas():
+            if per.flavour != self.p.flavour:
                 continue
-            _, _, name, rest = read_fields(line, " \t\n", 4)
-            if " flavour=%s " % self.p.flavour not in " %s " % rest:
-                continue
-            peers.append(name)
-            if " ssh=" in " " + rest:
-                own.add(name)
-            i = rest.find("context=")
-            ctx = (rest[i + len("context="):] if i >= 0 else rest).split(" ", 1)[0] or "none"
-            if ctx not in seen:
-                seen.add(ctx)
-                builders.append(name)
+            peers.append(per.name)
+            if per.ssh:
+                own.add(per.name)
+            if per.context not in seen:
+                seen.add(per.context)
+                builders.append(per.name)
         return peers, builders, own
 
     def run(self):
@@ -200,9 +193,7 @@ class Upgrade:
                 if want:
                     die("upgrade takes one VERSION or CHANNEL, not '%s %s'" % (want, a))
                 want = a
-        fl = flavours.get(self.p.flavour)
-        if not self.p.flavour or fl is None:
-            die("upgrade: no CLI known for %s's flavour '%s'" % (self.p.name, self.p.flavour))
+        fl = flavours.get(self.p.flavour)     # one personas.json takes: load_json refuses any other
         self.cli, self.pin, tagvar, channels = fl.cli, fl.pin_var, fl.tag_var, fl.channels
         a = self.ctx.agents_dir
         if not os.path.isfile(self.env_file):
@@ -211,6 +202,9 @@ class Upgrade:
             die("%s is exported in this shell and beats %s: unset it, then upgrade" % (self.pin, self.env_file))
         if not lock.take(a):
             die("config-tools or another upgrade is running in %s; let it finish first" % a)
+        why = self.ctx.step_problem()     # it builds from that file, and may recreate the containers
+        if why:
+            die(why)
 
         # The version: the one given, or the newest of a channel.
         version = want[1:] if want.startswith("v") else want

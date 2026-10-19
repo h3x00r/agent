@@ -1,7 +1,7 @@
 """The setup tool driven by flags: --help, --list, --yes and its refusals, the files it writes."""
 import os
 
-from scen import NO_LINK, case, images, snapshot_line, two_personas  # noqa: F401
+from scen import NO_LINK, before_personas_json, case, images, snapshot_line, two_personas  # noqa: F401
 
 YES = ("--yes",) + NO_LINK
 
@@ -29,7 +29,8 @@ def env_lines(sb, *names):
 
 
 def persona_lines(sb):
-    return grep(sb, "^# persona: ", "compose.personas.yml")
+    """The personas as `# persona:` lines, from personas.json or the compose file (golden personas_view.py)."""
+    return sb.run(os.path.join(sb.bin, "personas-view"), cwd="a", label="grep ^# persona:  compose.personas.yml")
 
 
 def world(sb, **kw):
@@ -151,7 +152,8 @@ def _(sb):
     os.unlink(sb.path("a/personas/g1.key.pub"))
     # Made anew for a persona that exists, which then needs a restart; c1's given by a ~ path.
     sb.run("config", *YES, "--ssh", "g1:new", "--ssh", "c1:~/keys/c1")
-    grep(sb, "^# persona: |source: '|50-nexus", "compose.personas.yml")
+    persona_lines(sb)
+    grep(sb, "source: '|50-nexus", "compose.personas.yml")
     # ssh-keygen can't write it: a line in the summary, not the end of the run.
     sb.symlink("a/personas/x1.key", sb.path("nowhere/x1.key"))   # a dangling link where x1's key goes
     sb.run("config", *YES, "--persona", "x1:claude:docker", "--ssh", "x1:new")
@@ -211,7 +213,7 @@ def _(sb):
     sb.run("config", *YES, "--statusline", "--persona", "g1:grok:docker")
     persona_lines(sb)
     grep(sb, "status_line|statusline", "personas/g1.grok.toml")
-    grep(sb, "statusline", "compose.personas.yml")
+    grep(sb, "statusline/", "compose.personas.yml")
 
 
 # --- re-runs ---------------------------------------------------------------------------------------
@@ -357,6 +359,7 @@ def _(sb):
 @case("config/cli-list-bad-line")
 def _(sb):
     sb.personas("c1:claude:docker")
+    before_personas_json(sb)     # the lines config-tools reads once, to move them into personas.json
     with open(sb.path("a/compose.personas.yml")) as f:
         text = f.read()
     sb.write("a/compose.personas.yml", text.replace("statusline=yes", "statusline=maybe"))

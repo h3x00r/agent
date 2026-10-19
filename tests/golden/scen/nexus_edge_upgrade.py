@@ -8,7 +8,7 @@ import subprocess
 import threading
 import time
 
-from scen import case
+from scen import before_personas_json, case, move_lines  # noqa: F401
 from scen.nexus_upgrade import (CLAUDE_REPO, OLD, image, no_curl, old_claude, personas,
                                 pin, sessions, templates, world)
 
@@ -469,24 +469,30 @@ def _(sb):
     personas(sb, "c1:claude:docker", "c2:claude:docker", extra=("--ssh", "c2:new"))
     templates(sb)
     old_claude(sb)
+    before_personas_json(sb)
     with open(sb.path("a/compose.personas.yml"), "ab") as f:
         f.write(b"# caf\xe9\n")
+    move_lines(sb)
     sb.run("nexus", "c1", "upgrade", "2.1.400", "-y")
     pin(sb)
     # The byte in c2's own persona line now (a note= field nothing reads).
+    before_personas_json(sb)
     p = sb.path("a/compose.personas.yml")
     with open(p, "rb") as f:
         data = f.read()
     data = data.replace(b"# caf\xe9\n", b"").replace(b"# persona: c2 ", b"# persona: c2 note=caf\xe9 ", 1)
     with open(p, "wb") as f:
         f.write(data)
+    move_lines(sb)
     sb.run("nexus", "c1", "upgrade", "2.1.401", "-y", label="nexus c1 upgrade 2.1.401 -y  (c2's line: note=caf\\xe9)")
     pin(sb)
     # In the upgrading persona's own line (the first).
+    before_personas_json(sb)
     with open(p, "rb") as f:
         data = f.read()
     data = data.replace(b"note=caf\xe9 ", b"").replace(b"# persona: c1 ", b"# persona: c1 note=caf\xe9 ", 1)
     with open(p, "wb") as f:
         f.write(data)
+    move_lines(sb)
     sb.run("nexus", "c1", "upgrade", "2.1.402", "-y", label="nexus c1 upgrade 2.1.402 -y  (c1's line: note=caf\\xe9)")
     pin(sb)

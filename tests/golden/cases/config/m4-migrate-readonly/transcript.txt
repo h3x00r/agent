@@ -1,0 +1,35 @@
+## run 1: config --yes --no-link --no-build  [pipe]
+rc: 1
+--- stdout
+config-tools: setting up <A>
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: can't make a file next to <A>/.env (Permission denied), so nothing was written
+## run 2: ls -a a  [pipe, cwd .]
+rc: 0
+--- stdout
+.
+..
+.case-study.md
+.env
+.env.<TMP>
+.github
+.gitignore
+.hadolint.yaml
+Dockerfile
+LICENSE
+README.md
+agentctl
+compose.personas.yml
+compose.yml
+config-tools
+entrypoint.sh
+nexus
+personas
+runbook.md
+ssh
+statusline
+tests
+tmux.conf
+--- stderr
+(empty)

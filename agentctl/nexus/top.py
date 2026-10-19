@@ -24,6 +24,7 @@ Pitfalls (each pinned where named):
 - a key is one character, all of a UTF-8 one (golden nexus/edge-top-key-utf8)
 - a huge -n waits the longest select() takes (golden nexus/edge-top-n-huge)
 - stdin not a terminal: a sleep, no key read (golden nexus/edge-top-stdin-not-tty)
+- each frame reads the personas again (golden nexus/m4-top-live-reread)
 """
 import os
 import select
@@ -66,12 +67,6 @@ def age(s):
     return "%dd" % (s // 86400)
 
 
-def _field(rest, key):
-    i = rest.find(" %s=" % key)
-    v = rest[i + len(key) + 2:] if i >= 0 else rest
-    return v.split(" ", 1)[0]
-
-
 def _no_controls(s, utf8):
     """bash's ${s//[[:cntrl:]]/}: control characters (C1 too) in a UTF-8 locale, else control bytes."""
     if utf8:
@@ -108,12 +103,12 @@ def frame(ctx, p, every="", head=True):
     now = int(time.time())
     utf8 = text_utf8()
     out = header(p, every) if head else []
-    lines = ctx.personas_lines(unterminated=True)
+    personas = ctx.personas(fresh=True)     # each frame: config-tools may have changed them meanwhile
     errors = [] if head else None
     st = docker.States(ctx.agents_dir, errors)
     for e in errors or ():
         out += e.rstrip("\n").split("\n")
-    names = [l.split(" ", 1)[0] for l in lines]
+    names = [per.name for per in personas]
     pw = max([_length(n, utf8) for n in names] + [0])
     run = ["agent-" + n for n in names if "agent-" + n in st.up]
     cpus, mems = {}, {}
@@ -127,13 +122,9 @@ def frame(ctx, p, every="", head=True):
     prow = [["PERSONA", "STATE", "CPU", "MEM", "PANES"]]
     srow = [["PERSONA", "SESSION", "MODEL", "CONTEXT", "5H", "7D", "COST", "SEEN"]]
     grok = False
-    for pl in lines:
-        name = pl.split(" ", 1)[0]
-        rest = " %s " % pl[len(name):]
-        fl, sl = _field(rest, "flavour"), _field(rest, "statusline")
-        c = "agent-" + name
-        f = flavour.get(fl)
-        cli = f.cli if f else fl
+    for per in personas:
+        name, fl, c = per.name, per.flavour, per.container
+        cli = flavour.get(fl).cli
         state = st.state.get(c, "not started")
         lc = p.state(state)
         if c not in st.up:
@@ -147,7 +138,7 @@ def frame(ctx, p, every="", head=True):
             sess = parts[2] if len(parts) > 2 else ""
             count[sess] = count.get(sess, 0) + 1
         panes = "%d %s" % (len(rows), cli) if rows else "%sno %s running%s" % (p.dim, cli, p.reset)
-        if sl != "yes":
+        if not per.statusline:
             panes += "%s, statusline off%s" % (p.dim, p.reset)
         prow.append([p.bold + name + p.reset, lc + state + p.reset, clean(cpus.get(c, "")), clean(mems.get(c, "")),
                      panes])

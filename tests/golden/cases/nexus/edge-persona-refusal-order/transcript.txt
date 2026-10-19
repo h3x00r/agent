@@ -15,7 +15,7 @@ rc: 1
 --- stdout
 (empty)
 --- stderr
-nexus: <A>/compose.personas.yml is from before statusline/ was split into claude/ and grok/: re-run <A>/config-tools (--yes keeps every setting), then start d1 again
+nexus: <A>/personas/claude.managed.json isn't there: restore it (git checkout personas/claude.managed.json), or re-run <A>/config-tools without it
 ## run 4: nexus c1 ls  (all wrong, not running)  [pipe]
 rc: 1
 --- stdout
@@ -27,7 +27,7 @@ rc: 1
 --- stdout
 (empty)
 --- stderr
-nexus: <A>/compose.personas.yml is from before personas/claude.json was split into defaults and claude.managed.json: re-run <A>/config-tools (--yes keeps every setting), then start c1 again
+nexus: <A>/personas/claude.managed.json isn't there: restore it (git checkout personas/claude.managed.json), or re-run <A>/config-tools without it
 ## run 6: nexus c1 start  (managed gone)  [pipe]
 rc: 1
 --- stdout

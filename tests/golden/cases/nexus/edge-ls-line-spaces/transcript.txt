@@ -1,25 +1,18 @@
 ## run 1: nexus ls  [pipe]
-rc: 0
+rc: 1
 --- stdout
-PERSONA  FLAVOUR      CONTEXT                        SSH      STATE        PROJECTS ROOT
-g1       grok         docker                         own key  not started  <P>
-agent    not started  <P>
-g1       claude       ddev                           agent    not started  <P>
-agent    not started  <P>
-
-nexus <persona> starts one that isn't running
-agent-c1 is healthy, and no persona has it any more: docker rm -f agent-c1 removes it
---- stderr
 (empty)
+--- stderr
+nexus: the personas are still in <A>/compose.personas.yml, from before personas.json: run <A>/config-tools --yes (it keeps every setting)
 ## run 2: nexus c1 ls  [pipe]
 rc: 1
 --- stdout
 (empty)
 --- stderr
-nexus: no persona 'c1' (set up: g1  g1 ); add it with <A>/config-tools
+nexus: the personas are still in <A>/compose.personas.yml, from before personas.json: run <A>/config-tools --yes (it keeps every setting)
 ## run 3: nexus g1 ls  [pipe]
 rc: 1
 --- stdout
 (empty)
 --- stderr
-nexus: g1 isn't running; start it with: nexus g1
+nexus: the personas are still in <A>/compose.personas.yml, from before personas.json: run <A>/config-tools --yes (it keeps every setting)

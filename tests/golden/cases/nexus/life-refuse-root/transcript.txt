@@ -34,18 +34,18 @@ rc: 1
 (empty)
 --- stderr
 nexus: the projects root must be an absolute path, not 'projects' (PROJECTS_ROOT from your shell or <A>/.env; fix it, or unset it for ~/projects)
-## run 7: nexus c1 start  (root=rel/own in its persona line)  [pipe]
+## run 7: nexus c1 start  (its own root=rel/own, by hand)  [pipe]
 rc: 1
 --- stdout
 (empty)
 --- stderr
-nexus: the projects root must be an absolute path, not 'rel/own' (c1's own, in <A>/compose.personas.yml; change it with config-tools)
+nexus: <A>/personas.json persona 'c1' has root 'rel/own': a projects root is an absolute directory other than /, without ':' or spaces: fix it
 ## run 8: nexus c1 start  (its own root=<S>/blocker/own, under a file)  [pipe]
 rc: 1
 --- stdout
 (empty)
 --- stderr
-nexus: can't create the projects root <S>/blocker/own (c1's own, in <A>/compose.personas.yml; change it with config-tools)
+nexus: can't create the projects root <S>/blocker/own (c1's own, in <A>/personas.json; change it with config-tools)
 ## run 9: nexus c1 stop  (the same)  [pipe]
 rc: 0
 --- stdout

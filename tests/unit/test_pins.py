@@ -48,7 +48,8 @@ class Pins(unittest.TestCase):
                     pins = re.findall(PIN, group)
                     if group != "not pinned" and (not pins or re.sub(PIN, "", group).strip(" ,")):
                         missing.append("%s: no pin in %r" % (os.path.relpath(path, ROOT), item.strip()[:60]))
-                    missing += ["%s: %s" % (os.path.relpath(path, ROOT), p) for p in pins if p not in names]
+                    # Every name the item gives, wherever in it: a pin in the middle counts too.
+                    missing += ["%s: %s" % (os.path.relpath(path, ROOT), p) for p in re.findall(PIN, item) if p not in names]
         self.assertEqual(missing, [])
 
 

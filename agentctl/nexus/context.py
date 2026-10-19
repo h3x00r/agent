@@ -1,5 +1,5 @@
 """What every nexus command starts from: the checkout, where you are, the VM's projects root, the identity
-exported for compose, the ssh-agent, and one persona's settings.
+exported for compose, the ssh-agent, the personas (personas.json), and one persona's settings.
 
 As the bash launcher did:
 - AGENTS_DIR is the checkout: $AGENTS_DIR if set, else the directory of the launcher itself (through the
@@ -12,6 +12,11 @@ As the bash launcher did:
   HOME); a persona with a root= of its own uses that. Compose gets the persona's per call; this process
   keeps the shell's.
 - SSH_AUTH_SOCK: yours if it is a socket, else the first of the usual agent sockets, else "" (exported).
+- The personas: personas.json, read once and held to its rules (personas_store.load_json). A checkout
+  still on compose.personas.yml's `# persona:` lines is told to run config-tools --yes, which moves them;
+  one whose personas.json is gone, to put back its .bak. compose.personas.yml is what config-tools
+  generated from it: step_problem() renders it again and compares the bytes (a hand edit makes it out of
+  step).
 
 Pitfalls (each pinned where named):
 - AGENTS_DIR by name: .. after a symlink taken lexically, a leading // kept (golden
@@ -27,11 +32,18 @@ Pitfalls (each pinned where named):
 - an empty PROJECTS_ROOT in the shell counts as unset (golden nexus/edge-ls-dotenv-forms)
 - no HOME (golden nexus/edge-ls-home-unset)
 - the usual agent sockets, in their order (golden nexus/life-ssh-agent-found)
+- personas.json read once, held to its rules, a refusal naming it (golden config/personas-json-refused)
+- a checkout still on the `# persona:` lines is told to run config-tools --yes (golden config/migrate-older-layout);
+  one with no line at all has no personas (golden nexus/basic-personas-empty)
+- step_problem(): the bytes of what personas.json renders, with or without the managed mount (golden
+  nexus/life-legacy-statusline)
+- step_problem(): with or without the managed mount, as the file comes and goes (golden
+  nexus/m4-grok-managed-gone, golden nexus/m4-managed-back); a missing file says so (golden nexus/m4-compose-gone)
 """
 import os
 import stat
 
-from agentctl.adapters import personas_store
+from agentctl.adapters import compose_render, personas_store
 from agentctl.core import dotenv
 from agentctl.core.errors import NexusError
 from agentctl.core.shellcompat import logical, printf_q
@@ -62,6 +74,8 @@ class Context:
             out.warn("this shell sits in a deleted directory; leave it, e.g. cd %s" % printf_q(self.here))
         self.agents_dir = _cd(given, self.here)
         self.personas_file = os.path.join(self.agents_dir, "compose.personas.yml")
+        self.json_file = os.path.join(self.agents_dir, personas_store.JSON)
+        self._personas = None
         env["AGENT_UID"] = env.get("AGENT_UID") or str(os.getuid())
         env["AGENT_GID"] = env.get("AGENT_GID") or str(os.getgid())
         if not is_socket("/var/run/docker.sock"):
@@ -91,13 +105,43 @@ class Context:
         return ["docker", "compose", "-p", "agents", "-f", os.path.join(self.agents_dir, "compose.yml"),
                 "-f", self.personas_file]
 
-    def personas_lines(self, unterminated=False):
-        """The `# persona:` lines (CRLF-safe): as ls reads them, or as top does (unterminated=True)."""
-        return personas_store.lines(self.personas_file, unterminated)
-
     def need_personas(self):
-        if not os.path.isfile(self.personas_file):
-            die("no personas set up yet: run %s/config-tools" % self.agents_dir)
+        w = personas_store.where(self.agents_dir)
+        if w == "json":
+            return
+        if w == "lines":
+            die("the personas are still in %s, from before personas.json: run %s/config-tools --yes (it keeps every "
+                "setting)" % (self.personas_file, self.agents_dir))
+        if w == "lost":
+            die(personas_store.lost(self.agents_dir))
+        die("no personas set up yet: run %s/config-tools" % self.agents_dir)
+
+    def personas(self, fresh=False):
+        """The personas, in their order (the domain's Persona); personas.json read once, or again (FRESH: top's
+        next frame)."""
+        if self._personas is None or fresh:
+            self.need_personas()
+            try:
+                self._personas = personas_store.load_json(self.json_file)
+            except personas_store.BadPersonasJson as e:
+                hint = personas_store.restore_hint(self.json_file)
+                die("%s %s: fix it%s" % (self.json_file, e, ", or " + hint if hint else ""))
+        return self._personas
+
+    def step_problem(self):
+        """Why compose.personas.yml isn't what config-tools generates from personas.json, or "" if it is. It may
+        have the managed-settings mount or not: personas/claude.managed.json comes and goes with a checkout (a
+        git pull, a config-tools run without it), and a start that needs it says so on its own."""
+        try:
+            with open(self.personas_file, "rb") as f:
+                have = f.read()
+        except OSError:
+            return "%s isn't there: %s/config-tools --yes writes it from personas.json" % (self.personas_file,
+                                                                                          self.agents_dir)
+        if any(have == compose_render.render(self.personas(), m).encode("utf-8", "surrogateescape") for m in (True, False)):
+            return ""
+        return ("%s is out of step with personas.json (edited by hand, or written by an older config-tools): "
+                "%s/config-tools --yes writes it again from personas.json" % (self.personas_file, self.agents_dir))
 
 
 def _getcwd_or(default):
@@ -123,27 +167,18 @@ def _cd(given, here):
 
 
 class Persona:
-    """One persona as nexus reads it: its first `# persona:` line, fields looked up as meta_get did."""
+    """One persona as nexus runs it: its settings from personas.json, and the projects root it gets (its own,
+    else the VM's) with where that came from, for the messages."""
 
     def __init__(self, ctx, name):
-        self.name = name
-        self.container = "agent-" + name
-        self.meta = personas_store.meta(ctx.personas_file, name)
-        if self.meta is None:
-            names = " ".join(personas_store.names(ctx.personas_file))
-            die("no persona '%s' (set up: %s); add it with %s/config-tools" % (name, names, ctx.agents_dir))
-        own = self.get("root")
-        self.root = (own or ctx.vm_root)
+        ps = ctx.personas()
+        rec = next((p for p in ps if p.name == name), None)
+        if rec is None:
+            die("no persona '%s' (set up: %s); add it with %s/config-tools"
+                % (name, " ".join(p.name for p in ps), ctx.agents_dir))
+        self.name, self.container = name, rec.container
+        self.flavour, self.context, self.ssh, self.own_root = rec.flavour, rec.context, rec.ssh, rec.root
+        self.root = rec.root or ctx.vm_root
         if self.root.endswith("/"):
             self.root = self.root[:-1]
-        self.root_from = "" if own else " (%s)" % ctx.vm_from
-        self.flavour = self.get("flavour")
-        self.context = self.get("context")
-        self.ssh = self.get("ssh")
-
-    def get(self, key):
-        return personas_store.meta_get(self.meta, key)
-
-    def has(self, field):
-        """Whether the meta line has FIELD (e.g. " flavour=claude "), as bash's [[ $meta == *" … "* ]]."""
-        return field in self.meta
+        self.root_from = "" if rec.root else " (%s)" % ctx.vm_from

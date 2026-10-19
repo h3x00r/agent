@@ -15,6 +15,9 @@ Pitfalls (each pinned where named):
 - norm_dir(): one trailing / goes, a ~user stays as it is (test_domain.Rules.test_norm_dir)
 - next_colour(): past eight personas the colours come round again (test_domain.Rules.test_colours_and_names,
   golden config/cli-colours)
+- from_record(): every key known and of its type, each value held to the rules a line was
+  (test_adapters.PersonasJson.test_what_it_refuses)
+- from_record(): no NUL, no surrogate that isn't a byte (golden config/m4-root-nul, golden nexus/m4-json-by-hand)
 """
 import os
 import re
@@ -120,17 +123,6 @@ def suggest_name(personas, flavour, context):
     return n
 
 
-def meta_line(p):
-    """The persona as its `# persona:` line has it (without the prefix), fields in their fixed order."""
-    s = "%s flavour=%s context=%s colour=%s statusline=%s" % (p.name, p.flavour, p.context, p.colour,
-                                                             "yes" if p.statusline else "no")
-    if p.root:
-        s += " root=" + p.root
-    if p.ssh:
-        s += " ssh=" + p.ssh
-    return s
-
-
 class BadLine(ValueError):
     pass
 
@@ -151,6 +143,69 @@ def parse_meta_line(line):
             or (r and not persona_root_ok(r)) or (k and k != "none" and not key_path_ok(name, k))):
         raise BadLine(name)
     return Persona(name, f, c, col, sl == "yes", r, k)
+
+
+FIELDS = ("flavour", "context", "colour", "statusline", "root", "ssh")
+
+
+class BadRecord(ValueError):
+    """What is wrong with one persona in personas.json, as a phrase after its name."""
+
+
+def _text_ok(v):
+    """No NUL, and no surrogate but those that stand for a byte that isn't UTF-8 (surrogateescape)."""
+    if "\0" in v:
+        return False
+    try:
+        v.encode("utf-8", "surrogateescape")
+    except UnicodeEncodeError:
+        return False
+    return True
+
+
+def to_record(p):
+    """The persona as personas.json holds it under its name: root and ssh only when it has them."""
+    d = {"flavour": p.flavour, "context": p.context, "colour": p.colour, "statusline": p.statusline}
+    if p.root:
+        d["root"] = p.root
+    if p.ssh:
+        d["ssh"] = p.ssh
+    return d
+
+
+def from_record(name, d):
+    """A personas.json entry, held to the rules a `# persona:` line was, and stricter: every key known,
+    each of its type."""
+    if not isinstance(d, dict):
+        raise BadRecord("isn't an object")
+    for k in d:
+        if k not in FIELDS:
+            raise BadRecord("has a key personas.json doesn't take: '%s'" % k)
+    for k in FIELDS[:4]:
+        if k not in d:
+            raise BadRecord("has no %s" % k)
+    for k in ("flavour", "context", "colour", "root", "ssh"):
+        if k in d and not isinstance(d[k], str):
+            raise BadRecord("has a %s that isn't a string" % k)
+        if k in d and not _text_ok(d[k]):
+            raise BadRecord("has a %s with a NUL or a \\u escape no file name can hold" % k)
+    if not isinstance(d["statusline"], bool):
+        raise BadRecord("has a statusline that isn't true or false")
+    if not valid_name(name):
+        raise BadRecord("isn't a persona name: it takes %s" % NAME_RULE)
+    f, c, col, r, k = d["flavour"], d["context"], d["colour"], d.get("root", ""), d.get("ssh", "")
+    if f not in FLAVOURS:
+        raise BadRecord("has flavour '%s', not %s" % (f, " or ".join(FLAVOURS)))
+    if c not in CONTEXTS:
+        raise BadRecord("has context '%s', not %s" % (c, " or ".join(CONTEXTS)))
+    if re.fullmatch(r"colour[0-9]+", col) is None:
+        raise BadRecord("has colour '%s', not colourN" % col)
+    if "root" in d and not persona_root_ok(r):
+        raise BadRecord("has root '%s': a projects root is %s" % (r, ROOT_RULE))
+    if "ssh" in d and k != "none" and not key_path_ok(name, k):
+        raise BadRecord("has ssh '%s': it takes none, personas/%s.key, or an absolute path without spaces, ':', "
+                        "quotes or $" % (k, name))
+    return Persona(name, f, c, col, d["statusline"], r, k)
 
 
 def key_file(p, checkout):

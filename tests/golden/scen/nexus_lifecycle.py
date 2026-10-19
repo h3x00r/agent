@@ -4,7 +4,7 @@ import os
 import re
 import socket
 
-from scen import NO_LINK, case, images, snapshot_line, two_personas  # noqa: F401
+from scen import NO_LINK, case, images, set_field, snapshot_line, two_personas  # noqa: F401
 
 
 # --- helpers -----------------------------------------------------------------------------------------
@@ -68,7 +68,6 @@ def unix_socket(sb, rel):
     return p
 
 
-C1_LINE = "# persona: c1 flavour=claude context=docker colour=colour25 statusline=yes\n"
 # The lines of a personas file from before the splits, as tests/run.sh appends them.
 LEGACY_STATUSLINE = "      - ./statusline:/etc/claude-code/statusline:ro\n"
 LEGACY_CLAUDE_JSON = ("      - { type: bind, source: ./personas/claude.json, "
@@ -235,14 +234,14 @@ def _(sb):
     edit(sb, "a/.env", "PROJECTS_ROOT=" + sb.projects + "\n", "PROJECTS_ROOT=projects\n")
     sb.run("nexus", "c1", "start", label="nexus c1 start  (PROJECTS_ROOT=projects in .env)")
     edit(sb, "a/.env", "PROJECTS_ROOT=projects\n", "PROJECTS_ROOT=" + sb.projects + "\n")
-    # The persona's own root= (config.sh checks it; a hand edit doesn't).
-    edit(sb, "a/compose.personas.yml", C1_LINE, C1_LINE[:-1] + " root=rel/own\n")
-    sb.run("nexus", "c1", "start", label="nexus c1 start  (root=rel/own in its persona line)")
-    edit(sb, "a/compose.personas.yml", " root=rel/own\n", " root=%s\n" % sb.path("blocker/own"))
+    # The persona's own root, edited by hand (config-tools checks it; a hand edit doesn't).
+    set_field(sb, "c1", "root", "rel/own")
+    sb.run("nexus", "c1", "start", label="nexus c1 start  (its own root=rel/own, by hand)")
+    set_field(sb, "c1", "root", sb.path("blocker/own"))
     sb.run("nexus", "c1", "start", label="nexus c1 start  (its own root=<S>/blocker/own, under a file)")
     # The management commands don't check it: it goes to compose as it is.
     sb.run("nexus", "c1", "stop", label="nexus c1 stop  (the same)")
-    edit(sb, "a/compose.personas.yml", " root=%s\n" % sb.path("blocker/own"), "\n")
+    set_field(sb, "c1", "root", None)
 
 
 @case("nexus/life-root-created")
@@ -430,7 +429,7 @@ def _(sb):
     # Where the root it would apply comes from: its own root= (no clause), or the default ~/projects.
     drifted(sb, "c1", "g1")
     edit(sb, "a/.env", "PROJECTS_ROOT=" + sb.projects + "\n", "")
-    edit(sb, "a/compose.personas.yml", C1_LINE, C1_LINE[:-1] + " root=%s\n" % sb.projects)
+    set_field(sb, "c1", "root", sb.projects)
     sb.run("nexus", "c1", "start", label="nexus c1 start  (its own root=<P>)")
     sb.run("nexus", "c1", cwd="old/app", label="nexus c1  (its own root=<P>; in the old root)")
     sb.run("nexus", "g1", "start", label="nexus g1 start  (no PROJECTS_ROOT anywhere: ~/projects)")
@@ -492,9 +491,9 @@ def _(sb):
     sb.run("nexus", "c1", "headless", stdin="", label="printf '' | nexus c1 headless")
     sb.run("nexus", "c1", "headless", "nxt out", cwd="outside")
     sb.run("nexus", "c1", "headless", "nxt out", stdin="x\n", cwd="outside", label="echo x | nexus c1 headless 'nxt out'")
-    edit(sb, "a/compose.personas.yml", "# persona: c1 flavour=claude ", "# persona: c1 flavour=other ")
+    set_field(sb, "c1", "flavour", "other")
     sb.run("nexus", "c1", "headless", "nxt say hi", label="nexus c1 headless 'nxt say hi'  (flavour=other, by hand)")
-    edit(sb, "a/compose.personas.yml", "# persona: c1 flavour=other ", "# persona: c1 flavour=claude ")
+    set_field(sb, "c1", "flavour", "claude")
 
 
 @case("nexus/life-headless-drift")
