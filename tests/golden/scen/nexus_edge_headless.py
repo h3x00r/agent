@@ -274,6 +274,8 @@ def _(sb):
     d = setup(sb, cli_run={"secs": 10}, kill={})
     drv(sb, d, "nexus c1 headless 'nxt long' 2>dead-pipe  (INT to the group mid-run)", "nxt long", stderr="dead",
         steps=[{"wait": "cli", "sig": "INT", "to": "group"}])
+    # The CLI ends at the second signal, so the INT comes while the run is still on, whatever the timing.
+    ctr_set(sb, "c1", cli_run={"secs": 10, "exit_after": 2})
     drv(sb, d, "nexus c1 headless 'nxt long' 2>dead-pipe  (TERM, then INT)", "nxt long", stderr="dead",
         steps=[{"wait": "cli", "sig": "TERM"}, {"wait": "ack", "settle": 0.0, "sig": "INT"}])
 

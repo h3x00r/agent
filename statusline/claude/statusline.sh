@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # /etc/claude-code/statusline/statusline.sh inside Claude personas with the statusline on
 # (compose.personas.yml, written by config-tools, mounts this directory read-only; statusline/claude/settings.json
-# points Claude Code at it). Needs python3, which the persona image has as a dependency of NodeSource's
-# nodejs. The notes below describe the host the script was written on: the image has jq too, but the
-# script only uses python3.
+# points Claude Code at it). Needs python3, which the persona image installs (for this script and APM).
+# The notes below describe the host the script was written on: the image has jq too, but the script only
+# uses python3.
 #
 # Claude Code statusline — inspired by status-liner-demo.sh.
 #

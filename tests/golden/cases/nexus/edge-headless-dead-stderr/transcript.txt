@@ -10,5 +10,6 @@ rc: 130
 --- stdout
 cli: running
 cli: got TERM
+cli: got INT
 --- stderr
 (empty)

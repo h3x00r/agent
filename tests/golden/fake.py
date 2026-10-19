@@ -313,7 +313,7 @@ def docker_exec(world, args):
     return unknown()
 
 
-# A CLI that runs a while (ctr["cli_run"] = {"secs": S, "sig_rc": N, "die": SIG}), and the kill script
+# A CLI that runs a while (ctr["cli_run"] = {"secs": S, "sig_rc": N, "exit_after": N, "die": SIG}), and the kill script
 # sent into the persona (ctr["kill"] = {"sleep": [S1, S2, …]}), which signals it as the real one would: only
 # if the run id it is given is the one the CLI was started with. Both leave marks in SANDBOX/marks (not in
 # tree.txt) for a driver to wait on: cli (pid and run id), kill-N (each kill call), ack (the CLI saw it).
@@ -349,7 +349,7 @@ def fake_cli(world, ctr, env):
             seen += 1
             out("cli: got %s%s\n" % (name, " (ignored)" if run.get("ignore") else ""))
             mark("ack", name + "\n")
-            if not run.get("ignore"):
+            if not run.get("ignore") and seen >= run.get("exit_after", 1):   # exit_after N: ends at the Nth signal
                 return run.get("sig_rc", 0)
         time.sleep(0.02)
     out(ctr.get("reply", "FAKE-REPLY") + "\n")

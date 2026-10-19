@@ -177,3 +177,14 @@ def _(sb):
     sb.run("config", "--list")
     sb.run("config", *YES)
     sb.run("nexus", "ls", label="nexus ls  (after --yes)")
+
+
+@case("config/m4-hand-edit-rewritten")
+def _(sb):
+    # A service edited by hand in the generated file (nexus warned at an attach): --yes writes it again from
+    # personas.json and tells that persona to restart for it, and only that one.
+    sb.personas("c1:claude:docker", "c2:claude:docker")
+    edit(sb, "a/compose.personas.yml", lambda t: t.replace("      - c1-home:/home/dev\n",
+                                                           "      - c1-home:/home/dev\n      - /srv/data:/data\n", 1))
+    sb.run("config", *YES)
+    sb.run("config", *YES, label="config --yes --no-link --no-build  (again: nothing to tell)")

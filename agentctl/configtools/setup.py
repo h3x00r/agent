@@ -33,6 +33,7 @@ Pitfalls (each pinned where named):
   config/m4-configsh-era-grok, golden config/m4-crlf-restart, golden config/m4-tail-edit-no-note)
 - personas.json or its .bak not a file: refused before anything is written (golden config/m4-json-dir, golden
   config/m4-json-bak-dir-zero); a link to it is written through to its target (golden config/m4-json-symlink)
+- a service edited by hand, written again: that persona is told to restart (golden config/m4-hand-edit-rewritten)
 """
 import os
 import pwd
@@ -169,6 +170,19 @@ class Setup:
             if "`nexus %s restart`" % p.name not in told:
                 self.later.append("%s: its service is written from personas.json now, a little differently; `nexus %s "
                                   "restart` applies it (that ends its tmux sessions)" % (p.name, p.name))
+
+    def rewritten_notes(self, old):
+        """compose.personas.yml written again over one that wasn't what personas.json gives (a hand edit; nexus
+        warned at an attach): the personas whose service that changes need a restart for it, and are told so
+        (one told already, by a change of its own, isn't). The managed mount, there or not, doesn't count."""
+        told = "\n".join(self.later)
+        for p in self.personas:
+            if p.name not in self.loaded or "`nexus %s restart`" % p.name in told:
+                continue
+            if any(_service_in(compose_render.service(p, m), old) for m in (True, False)):
+                continue
+            self.later.append("%s: its service in %s wasn't what personas.json gives (edited by hand?); `nexus %s restart` "
+                              "applies the one written now (that ends its tmux sessions)" % (p.name, PERSONAS_FILE, p.name))
 
     # --- 0. the flags, before anything is asked ---
     def check_flags(self):
@@ -714,6 +728,7 @@ class Setup:
                 kept = staging.bakname(PERSONAS_FILE)
                 shutil.copy2(PERSONAS_FILE, kept)
             old_compose = read_or_empty(kept) if kept else ""
+            before = read_or_empty(PERSONAS_FILE) if self.where == "json" else ""
             if self.personas:
                 staging.replace(json_new, os.path.realpath(JSON_FILE), JSON_FILE + ".bak")
                 staging.commit(personas_new, PERSONAS_FILE)
@@ -727,6 +742,8 @@ class Setup:
                     os.unlink(PERSONAS_FILE)
             if self.migrating:
                 self.moved_notes(old_compose, kept)
+            elif self.where == "json" and self.personas:
+                self.rewritten_notes(before)
             elif kept:
                 self.later.append("personas: the %s that was here isn't one config-tools wrote; it is kept as %s"
                                   % (PERSONAS_FILE, kept))

@@ -1,6 +1,6 @@
 # /opt/agents/compose.yml — templates for the persona containers, one long-lived container per
-# persona per VM. No personas here: ./config-tools writes them to compose.personas.yml, and the nexus
-# launcher always loads both files.
+# persona per VM. No personas here: ./config-tools generates them from personas.json into
+# compose.personas.yml, and the nexus launcher always loads both files.
 #
 # Each persona container holds a tmux server; every project you work on gets a tmux
 # session inside it (six projects → six sessions in one container, not six containers).
@@ -9,7 +9,7 @@
 #   nexus <persona> review -- claude --resume
 #   nexus ls                          running personas + their sessions
 #
-# Without the launcher (PROJECTS_ROOT exported as here: the persona's own root= from its "# persona:" line,
+# Without the launcher (PROJECTS_ROOT exported as here: the persona's own "root" from ./personas.json,
 # else the VM's from ./.env; for a ddev persona on a VM without a mkcert CA also AGENT_CA_CERTS= , empty,
 # and mkdir -p ~/.ddev ~/.local/share/mkcert first):
 #   AGENT_UID=$(id -u) AGENT_GID=$(id -g) DOCKER_GID=$(stat -c %g /var/run/docker.sock) \
