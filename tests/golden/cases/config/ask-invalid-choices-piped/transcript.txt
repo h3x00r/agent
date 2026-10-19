@@ -1,10 +1,12 @@
 ## run 1: config --no-link --no-build  [pipe]
 rc: 0
 --- stdout
-nexus --config: setting up <A>
+nexus --config: setting up <A> for the first time
 
-== Personas
-No personas yet; the first one:
+== Shared by every persona (asked once; `shared` in the menu changes them)
+-- saved: the shared settings, in .env
+
+== The first persona
 Flavour:
   1) claude   Claude Code (Anthropic)
   2) grok     Grok Build (xAI)
@@ -26,24 +28,30 @@ SSH (git over ssh) for g1:
   3) new      a key of its own, made as personas/g1.key: add its public half as a deploy key
   4) path     a private key you already have, without a passphrase
 
-  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
-  g1                              grok     docker   yes        the VM's             your agent
-What next?
-  1) add      a new persona
-  2) change   one persona's flavour, context, statusline, projects root or ssh
-  3) remove   one persona (its env file and home volume stay)
-  4) done     go on with the rest of the setup
-
-== VM settings, shared by every persona
-
 == g1: sign-in and identity (personas/g1.env)
+-- saved: g1, a new persona
+g1: add XAI_API_KEY to <A>/personas/g1.env
 
-Personas:
+Shared by every persona
+  projects root   <P>
+  image registry  local (images built on this VM)
+  Claude Code     latest
+  launcher        not on your PATH: link it with launcher, or run <A>/nexus
+Personas
   NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
   g1                              grok     docker   yes        the VM's             your agent
+
+What next?
+  1) list      the shared settings and the personas, again
+  2) add       a new persona
+  3) change    one persona's flavour, context, statusline, projects root or ssh
+  4) remove    one persona (its env file and home volume stay)
+  5) shared    the settings every persona shares: projects root, image registry, Claude Code version
+  6) launcher  link nexus into a directory on your PATH
+  7) images    build (or pull) the image of every persona
+  8) quit
 
 Start one from a project directory:  cd <P>/<project> && nexus g1
-g1: add XAI_API_KEY to <A>/personas/g1.env
 Day-to-day use, upgrades and troubleshooting: runbook.md
 --- stderr
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside

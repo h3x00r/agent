@@ -359,7 +359,7 @@ def _(sb):
 @case("config/cli-list-bad-line")
 def _(sb):
     sb.personas("c1:claude:docker")
-    before_personas_json(sb)     # the lines config-tools reads once, to move them into personas.json
+    before_personas_json(sb)     # the lines nexus --config reads once, to move them into personas.json
     with open(sb.path("a/compose.personas.yml")) as f:
         text = f.read()
     sb.write("a/compose.personas.yml", text.replace("statusline=yes", "statusline=maybe"))

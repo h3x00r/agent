@@ -48,7 +48,7 @@ OLD_HEADER = (
 
 
 def move_lines(sb):
-    """After a hand edit of the `# persona:` lines (see before_personas_json): config-tools --yes, not recorded,
+    """After a hand edit of the `# persona:` lines (see before_personas_json): nexus --config --yes, not recorded,
     which moves them into personas.json (the bash's config.sh wrote them out anew); a line it refuses leaves
     the file as it is, in either tree."""
     sb.setup("config", "--yes", "--no-link", "--no-build", ok=(0, 1))

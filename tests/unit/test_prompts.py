@@ -77,12 +77,6 @@ class Piped(unittest.TestCase):
         with self.assertRaises(NexusError):
             p.choose("C", "z", ["a x"])
 
-    def test_defaults_covers_ask_only(self):
-        p, _, _ = self.make(b"n\n")
-        p.defaults = True
-        self.assertEqual(p.ask("Q", "d"), "d")
-        self.assertFalse(p.yesno("Q", "y"))
-
 
 class Terminal(unittest.TestCase):
     def test_prompts_on_stderr_and_hidden_answers(self):

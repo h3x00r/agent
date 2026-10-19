@@ -2,25 +2,20 @@
 {"argv": ["info"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444"}, "stdin": "tty"}
 {"argv": ["compose", "version"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444"}, "stdin": "tty"}
 {"argv": ["-l"], "cmd": "ssh-add", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444"}, "stdin": "tty"}
-{"argv": ["compose", "--env-file", ".env.<TMP>", "-p", "agents", "-f", "compose.yml", "-f", "compose.personas.yml.<TMP>", "--profile", "all", "config", "-q"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_CA_CERTS": "", "AGENT_GID": "<AGENT_GID>", "AGENT_UID": "<AGENT_UID>", "DOCKER_GID": "<DOCKER_GID>", "SSH_AUTH_SOCK": "/dev/null"}, "stdin": "tty"}
 ## run 2
 {"argv": ["info"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444"}, "stdin": "tty"}
 {"argv": ["compose", "version"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444"}, "stdin": "tty"}
 {"argv": ["-l"], "cmd": "ssh-add", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444"}, "stdin": "tty"}
-{"argv": ["compose", "--env-file", ".env.<TMP>", "-p", "agents", "-f", "compose.yml", "-f", "compose.personas.yml.<TMP>", "--profile", "all", "config", "-q"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_CA_CERTS": "", "AGENT_GID": "<AGENT_GID>", "AGENT_UID": "<AGENT_UID>", "DOCKER_GID": "<DOCKER_GID>", "SSH_AUTH_SOCK": "/dev/null"}, "stdin": "tty"}
 ## run 3
 {"argv": ["info"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444"}, "stdin": "tty"}
 {"argv": ["compose", "version"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444"}, "stdin": "tty"}
 {"argv": ["-l"], "cmd": "ssh-add", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444"}, "stdin": "tty"}
-{"argv": ["compose", "--env-file", ".env.<TMP>", "-p", "agents", "-f", "compose.yml", "-f", "compose.personas.yml.<TMP>", "--profile", "all", "config", "-q"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_CA_CERTS": "", "AGENT_GID": "<AGENT_GID>", "AGENT_UID": "<AGENT_UID>", "DOCKER_GID": "<DOCKER_GID>", "SSH_AUTH_SOCK": "/dev/null"}, "stdin": "tty"}
 ## run 4
 {"argv": ["info"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444"}, "stdin": "tty"}
 {"argv": ["compose", "version"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444"}, "stdin": "tty"}
 {"argv": ["-l"], "cmd": "ssh-add", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444"}, "stdin": "tty"}
-{"argv": ["compose", "--env-file", ".env.<TMP>", "-p", "agents", "-f", "compose.yml", "-f", "compose.personas.yml.<TMP>", "--profile", "all", "config", "-q"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_CA_CERTS": "", "AGENT_GID": "<AGENT_GID>", "AGENT_UID": "<AGENT_UID>", "DOCKER_GID": "<DOCKER_GID>", "SSH_AUTH_SOCK": "/dev/null"}, "stdin": "tty"}
 {"argv": ["ln", "-sfn", "<A>/nexus", "<S>/ro/nexus"], "cmd": "sudo", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444"}, "stdin": "tty"}
 ## run 5
 {"argv": ["info"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444"}, "stdin": "tty"}
 {"argv": ["compose", "version"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444"}, "stdin": "tty"}
 {"argv": ["-l"], "cmd": "ssh-add", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444"}, "stdin": "tty"}
-{"argv": ["compose", "--env-file", ".env.<TMP>", "-p", "agents", "-f", "compose.yml", "-f", "compose.personas.yml.<TMP>", "--profile", "all", "config", "-q"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_CA_CERTS": "", "AGENT_GID": "<AGENT_GID>", "AGENT_UID": "<AGENT_UID>", "DOCKER_GID": "<DOCKER_GID>", "SSH_AUTH_SOCK": "/dev/null"}, "stdin": "tty"}

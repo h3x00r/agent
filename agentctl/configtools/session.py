@@ -80,7 +80,8 @@ class Session:
         self.unchecked = []
         self.env_new = None       # .env, staged
         self.json_new = self.personas_new = None
-        self.root = self.registry = ""
+        self.root = self.registry = self.claude_version = ""
+        self.warned = set()       # the warnings said once a run, however often it saves
 
     # --- small helpers ---
     def say(self, line=""):
@@ -93,6 +94,11 @@ class Session:
 
     def warn(self, msg):
         self.out.warn(msg)
+
+    def warn_once(self, msg):
+        if msg not in self.warned:
+            self.warned.add(msg)
+            self.warn(msg)
 
     def idx(self, name):
         for i, p in enumerate(self.personas):
@@ -314,6 +320,31 @@ class Session:
             self.later.append("%s: removed. Its %s and home volume stay; to delete them:" % (n, what))
             self.later.append("    docker rm -f agent-%s; docker volume rm agents_%s-home; rm -f %s " % (n, n, files))
 
+    # --- the shared settings, as .env has them ---
+    def read_shared(self):
+        """The projects root, the registry and the Claude Code version, as .env has them (or their defaults)."""
+        self.root = dotenv.get(".env", "PROJECTS_ROOT") or self.home + "/projects"
+        self.registry = dotenv.get(".env", "REGISTRY") or "local"
+        self.claude_version = dotenv.get(".env", "CLAUDE_VERSION") or "latest"
+        self.vm_root_hint = "now " + self.root
+
+    def env_flags(self):
+        """--projects-root, --registry and --claude-version into the staged .env, without a question."""
+        o = self.o
+        if o.root:
+            try:
+                mkdir_p(o.root)
+            except OSError:
+                die("can't create the projects root '%s'" % o.root)
+            set_kv(self.env_new, "PROJECTS_ROOT", o.root)
+            self.root, self.vm_root_hint = o.root, "now " + o.root
+        if o.registry:
+            set_kv(self.env_new, "REGISTRY", o.registry)
+            self.registry = o.registry
+        if o.claude:
+            set_kv(self.env_new, "CLAUDE_VERSION", o.claude)
+            self.claude_version = o.claude
+
     # --- saving: .env, the env files, the rest, then all of it in place ---
     def stage_env(self):
         """.env staged from the one there (or .env.example): a GROK_TAG of latest goes."""
@@ -326,8 +357,8 @@ class Session:
         if self.has("ddev"):
             dv = self.vm_ddev or dotenv.get(self.env_new, "DDEV_VERSION")
             if not dv:
-                self.warn("ddev isn't installed on this VM: the ddev personas get the newest ddev; install the same on the VM "
-                          "(pkg.ddev.com) so both agree, and for mkcert")
+                self.warn_once("ddev isn't installed on this VM: the ddev personas get the newest ddev; install the same on "
+                               "the VM (pkg.ddev.com) so both agree, and for mkcert")
             set_kv(self.env_new, "DDEV_VERSION", dv)
         cpus, n = dotenv.get(self.env_new, "AGENT_CPUS"), nproc()
         if not cpus_ok(cpus, n):
@@ -380,7 +411,7 @@ class Session:
                     "would be: %s" % (p.name, p.name, why))
             self.gstaged[p.name] = tmp
         for f in sorted(set(self.unchecked)):
-            self.warn("couldn't check %s (no python3 for it here, nor a persona image yet): a broken one stops the CLI; "
+            self.warn_once("couldn't check %s (no python3 for it here, nor a persona image yet): a broken one stops the CLI; "
                       "re-run nexus --config after the build to check it" % f)
 
         # compose.personas.yml, checked with the rest
@@ -463,3 +494,14 @@ class Session:
         finally:
             for s, h in handlers.items():
                 signal.signal(s, h)
+
+    def saved(self):
+        """After a commit: what is saved is what the next save compares with."""
+        self.loaded = {p.name: self.state(p) for p in self.personas}
+        self.where = "json" if self.personas else "none"
+        self.migrating = self.first = False
+        self.unstage()
+
+    def unstage(self):
+        self.staged, self.gstaged, self.backup, self.unchecked = {}, {}, set(), []
+        self.env_new = self.json_new = self.personas_new = None

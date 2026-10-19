@@ -3,7 +3,8 @@
   session.py    what a run holds: the personas read, the lock, the preflight, and saving (stage, check, commit)
   questions.py  every question it asks, on a terminal, by piped lines, or by their defaults under --yes
   after.py      what follows a save: ssh keys, the launcher link, mkcert, the images
-  scripted.py   the run in one pass, in the bash tool's order
+  scripted.py   --yes (and --list): the run in one pass, in the bash tool's order
+  menu.py       without --yes: a first run's shared settings, then what is set up and a menu, each action saved
   host.py       the small helpers that touch the system
 
 Pitfalls (each pinned where named):
@@ -11,7 +12,7 @@ Pitfalls (each pinned where named):
 """
 import os
 
-from agentctl.configtools import scripted, staging
+from agentctl.configtools import menu, scripted, staging
 from agentctl.configtools.cli import USAGE
 from agentctl.configtools.session import Session
 
@@ -26,6 +27,6 @@ def main(repo, argv, out):
     checkout = checkout(repo)     # after the flags: --help and a bad option touch nothing
     os.chdir(checkout)
     try:
-        return scripted.run(Session(checkout, opts, out))
+        return (scripted if opts.yes or opts.list else menu).run(Session(checkout, opts, out))
     finally:
         staging.cleanup()

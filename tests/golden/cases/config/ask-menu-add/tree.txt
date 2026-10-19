@@ -115,6 +115,13 @@
     |       "context": "docker",
     |       "colour": "colour25",
     |       "statusline": true
+    |     },
+    |     "claude-docker-2": {
+    |       "flavour": "claude",
+    |       "context": "docker",
+    |       "colour": "colour28",
+    |       "statusline": true,
+    |       "ssh": "none"
     |     }
     |   }
     | }

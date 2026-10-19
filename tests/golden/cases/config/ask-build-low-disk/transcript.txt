@@ -1,69 +1,120 @@
 ## run 1: config --no-link  (low on disk: not built)  [tty-in]
 rc: 0
 --- stdout
-nexus --config: setting up <A>
+nexus --config: <A>
 
-== Personas
-
+Shared by every persona
+  projects root   <P>
+  image registry  local (images built on this VM)
+  Claude Code     latest
+  launcher        not on your PATH: link it with launcher, or run <A>/nexus
+Personas
   NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
   c1                              claude   docker   yes        the VM's             your agent
+
 What next?
-  1) add      a new persona
-  2) change   one persona's flavour, context, statusline, projects root or ssh
-  3) remove   one persona (its env file and home volume stay)
-  4) done     go on with the rest of the setup
-
-== VM settings, shared by every persona
-
-== Launcher and images
+  1) list      the shared settings and the personas, again
+  2) add       a new persona
+  3) change    one persona's flavour, context, statusline, projects root or ssh
+  4) remove    one persona (its env file and home volume stay)
+  5) shared    the settings every persona shares: projects root, image registry, Claude Code version
+  6) launcher  link nexus into a directory on your PATH
+  7) images    build (or pull) the image of every persona
+  8) quit
   Only 1 GB is free for Docker (<S>/docker-root); a build from scratch needs about 3 GB, and a full disk
   fails it halfway, often as apt's "At least one invalid signature was encountered".
   Free space first: `docker system df` shows what's used; `docker builder prune` and `docker image prune` free it.
+images: skipped for lack of disk space; after freeing some, run: <A>/nexus c1 build
 
-Personas:
-  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
-  c1                              claude   docker   yes        the VM's             your agent
+What next?
+  1) list      the shared settings and the personas, again
+  2) add       a new persona
+  3) change    one persona's flavour, context, statusline, projects root or ssh
+  4) remove    one persona (its env file and home volume stay)
+  5) shared    the settings every persona shares: projects root, image registry, Claude Code version
+  6) launcher  link nexus into a directory on your PATH
+  7) images    build (or pull) the image of every persona
+  8) quit
 
 Start one from a project directory:  cd <P>/<project> && nexus c1
-images: skipped for lack of disk space; after freeing some, run: <A>/nexus c1 build
 Day-to-day use, upgrades and troubleshooting: runbook.md
 --- stderr (no newline at the end)
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
-choice [done]: Keep them? projects root <P>, image registry local, Claude Code latest [Y/n]: Build the images now? (the first build takes a few minutes) [Y/n]: Build anyway? [y/N]: 
+choice [quit]: Build anyway? [y/N]: choice [quit]: 
 --- echo
+images\r
 \r
 \r
-\r
-\r
-## run 2: config --no-link  (no build)  [tty-in]
+## run 2: config --no-link  (c2 added, its image not built)  [tty-in]
 rc: 0
 --- stdout
-nexus --config: setting up <A>
+nexus --config: <A>
 
-== Personas
-
+Shared by every persona
+  projects root   <P>
+  image registry  local (images built on this VM)
+  Claude Code     latest
+  launcher        not on your PATH: link it with launcher, or run <A>/nexus
+Personas
   NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
   c1                              claude   docker   yes        the VM's             your agent
+
 What next?
-  1) add      a new persona
-  2) change   one persona's flavour, context, statusline, projects root or ssh
-  3) remove   one persona (its env file and home volume stay)
-  4) done     go on with the rest of the setup
+  1) list      the shared settings and the personas, again
+  2) add       a new persona
+  3) change    one persona's flavour, context, statusline, projects root or ssh
+  4) remove    one persona (its env file and home volume stay)
+  5) shared    the settings every persona shares: projects root, image registry, Claude Code version
+  6) launcher  link nexus into a directory on your PATH
+  7) images    build (or pull) the image of every persona
+  8) quit
 
-== VM settings, shared by every persona
+== A new persona
+Flavour:
+  1) claude   Claude Code (Anthropic)
+  2) grok     Grok Build (xAI)
+Context: which kind of projects does it work on?
+  1) ddev     ddev projects: ddev inside, sharing the VM's ddev state and mkcert CA
+  2) docker   projects run with docker compose / Dockerfiles: no ddev
+SSH (git over ssh) for c2:
+  1) agent    your ssh-agent, forwarded: your own keys; starting it then needs an agent in your shell
+  2) none     no ssh: it commits, and you pull and push from the VM, in the same directory
+  3) new      a key of its own, made as personas/c2.key: add its public half as a deploy key
+  4) path     a private key you already have, without a passphrase
 
-== Launcher and images
+== c2: sign-in and identity (personas/c2.env)
+How does c2 sign in to Claude?
+  1) login    interactively, inside the persona (a Claude subscription; kept in its home volume)
+  2) apikey   an Anthropic API key (Console / API billing)
+  3) token    a long-lived token from `claude setup-token` (Pro/Max/Team/Enterprise plan)
+-- saved: c2, a new persona
 
-Personas:
-  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
-  c1                              claude   docker   yes        the VM's             your agent
+What next?
+  1) list      the shared settings and the personas, again
+  2) add       a new persona
+  3) change    one persona's flavour, context, statusline, projects root or ssh
+  4) remove    one persona (its env file and home volume stay)
+  5) shared    the settings every persona shares: projects root, image registry, Claude Code version
+  6) launcher  link nexus into a directory on your PATH
+  7) images    build (or pull) the image of every persona
+  8) quit
 
 Start one from a project directory:  cd <P>/<project> && nexus c1
 Day-to-day use, upgrades and troubleshooting: runbook.md
 --- stderr (no newline at the end)
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
-choice [done]: Keep them? projects root <P>, image registry local, Claude Code latest [Y/n]: Build the images now? (the first build takes a few minutes) [Y/n]: 
+choice [quit]: choice [claude]: choice [docker]: Name [claude-docker]: Statusline (statusline/: model, context, cost; what nexus top shows) in c2? [Y/n]: Projects root for c2 (-: the VM's, now <P>) [-]: choice [agent]: choice [login]: git author name for c2 [Test User]: git author email for c2 [test@example.invalid]: GH_TOKEN for the gh CLI in c2 (hidden; empty to skip): 
+Build agent-claude-docker now, for c2? (seconds for one that is up to date; a first build takes a few minutes) [Y/n]: choice [quit]: 
 --- echo
+add\r
+\r
+\r
+c2\r
+\r
+\r
+\r
+\r
 \r
 \r
 n\r
+\r

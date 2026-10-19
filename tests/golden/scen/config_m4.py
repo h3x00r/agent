@@ -1,4 +1,4 @@
-"""config-tools on personas.json at its edges, from the review of M4: the move from the `# persona:` lines (a
+"""The setup tool on personas.json at its edges, from the review of M4: the move from the `# persona:` lines (a
 config.sh file, CRLF, a rollback and a roll forward, a run cut short), and personas.json that isn't what it
 should be (a directory, a link, a NUL, version true). New behaviour: recorded from the Python (accept)."""
 import os
@@ -127,12 +127,13 @@ def _(sb):
 
 @case("config/m4-menu-unmigrated")
 def _(sb):
-    # The menu on a checkout not yet moved: remove c1, then ^C at the VM settings: nothing written.
+    # The menu on a checkout not yet moved: the move is saved first, then the menu; remove c1, ^C at the
+    # question: the personas as moved, c1 with them.
     two_personas(sb)
     before_personas_json(sb)
     sb.run("config", *NO_LINK, mode="tty-in",
-           steps=[("choice [done]: ", "remove"), ("choice [-]: ", "c1"), ("choice [done]: ", "done"),
-                  ("Keep them? ", "<INT>")], label="config  (menu: remove c1, ^C)")
+           steps=[("choice [quit]: ", "remove"), ("choice [-]: ", "c1"), ("Remove c1? ", "<INT>")],
+           label="config  (moved; menu: remove c1, ^C)")
     sb.run(tool(sb, "ls"), "a", cwd=".", label="ls a")
 
 

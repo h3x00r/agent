@@ -11,8 +11,7 @@ What bash's `read -r -p` did, and these do the same:
   answer on a terminal or use --yes";
 - secret() reads with the terminal's echo off, and always ends the prompt line with a newline on stderr.
 
-With yes=True (--yes) every question takes its default without reading; with defaults=True (a block of
-questions kept as they are) ask() does too, but yesno(), secret() and choose() still ask.
+With yes=True (--yes) every question takes its default without reading.
 
 Pitfalls (each pinned where named):
 - prompts on a terminal only (test_prompts.Terminal.test_prompts_on_stderr_and_hidden_answers,
@@ -24,8 +23,7 @@ Pitfalls (each pinned where named):
 - the end of input (test_prompts.Piped.test_eof, golden config/ask-eof-piped)
 - secret()'s newline, on a pipe too (test_prompts.Piped.test_secret_ends_the_line)
 - the echo back on after a hidden answer (test_prompts.Terminal.test_prompts_on_stderr_and_hidden_answers)
-- yes and defaults (test_prompts.Piped.test_yes_reads_nothing,
-  test_prompts.Piped.test_defaults_covers_ask_only)
+- yes (test_prompts.Piped.test_yes_reads_nothing)
 - choose(): a number only in range, else a key (test_prompts.Piped.test_choose, golden
   config/ask-invalid-choices)
 """
@@ -44,7 +42,6 @@ class Prompter:
     def __init__(self, out, yes=False, fd=0, err=None):
         self.out = out          # an ui.output.Output, for menus and notes on stdout
         self.yes = yes
-        self.defaults = False
         self.fd = fd
         self.err = err or sys.stderr
 
@@ -107,7 +104,7 @@ class Prompter:
 
     # --- the four kinds of question ---
     def ask(self, question, default=""):
-        if self.yes or self.defaults:
+        if self.yes:
             return default
         a = self._read("%s%s: " % (question, " [%s]" % default if default else ""))
         return a or default

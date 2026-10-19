@@ -1,0 +1,175 @@
+## run 1: config --no-link --no-build  [tty-in]
+rc: 130
+--- stdout
+nexus --config: <A>
+
+Shared by every persona
+  projects root   <P>
+  image registry  local (images built on this VM)
+  Claude Code     latest
+  launcher        not on your PATH: link it with launcher, or run <A>/nexus
+Personas
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+
+What next?
+  1) list      the shared settings and the personas, again
+  2) add       a new persona
+  3) change    one persona's flavour, context, statusline, projects root or ssh
+  4) remove    one persona (its env file and home volume stay)
+  5) shared    the settings every persona shares: projects root, image registry, Claude Code version
+  6) launcher  link nexus into a directory on your PATH
+  7) images    build (or pull) the image of every persona
+  8) quit
+
+== A new persona
+Flavour:
+  1) claude   Claude Code (Anthropic)
+  2) grok     Grok Build (xAI)
+Context: which kind of projects does it work on?
+  1) ddev     ddev projects: ddev inside, sharing the VM's ddev state and mkcert CA
+  2) docker   projects run with docker compose / Dockerfiles: no ddev
+SSH (git over ssh) for c2:
+  1) agent    your ssh-agent, forwarded: your own keys; starting it then needs an agent in your shell
+  2) none     no ssh: it commits, and you pull and push from the VM, in the same directory
+  3) new      a key of its own, made as personas/c2.key: add its public half as a deploy key
+  4) path     a private key you already have, without a passphrase
+
+== c2: sign-in and identity (personas/c2.env)
+How does c2 sign in to Claude?
+  1) login    interactively, inside the persona (a Claude subscription; kept in its home volume)
+  2) apikey   an Anthropic API key (Console / API billing)
+  3) token    a long-lived token from `claude setup-token` (Pro/Max/Team/Enterprise plan)
+
+What next?
+  1) list      the shared settings and the personas, again
+  2) add       a new persona
+  3) change    one persona's flavour, context, statusline, projects root or ssh
+  4) remove    one persona (its env file and home volume stay)
+  5) shared    the settings every persona shares: projects root, image registry, Claude Code version
+  6) launcher  link nexus into a directory on your PATH
+  7) images    build (or pull) the image of every persona
+  8) quit
+Which persona to remove?
+  1) c1                              claude, docker
+  2) -        none: back to the menu
+
+What next?
+  1) list      the shared settings and the personas, again
+  2) add       a new persona
+  3) change    one persona's flavour, context, statusline, projects root or ssh
+  4) remove    one persona (its env file and home volume stay)
+  5) shared    the settings every persona shares: projects root, image registry, Claude Code version
+  6) launcher  link nexus into a directory on your PATH
+  7) images    build (or pull) the image of every persona
+  8) quit
+Which persona to change?
+  1) c1                              claude, docker
+  2) -        none: back to the menu
+
+== Change c1
+Flavour:
+  1) claude   Claude Code (Anthropic)
+  2) grok     Grok Build (xAI)
+Context: which kind of projects does it work on?
+  1) ddev     ddev projects: ddev inside, sharing the VM's ddev state and mkcert CA
+  2) docker   projects run with docker compose / Dockerfiles: no ddev
+SSH (git over ssh) for c1:
+  1) agent    your ssh-agent, forwarded: your own keys; starting it then needs an agent in your shell
+  2) none     no ssh: it commits, and you pull and push from the VM, in the same directory
+  3) new      a key of its own, made as personas/c1.key: add its public half as a deploy key
+  4) path     a private key you already have, without a passphrase
+
+What next?
+  1) list      the shared settings and the personas, again
+  2) add       a new persona
+  3) change    one persona's flavour, context, statusline, projects root or ssh
+  4) remove    one persona (its env file and home volume stay)
+  5) shared    the settings every persona shares: projects root, image registry, Claude Code version
+  6) launcher  link nexus into a directory on your PATH
+  7) images    build (or pull) the image of every persona
+  8) quit
+
+== Shared by every persona
+
+What next?
+  1) list      the shared settings and the personas, again
+  2) add       a new persona
+  3) change    one persona's flavour, context, statusline, projects root or ssh
+  4) remove    one persona (its env file and home volume stay)
+  5) shared    the settings every persona shares: projects root, image registry, Claude Code version
+  6) launcher  link nexus into a directory on your PATH
+  7) images    build (or pull) the image of every persona
+  8) quit
+
+Shared by every persona
+  projects root   <P>
+  image registry  local (images built on this VM)
+  Claude Code     latest
+  launcher        not on your PATH: link it with launcher, or run <A>/nexus
+Personas
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+
+What next?
+  1) list      the shared settings and the personas, again
+  2) add       a new persona
+  3) change    one persona's flavour, context, statusline, projects root or ssh
+  4) remove    one persona (its env file and home volume stay)
+  5) shared    the settings every persona shares: projects root, image registry, Claude Code version
+  6) launcher  link nexus into a directory on your PATH
+  7) images    build (or pull) the image of every persona
+  8) quit
+
+== A new persona
+Flavour:
+  1) claude   Claude Code (Anthropic)
+  2) grok     Grok Build (xAI)
+Context: which kind of projects does it work on?
+  1) ddev     ddev projects: ddev inside, sharing the VM's ddev state and mkcert CA
+  2) docker   projects run with docker compose / Dockerfiles: no ddev
+--- stderr (no newline at the end)
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+choice [quit]: choice [claude]: choice [docker]: Name [claude-docker]: Statusline (statusline/: model, context, cost; what nexus top shows) in c2? [Y/n]: Projects root for c2 (-: the VM's, now <P>) [-]: choice [agent]: choice [login]: ANTHROPIC_API_KEY (hidden; empty to skip): 
+git author name for c2 [Test User]: git author email for c2 [test@example.invalid]: GH_TOKEN for the gh CLI in c2 (hidden; empty to skip): 
+config: the new settings don't pass docker compose config, so nothing was written:
+invalid compose project
+choice [quit]: choice [-]: Remove c1? Its env file and home volume stay [y/N]: config: the new settings don't pass docker compose config, so nothing was written:
+invalid compose project
+choice [quit]: choice [-]: choice [claude]: choice [docker]: Statusline (statusline/: model, context, cost; what nexus top shows) in c1? [Y/n]: Projects root for c1 (-: the VM's, now <P>) [-]: choice [agent]: config: the new settings don't pass docker compose config, so nothing was written:
+invalid compose project
+choice [quit]: The VM's projects root, for personas without their own (mounted at the same path inside) [<P>]: Image registry (local = build on this VM) [local]: Claude Code version, for the claude personas: latest | stable | X.Y.Z [latest]: config: the new settings don't pass docker compose config, so nothing was written:
+invalid compose project
+choice [quit]: choice [quit]: choice [claude]: choice [docker]: Name [claude-docker]: Statusline (statusline/: model, context, cost; what nexus top shows) in c3? [Y/n]: Projects root for c3 (-: the VM's, now <P>) [-]: 
+--- echo (no newline at the end)
+add\r
+\r
+\r
+c2\r
+\r
+\r
+\r
+apikey\r
+\r
+\r
+remove\r
+c1\r
+y\r
+change\r
+c1\r
+\r
+\r
+n\r
+\r
+\r
+shared\r
+<S>/vmroot\r
+registry.lan:5000\r
+stable\r
+list\r
+add\r
+\r
+\r
+c3\r
+\r
+^C

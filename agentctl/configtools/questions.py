@@ -31,10 +31,6 @@ SSH_HOW = ["agent    your ssh-agent, forwarded: your own keys; starting it then 
 AUTH = ["login    interactively, inside the persona (a Claude subscription; kept in its home volume)",
         "apikey   an Anthropic API key (Console / API billing)",
         "token    a long-lived token from `claude setup-token` (Pro/Max/Team/Enterprise plan)"]
-MENU = ["add      a new persona",
-        "change   one persona's flavour, context, statusline, projects root or ssh",
-        "remove   one persona (its env file and home volume stay)",
-        "done     go on with the rest of the setup"]
 
 
 def die(msg):
@@ -47,17 +43,14 @@ class Questions:
         self.ask = session.ask
 
     # --- the VM settings, shared by every persona ---
-    def shared(self):
-        """The projects root, the image registry and the Claude Code version, into the staged .env; a "keep
-        them" answered yes takes the three as they are."""
+    def shared(self, title="VM settings, shared by every persona", claude=False):
+        """The projects root, the image registry and the Claude Code version (asked with a Claude persona, or
+        CLAUDE), into the staged .env; what it has is the default."""
         s, o, env_new = self.s, self.s.o, self.s.env_new
         root = o.root or dotenv.get(env_new, "PROJECTS_ROOT") or s.home + "/projects"
         registry = o.registry or dotenv.get(env_new, "REGISTRY") or "local"
         cv = o.claude or dotenv.get(env_new, "CLAUDE_VERSION") or "latest"
-        s.section("VM settings, shared by every persona")
-        if not o.yes and not s.first and os.path.exists(".env") and self.ask.yesno(
-                "Keep them? projects root %s, image registry %s%s" % (root, registry, ", Claude Code " + cv if s.has("claude") else ""), "y"):
-            self.ask.defaults = True
+        s.section(title)
         while True:
             root = s.norm_dir(self.ask.ask("The VM's projects root, for personas without their own (mounted at the same path inside)", root))
             if not rules.root_ok(root):
@@ -85,7 +78,7 @@ class Questions:
             s.say("  local, or a registry like registry.lan:5000 (or registry.lan:5000/team)")
             registry = "local"
         set_kv(env_new, "REGISTRY", registry)
-        if s.has("claude"):
+        if claude or s.has("claude"):
             while True:
                 cv = self.ask.ask("Claude Code version, for the claude personas: latest | stable | X.Y.Z", cv) or "latest"
                 if rules.valid_claude_version(cv):
@@ -97,8 +90,7 @@ class Questions:
             set_kv(env_new, "CLAUDE_VERSION", cv)
         elif o.claude:
             set_kv(env_new, "CLAUDE_VERSION", o.claude)
-        self.ask.defaults = False
-        s.root, s.registry = root, registry
+        s.root, s.registry, s.claude_version, s.vm_root_hint = root, registry, cv, "now " + root
 
     # --- a persona ---
     def flavour_context(self, f, c):
@@ -184,43 +176,6 @@ class Questions:
         opts = ["%s %s, %s" % (pad(p.name, 31), p.flavour, p.context) for p in s.personas]
         n = self.ask.choose("Which persona to %s?" % verb, "-", opts + ["-        none: back to the menu"])
         return None if n == "-" else n
-
-    def persona_menu(self):
-        s = self.s
-        while True:
-            s.say("")
-            s.list()
-            act = self.ask.choose("What next?", "done", MENU)
-            if act == "add":
-                self.add()
-            elif act == "change":
-                n = self.pick("change")
-                if n:
-                    self.change(n)
-            elif act == "remove":
-                n = self.pick("remove")
-                if n:
-                    s.drop(n)
-            else:
-                return
-
-    def adopt(self):
-        s = self.s
-        names = os.listdir("personas") if os.path.isdir("personas") else []
-        for file in sorted(f for f in names if f.endswith(".env") and not f.startswith(".")):   # personas/*.env
-            path = "personas/" + file
-            n = file[:-len(".env")]
-            if not os.path.isfile(path) or not rules.valid_name(n) or n in s.loaded or s.idx(n) is not None:
-                continue
-            f = env_flavour(path)
-            if not self.ask.yesno("Found %s%s: set it up as persona %s?" % (path, " (flavour %s)" % f if f else "", n),
-                                  "y" if s.first else "n"):
-                continue
-            if not f:
-                f = self.ask.choose("Flavour:", "claude", FLAVOURS)
-            c = self.ask.choose(CONTEXT_Q, s.default_context, CONTEXTS)
-            sl = self.ask.yesno("%s %s?" % (SL_Q, n), "y")
-            s.put(Persona(n, f, c, rules.next_colour(s.personas), sl))
 
     # --- the env files: sign-in and identity ---
     def env_files(self):
@@ -329,6 +284,12 @@ class Questions:
         if not (o.build and s.personas and self.ask.yesno(
                 "%s the images now? (the first build takes a few minutes)" % ("Build" if verb == "build" else "Pull"), "y")):
             return False
+        return self.room(verb, s.personas)
+
+    def room(self, verb, personas):
+        """Whether there is room for Docker to build (or pull) the images of PERSONAS: with little, it says so
+        and asks (--yes goes on); a no leaves a note of how to, later."""
+        s, o = self.s, self.s.o
         droot = Docker.root_dir()
         free = free_gb(droot) if droot and os.path.isdir(droot) else None
         if free is not None and free < MIN_FREE_GB:
@@ -339,7 +300,7 @@ class Questions:
                   "`docker image prune` free it.")
             if not o.yes and not self.ask.yesno("%s anyway?" % ("Build" if verb == "build" else "Pull"), "n"):
                 cmds, seen = [], set()
-                for p in s.personas:
+                for p in personas:
                     k = "%s-%s" % (p.flavour, p.context)
                     if k in seen:
                         continue

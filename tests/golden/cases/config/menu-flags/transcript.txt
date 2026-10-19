@@ -1,0 +1,43 @@
+## run 1: config --no-link --no-build --persona c2:claude:docker --registry …  [tty-in]
+rc: 0
+--- stdout
+nexus --config: <A>
+
+== c2: sign-in and identity (personas/c2.env)
+How does c2 sign in to Claude?
+  1) login    interactively, inside the persona (a Claude subscription; kept in its home volume)
+  2) apikey   an Anthropic API key (Console / API billing)
+  3) token    a long-lived token from `claude setup-token` (Pro/Max/Team/Enterprise plan)
+-- saved: what the options said
+
+Shared by every persona
+  projects root   <P>
+  image registry  registry.lan:5000 (images pulled from it)
+  Claude Code     latest
+  launcher        not on your PATH: link it with launcher, or run <A>/nexus
+Personas
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  c2                              claude   docker   yes        the VM's             your agent
+
+What next?
+  1) list      the shared settings and the personas, again
+  2) add       a new persona
+  3) change    one persona's flavour, context, statusline, projects root or ssh
+  4) remove    one persona (its env file and home volume stay)
+  5) shared    the settings every persona shares: projects root, image registry, Claude Code version
+  6) launcher  link nexus into a directory on your PATH
+  7) images    build (or pull) the image of every persona
+  8) quit
+
+Start one from a project directory:  cd <P>/<project> && nexus c1
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr (no newline at the end)
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+choice [login]: git author name for c2 [Test User]: git author email for c2 [test@example.invalid]: GH_TOKEN for the gh CLI in c2 (hidden; empty to skip): 
+choice [quit]: 
+--- echo
+\r
+\r
+\r
+\r

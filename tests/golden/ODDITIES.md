@@ -10,7 +10,7 @@ Lock handling is the exception, already changed on purpose. bash left its lock f
 except the nexus it ran: fd 9 in config.sh, and fd 8 in `nexus upgrade`. The Python tools close it in all
 of them. golden.py ignores fds 8 and 9 for that reason; a lock fd leaked at any other number still shows.
 
-## config-tools
+## nexus --config (config-tools, and config.sh before it)
 - **yesno:** any answer that doesn't start with y or Y counts as no, and the question isn't asked again
   (`maybe` turns the statusline off).
 - **A refused answer resets the default:** after a refused VM root, registry or Claude Code version, the
@@ -146,3 +146,26 @@ generated files' comments, the labels), accepted@cfg M2; each says so in its met
   (nexus/cfg-legacy-header); the next writing run writes it, and each grok persona's config, as they are now,
   with no note for either (config/cfg-legacy-grok).
 - **nexus's usage** has a line for `nexus --config`.
+
+## Changed on purpose: the menu (cfg M3)
+Without --yes, `nexus --config` works by section: a first run (no .env) asks the settings every persona shares
+(the Claude Code version too, with no Claude persona yet), then where to link the launcher (without
+--no-link), then the first persona; every run then shows what is set up and a menu: list, add, change,
+remove, shared, launcher, images, quit. Each action is saved as it is done (the same stage, check and commit
+as a --yes run); --yes and --list are as they were, byte for byte. The interactive cases were rewritten for
+it, accepted@cfg M3 after reading each transcript:
+- **Gone:** the "Found personas/NAME.env: set it up as persona NAME?" questions (an env file of no persona is
+  listed with what is set up, and a persona of that name reuses it); the "Keep them?" question; the launcher,
+  mkcert and image questions at the end of every run (they come with the action they belong to: launcher,
+  images, an add or change, a registry or Claude Code version changed).
+- **remove** asks first ("Remove NAME? … [y/N]").
+- **Options without --yes** (--persona, --projects-root, …) are saved first, then the menu.
+- **The end of input at the menu** is a quit, rc 0; within an action the run stops (rc 1), and what it hadn't
+  saved yet isn't; ^C keeps what was saved before it (rc 130). An action the check refuses is said, nothing of
+  it written (the personas and the shared settings as saved, none of its notes), and the menu comes back; the
+  run then ends with rc 1, as one whose build failed. A first persona refused on a first run gets the menu too.
+- **Options without --yes** set the shared settings once: saved first, then .env's are the defaults.
+- **Warnings** a save gives (no ddev on the VM, a TOML it couldn't check) are said once a run.
+- **Renamed:** config/ask-adopt-first, ask-adopt-later → config/menu-leftover-first, menu-leftover-later;
+  config/ask-keep-vm-no, ask-keep-vm-yes → config/menu-shared, menu-shared-kept. New: config/menu-* (some from
+  the review of cfg M3) and config/ask-tty-first-link.

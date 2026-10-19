@@ -151,6 +151,25 @@
     |     }
     |   }
     | }
++ a/personas.json.bak  f 644
+    | {
+    |   "version": 1,
+    |   "personas": {
+    |     "c1": {
+    |       "flavour": "claude",
+    |       "context": "docker",
+    |       "colour": "colour25",
+    |       "statusline": true
+    |     },
+    |     "c2": {
+    |       "flavour": "claude",
+    |       "context": "docker",
+    |       "colour": "colour28",
+    |       "statusline": false,
+    |       "ssh": "personas/c2.key"
+    |     }
+    |   }
+    | }
 + a/personas/c1.env  f 600
     | # personas/<name>.env for a Claude persona. nexus --config writes it from this template; by hand: copy
     | # it, chmod 600, never commit. Comments stay on their own lines: an inline one after an empty value

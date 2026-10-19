@@ -1,9 +1,9 @@
-"""nexus --config in one pass, from the flags to the summary: the order the bash tool took (the order decides
-which error wins, and what a stopped run has already done):
+"""nexus --config --yes (and --list) in one pass, from the flags to the summary: the order the bash tool took
+(the order decides which error wins, and what a stopped run has already done):
 
   1. refuse root; take the lock (not for --list); read the personas; --list stops here
   2. preflight: Docker, its compose plugin, the ssh-agent, ddev on the VM
-  3. the personas: --remove, --persona, --ssh, then (without --yes) the questions
+  3. the personas: --remove, --persona, --ssh
   4. .env staged: the VM's projects root, the registry, the Claude Code version, DDEV_VERSION, AGENT_CPUS
   5. env files staged for the personas without a fitting one (sign-in and git identity)
   6. the settings files checked (JSON for Claude Code, TOML for grok), each grok persona's config staged
@@ -36,13 +36,6 @@ def run(s):
     hint = o.root or dotenv.get(".env", "PROJECTS_ROOT")
     s.vm_root_hint = "now " + hint if hint else "asked below"
     s.apply_flags()
-    if not o.yes:
-        s.section("Personas")
-        q.adopt()
-        if not s.personas:
-            s.say("No personas yet; the first one:")
-            q.add()
-        q.persona_menu()
     if not s.personas:
         s.warn("no personas configured; add some with nexus --config (or --persona NAME:FLAVOUR:CONTEXT)")
     s.change_notes(old_names)

@@ -430,7 +430,7 @@ def _(sb):
 
 @case("nexus/basic-symlink")
 def _(sb):
-    # Linked into a bin dir, as config-tools does: the checkout is found through the link (any chain of them).
+    # Linked into a bin dir, as nexus --config does: the checkout is found through the link (any chain of them).
     two_personas(sb)
     sb.container("old", state="exited")
     sb.symlink("linkbin/nexus", sb.a + "/nexus")

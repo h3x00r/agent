@@ -7,7 +7,7 @@ from scen.nexus_lifecycle import unix_socket
 
 def edit_line(sb, name, fn):
     """The `# persona: NAME ` line of the personas file (bytes) replaced by fn(line): a hand edit of a checkout
-    from before personas.json (move_lines then has config-tools move them)."""
+    from before personas.json (move_lines then has nexus --config move them)."""
     before_personas_json(sb)
     p = sb.a + "/compose.personas.yml"
     with open(p, "rb") as f:

@@ -1,20 +1,31 @@
 ## run 1: config --no-link --no-build  (change c1: statusline, root, ssh)  [tty-in]
 rc: 0
 --- stdout
-nexus --config: setting up <A>
+nexus --config: <A>
 
-== Personas
-
+Shared by every persona
+  projects root   <P>
+  image registry  local (images built on this VM)
+  Claude Code     latest
+  launcher        not on your PATH: link it with launcher, or run <A>/nexus
+Personas
   NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
   c1                              claude   docker   yes        the VM's             none
+
 What next?
-  1) add      a new persona
-  2) change   one persona's flavour, context, statusline, projects root or ssh
-  3) remove   one persona (its env file and home volume stay)
-  4) done     go on with the rest of the setup
+  1) list      the shared settings and the personas, again
+  2) add       a new persona
+  3) change    one persona's flavour, context, statusline, projects root or ssh
+  4) remove    one persona (its env file and home volume stay)
+  5) shared    the settings every persona shares: projects root, image registry, Claude Code version
+  6) launcher  link nexus into a directory on your PATH
+  7) images    build (or pull) the image of every persona
+  8) quit
 Which persona to change?
   1) c1                              claude, docker
   2) -        none: back to the menu
+
+== Change c1
 Flavour:
   1) claude   Claude Code (Anthropic)
   2) grok     Grok Build (xAI)
@@ -30,27 +41,24 @@ SSH (git over ssh) for c1:
   2) none     no ssh: it commits, and you pull and push from the VM, in the same directory
   3) new      a key of its own, made as personas/c1.key: add its public half as a deploy key
   4) path     a private key you already have, without a passphrase
+-- saved: c1's changes
+c1: changed; `nexus c1 restart` applies it (that ends its tmux sessions)
 
-  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
-  c1                              claude   docker   no         <S>/roots/c1 your agent
 What next?
-  1) add      a new persona
-  2) change   one persona's flavour, context, statusline, projects root or ssh
-  3) remove   one persona (its env file and home volume stay)
-  4) done     go on with the rest of the setup
-
-== VM settings, shared by every persona
-
-Personas:
-  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
-  c1                              claude   docker   no         <S>/roots/c1 your agent
+  1) list      the shared settings and the personas, again
+  2) add       a new persona
+  3) change    one persona's flavour, context, statusline, projects root or ssh
+  4) remove    one persona (its env file and home volume stay)
+  5) shared    the settings every persona shares: projects root, image registry, Claude Code version
+  6) launcher  link nexus into a directory on your PATH
+  7) images    build (or pull) the image of every persona
+  8) quit
 
 Start one from a project directory:  cd <S>/roots/c1/<project> && nexus c1
-c1: changed; `nexus c1 restart` applies it (that ends its tmux sessions)
 Day-to-day use, upgrades and troubleshooting: runbook.md
 --- stderr (no newline at the end)
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
-choice [done]: choice [-]: choice [claude]: choice [docker]: Statusline (statusline/: model, context, cost; what nexus top shows) in c1? [Y/n]: Projects root for c1 (-: the VM's, now <P>) [-]: Projects root for c1 (-: the VM's, now <P>) [-]: Projects root for c1 (-: the VM's, now <P>) [-]: Projects root for c1 (-: the VM's, now <P>) [-]: Projects root for c1 (-: the VM's, now <P>) [-]: choice [none]: choice [done]: Keep them? projects root <P>, image registry local, Claude Code latest [Y/n]: 
+choice [quit]: choice [-]: choice [claude]: choice [docker]: Statusline (statusline/: model, context, cost; what nexus top shows) in c1? [Y/n]: Projects root for c1 (-: the VM's, now <P>) [-]: Projects root for c1 (-: the VM's, now <P>) [-]: Projects root for c1 (-: the VM's, now <P>) [-]: Projects root for c1 (-: the VM's, now <P>) [-]: Projects root for c1 (-: the VM's, now <P>) [-]: choice [none]: choice [quit]: 
 --- echo
 change\r
 c1\r
@@ -64,24 +72,34 @@ rel/dir\r
 <S>/roots/c1/\r
 agent\r
 \r
-y\r
 ## run 2: config --no-link --no-build  (change c1, every default)  [tty-in]
 rc: 0
 --- stdout
-nexus --config: setting up <A>
+nexus --config: <A>
 
-== Personas
-
+Shared by every persona
+  projects root   <P>
+  image registry  local (images built on this VM)
+  Claude Code     latest
+  launcher        not on your PATH: link it with launcher, or run <A>/nexus
+Personas
   NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
   c1                              claude   docker   no         <S>/roots/c1 your agent
+
 What next?
-  1) add      a new persona
-  2) change   one persona's flavour, context, statusline, projects root or ssh
-  3) remove   one persona (its env file and home volume stay)
-  4) done     go on with the rest of the setup
+  1) list      the shared settings and the personas, again
+  2) add       a new persona
+  3) change    one persona's flavour, context, statusline, projects root or ssh
+  4) remove    one persona (its env file and home volume stay)
+  5) shared    the settings every persona shares: projects root, image registry, Claude Code version
+  6) launcher  link nexus into a directory on your PATH
+  7) images    build (or pull) the image of every persona
+  8) quit
 Which persona to change?
   1) c1                              claude, docker
   2) -        none: back to the menu
+
+== Change c1
 Flavour:
   1) claude   Claude Code (Anthropic)
   2) grok     Grok Build (xAI)
@@ -93,30 +111,26 @@ SSH (git over ssh) for c1:
   2) none     no ssh: it commits, and you pull and push from the VM, in the same directory
   3) new      a key of its own, made as personas/c1.key: add its public half as a deploy key
   4) path     a private key you already have, without a passphrase
+  c1 is as it was
 
-  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
-  c1                              claude   docker   no         <S>/roots/c1 your agent
 What next?
-  1) add      a new persona
-  2) change   one persona's flavour, context, statusline, projects root or ssh
-  3) remove   one persona (its env file and home volume stay)
-  4) done     go on with the rest of the setup
-
-== VM settings, shared by every persona
-
-Personas:
-  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
-  c1                              claude   docker   no         <S>/roots/c1 your agent
+  1) list      the shared settings and the personas, again
+  2) add       a new persona
+  3) change    one persona's flavour, context, statusline, projects root or ssh
+  4) remove    one persona (its env file and home volume stay)
+  5) shared    the settings every persona shares: projects root, image registry, Claude Code version
+  6) launcher  link nexus into a directory on your PATH
+  7) images    build (or pull) the image of every persona
+  8) quit
 
 Start one from a project directory:  cd <S>/roots/c1/<project> && nexus c1
 Day-to-day use, upgrades and troubleshooting: runbook.md
 --- stderr (no newline at the end)
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
-choice [done]: choice [-]: choice [claude]: choice [docker]: Statusline (statusline/: model, context, cost; what nexus top shows) in c1? [y/N]: Projects root for c1 (-: the VM's, now <P>) [<S>/roots/c1]: choice [agent]: choice [done]: Keep them? projects root <P>, image registry local, Claude Code latest [Y/n]: 
+choice [quit]: choice [-]: choice [claude]: choice [docker]: Statusline (statusline/: model, context, cost; what nexus top shows) in c1? [y/N]: Projects root for c1 (-: the VM's, now <P>) [<S>/roots/c1]: choice [agent]: choice [quit]: 
 --- echo
 change\r
 1\r
-\r
 \r
 \r
 \r
@@ -126,20 +140,31 @@ change\r
 ## run 3: config --no-link --no-build  (change c1: the ddev context)  [tty-in]
 rc: 0
 --- stdout
-nexus --config: setting up <A>
+nexus --config: <A>
 
-== Personas
-
+Shared by every persona
+  projects root   <P>
+  image registry  local (images built on this VM)
+  Claude Code     latest
+  launcher        not on your PATH: link it with launcher, or run <A>/nexus
+Personas
   NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
   c1                              claude   docker   no         <S>/roots/c1 your agent
+
 What next?
-  1) add      a new persona
-  2) change   one persona's flavour, context, statusline, projects root or ssh
-  3) remove   one persona (its env file and home volume stay)
-  4) done     go on with the rest of the setup
+  1) list      the shared settings and the personas, again
+  2) add       a new persona
+  3) change    one persona's flavour, context, statusline, projects root or ssh
+  4) remove    one persona (its env file and home volume stay)
+  5) shared    the settings every persona shares: projects root, image registry, Claude Code version
+  6) launcher  link nexus into a directory on your PATH
+  7) images    build (or pull) the image of every persona
+  8) quit
 Which persona to change?
   1) c1                              claude, docker
   2) -        none: back to the menu
+
+== Change c1
 Flavour:
   1) claude   Claude Code (Anthropic)
   2) grok     Grok Build (xAI)
@@ -151,36 +176,31 @@ SSH (git over ssh) for c1:
   2) none     no ssh: it commits, and you pull and push from the VM, in the same directory
   3) new      a key of its own, made as personas/c1.key: add its public half as a deploy key
   4) path     a private key you already have, without a passphrase
-
-  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
-  c1                              claude   ddev     no         <S>/roots/c1 your agent
-What next?
-  1) add      a new persona
-  2) change   one persona's flavour, context, statusline, projects root or ssh
-  3) remove   one persona (its env file and home volume stay)
-  4) done     go on with the rest of the setup
-
-== VM settings, shared by every persona
-
-== Launcher and images
-
-Personas:
-  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
-  c1                              claude   ddev     no         <S>/roots/c1 your agent
-
-Start one from a project directory:  cd <S>/roots/c1/<project> && nexus c1
+-- saved: c1's changes
 c1: changed; `nexus c1 restart` applies it (that ends its tmux sessions)
 ddev: run `mkcert -install` on this VM (it comes with ddev), then `nexus <persona> restart`, or https://*.ddev.site stays untrusted inside
+
+What next?
+  1) list      the shared settings and the personas, again
+  2) add       a new persona
+  3) change    one persona's flavour, context, statusline, projects root or ssh
+  4) remove    one persona (its env file and home volume stay)
+  5) shared    the settings every persona shares: projects root, image registry, Claude Code version
+  6) launcher  link nexus into a directory on your PATH
+  7) images    build (or pull) the image of every persona
+  8) quit
+
+Start one from a project directory:  cd <S>/roots/c1/<project> && nexus c1
 Day-to-day use, upgrades and troubleshooting: runbook.md
---- stderr
+--- stderr (no newline at the end)
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
-choice [done]: choice [-]: choice [claude]: choice [docker]: Statusline (statusline/: model, context, cost; what nexus top shows) in c1? [y/N]: Projects root for c1 (-: the VM's, now <P>) [<S>/roots/c1]: choice [agent]: choice [done]: Keep them? projects root <P>, image registry local, Claude Code latest [Y/n]: config: warning: ddev isn't installed on this VM: the ddev personas get the newest ddev; install the same on the VM (pkg.ddev.com) so both agree, and for mkcert
+choice [quit]: choice [-]: choice [claude]: choice [docker]: Statusline (statusline/: model, context, cost; what nexus top shows) in c1? [y/N]: Projects root for c1 (-: the VM's, now <P>) [<S>/roots/c1]: choice [agent]: config: warning: ddev isn't installed on this VM: the ddev personas get the newest ddev; install the same on the VM (pkg.ddev.com) so both agree, and for mkcert
+choice [quit]: 
 --- echo
 change\r
 c1\r
 \r
 1\r
-\r
 \r
 \r
 \r
