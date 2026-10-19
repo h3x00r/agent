@@ -88,6 +88,7 @@ class Menu:
                 s.env_flags()
                 self.save("the personas, moved into personas.json" if s.migrating and not flags else
                           "what the options said" if flags else "", env_staged=True)
+                o.root = o.registry = o.claude = ""   # saved: from now on, .env has them (the defaults of `shared`)
             except NexusError as e:
                 if e.message == EOF_MESSAGE:
                     raise
@@ -98,7 +99,8 @@ class Menu:
                 s.unstage()
                 self.failed = 1
                 del s.later[:]
-        o.root = o.registry = o.claude = ""    # saved: from now on, .env has them (the defaults of `shared`)
+        if first:
+            o.root = o.registry = o.claude = ""   # saved: from now on, .env has them (the defaults of `shared`)
         self.notes()
         for p in s.personas:                   # added by --persona: its image and CA offered, as an add's are
             if p.name not in before:
