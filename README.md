@@ -7,7 +7,7 @@ the VM's Docker daemon, so `docker compose …` (and `ddev …`) typed inside it
 ## Quick start
 
 ```bash
-bash config-tools              # once, in this checkout: add a persona, e.g. claude-team (flavour claude)
+./nexus --config               # once, in this checkout: the shared settings, then a persona, e.g. claude-team
 cd ~/projects/billing          # a project under the projects root
 nexus claude-team -- claude    # first time: session "billing", straight into Claude Code (log in once)
 ```
@@ -25,26 +25,26 @@ How the pieces fit together, as diagrams: [Annex: how it works](#annex-how-it-wo
 
 ## What's in the checkout
 
-The checkout is generic. `./config-tools` decides which personas a VM runs, the flavour of each
+The checkout is generic. `nexus --config` decides which personas a VM runs, the flavour of each
 (Claude Code or Grok Build), and the context each one works in:
 
 - **ddev**: ddev projects. ddev runs inside the persona, sharing the VM's ddev state and mkcert CA.
 - **docker**: projects run with docker compose / Dockerfiles, a Go API say. No ddev at all.
 
 ```
-config-tools            setup CLI: personas, flavours, contexts, .env, launcher link, images
 compose.yml             templates only: _agent (context docker) and _agent-ddev
-personas.json           the personas, written by config-tools (gitignored)
-compose.personas.yml    their services, generated from personas.json by config-tools; don't edit it (gitignored)
+personas.json           the personas, written by nexus --config (gitignored)
+compose.personas.yml    their services, generated from personas.json by nexus --config; don't edit it (gitignored)
 Dockerfile              targets claude | grok, build arg CONTEXT=docker | ddev; no project toolchains on purpose
 entrypoint.sh           keeps the tmux server alive, paints the persona into the status bar
 tmux.conf               session-per-project ergonomics
-nexus                   launcher: `nexus <persona>` from any project dir
-agentctl/               the Python behind nexus and config-tools, which are shims (3.8+, standard library only)
+nexus                   launcher: `nexus <persona>` from any project dir; `nexus --config`: the setup (personas,
+                        flavours, contexts, .env, launcher link, images)
+agentctl/               the Python behind nexus, which is a shim (3.8+, standard library only)
 statusline/claude/      Claude Code's statusline + its setting, for Claude personas with it on; feeds `nexus top`
 statusline/grok/        grok's statusline + its [ui.status_line], for grok personas with it on; feeds `nexus top`
 ssh/                    ssh settings for personas with a key of their own (a deploy key, say), or no ssh
-tests/                  run.sh: end-to-end tests of config-tools and nexus; unit/: unit tests; golden/: recorded
+tests/                  run.sh: end-to-end tests of nexus and nexus --config; unit/: unit tests; golden/: recorded
                         scenarios; secrets.sh: the secret scan (gitleaks)
 .github/workflows/      ci.yml: GitHub Actions on every push and pull request: secret scan, unit tests, run.sh
 runbook.md              setup, day-to-day use, upgrades, troubleshooting, every environment variable
@@ -84,8 +84,9 @@ they are.
   limits per persona.
 - **Agent packages built in.** Microsoft's APM (Agent Package Manager) installs skills, prompts, agents and
   MCP servers for each persona.
-- **Set up in minutes.** Run the installer interactively, or scripted with `--yes`. It writes nothing until
-  every answer checks out. Build the images locally or pull them from your registry.
+- **Set up in minutes.** Run `nexus --config` and answer, or script it with `--yes`. Each step is saved only
+  once it checks out, so one stopped or refused halfway changes nothing. Build the images locally or pull them
+  from your registry.
 
 ## Install on a VM
 
@@ -96,18 +97,21 @@ by step: [runbook.md](runbook.md).
 
 ```bash
 sudo git clone <this repo> /opt/agents && sudo chown -R "$USER" /opt/agents
-/opt/agents/config-tools                   # asks: personas (flavour, context, name, root, ssh), VM settings, sign-in
+/opt/agents/nexus --config                 # asks: the shared settings, the launcher, a first persona; then a menu
 cd ~/projects/billing && nexus claude-ddev # e.g. a persona named claude-ddev: opens session "billing"
 ```
 
-`config-tools` suggests `<flavour>-<context>` names: with the default answers you get `claude-ddev` on a VM
-with ddev, `claude-docker` without. It writes `.env`, `personas/<name>.env` (mode 600), `personas.json` and
-the `compose.personas.yml` generated from it, all together and only once `docker compose config` accepts
-them. Each persona mounts the VM's projects root, or a root of its own; several personas can share one. It
-links the launcher (`/usr/local/bin/nexus`, via sudo if needed), offers `mkcert -install` for ddev contexts,
-and builds the images (or pulls them with a registry). Re-run it to add, change or remove personas.
-`./config-tools --help` lists flags that do the same without questions, e.g.
-`./config-tools --yes --persona claude-docker:claude:docker`.
+The first time, `nexus --config` asks the settings every persona shares (the projects root, the image
+registry, the Claude Code version), where to link the launcher (`/usr/local/bin/nexus`, via sudo if needed),
+and a first persona; it suggests `<flavour>-<context>` names: with the default answers you get `claude-ddev`
+on a VM with ddev, `claude-docker` without. It then builds that persona's image (or pulls it with a registry)
+and offers `mkcert -install` for a ddev context. After that, and every time you run it, it shows what is set
+up and a menu: list, add, change or remove a persona, the shared settings, the launcher, the images. Each
+action is saved when it is done: `.env`, `personas/<name>.env` (mode 600), `personas.json` and the
+`compose.personas.yml` generated from it, all together and only once `docker compose config` accepts them.
+Each persona mounts the VM's projects root, or a root of its own; several personas can share one.
+`nexus --config --help` lists flags that do it all without questions, e.g.
+`nexus --config --yes --persona claude-docker:claude:docker`.
 
 Inside: `claude`, or open a new session straight into it with `nexus claude-ddev review -- claude`
 (the command only runs when the session is created; an existing session is just attached).
@@ -116,7 +120,7 @@ everything running. `nexus ls` shows every persona and its state, and the sessio
 `nexus top` keeps a live view of them (`q` quits), with Claude Code's own figures for each session.
 Every persona also has `apm` ([Agent Package Manager](https://microsoft.github.io/apm/)): `apm install`
 in a project deploys its skills, prompts, agents and MCP servers to that persona's tool (runbook §2).
-In personas with the statusline on (config-tools asks), the CLI's statusline is `statusline/claude/statusline.sh`
+In personas with the statusline on (`nexus --config` asks), the CLI's statusline is `statusline/claude/statusline.sh`
 or `statusline/grok/statusline.sh` (model, dir, branch, context, cost; Claude's also its plan limits); edit it
 here and the next refresh picks it up. A change to `statusline/claude/settings.json` needs
 `nexus <persona> restart`. The same figures are what `nexus top` shows, so a persona without the statusline
@@ -131,7 +135,7 @@ enforced ([Settings for every persona](#settings-for-every-persona)).
   (its `agent.uid` label). After a uid change, also remove the persona's volume (`agents_<persona>-home`).
 - **ddev context: run ddev from inside the persona, not from the VM shell.** DDEV bakes username/uid
   into its web image; alternating between host user and container user forces a rebuild each time.
-- **ddev context: pin DDEV_VERSION to the VM's `ddev version`** (config-tools does). The router and
+- **ddev context: pin DDEV_VERSION to the VM's `ddev version`** (`nexus --config` does). The router and
   ssh-agent are global containers; a version mismatch makes each side recreate them.
 - **Upgrading a CLI = a new image + recreating the containers on it.** `nexus <persona> upgrade [VERSION]`
   does all of it for Claude Code and grok: it pins `CLAUDE_VERSION` or `GROK_VERSION` (the newest release by
@@ -178,14 +182,14 @@ home goes in through a merge that keeps the persona's own choices.
 |---|---|---|---|
 | `personas/claude.json` | defaults: `model`, effort per model, `theme`, `outputStyle`, `tui`, … | nexus merges it into the persona's own `~/.claude/settings.json` each time it creates or starts the container, before any Claude runs: Claude Code has no defaults layer of its own | at `nexus <persona> restart` |
 | `personas/claude.managed.json` | enforced: `permissions.defaultMode`, `skipDangerousModePermissionPrompt`, `env` | compose mounts it read-only as the managed drop-in `/etc/claude-code/managed-settings.d/15-personas.json`, which outranks every other layer | at `nexus <persona> restart`: a single-file mount keeps the version the container started with |
-| `personas/grok.toml` | defaults: all of it | config-tools writes it, with the statusline's `[ui.status_line]` where that's on, to `personas/<name>.grok.toml`; compose mounts that read-only as grok's `/etc/grok/managed_config.toml`, a layer below the persona's own `~/.grok/config.toml` | once config-tools has re-run, at the next grok started in the persona: the file is rewritten in place, so no restart |
+| `personas/grok.toml` | defaults: all of it | `nexus --config` writes it, with the statusline's `[ui.status_line]` where that's on, to `personas/<name>.grok.toml`; compose mounts that read-only as grok's `/etc/grok/managed_config.toml`, a layer below the persona's own `~/.grok/config.toml` | once `nexus --config` has re-run, at the next grok started in the persona: the file is rewritten in place, so no restart |
 
 - The merge records in `~/.claude/.nexus-defaults.json` the keys nexus owns. A key the persona doesn't have gets the
   default; one nexus owns follows a changed default (also after Claude's own migrations, such as `opus` to
   `opus[1m]`); one the persona had, set, changed (`/model`, `/config`) or took out stays its own; and a default
   dropped from `personas/claude.json` goes where nexus owned it. A `settings.json` that isn't JSON, or can't be
   written, is left alone, with a warning. nexus says which keys it set.
-- config-tools checks the files first (JSON; TOML with tomllib) and writes nothing if one wouldn't parse: a broken
+- `nexus --config` checks the files first (JSON; TOML with tomllib) and writes nothing if one wouldn't parse: a broken
   one would stop the CLI in every persona it reaches.
 - Effort as a Claude default goes per model (`modelSettings.opus.effortLevel`): Claude Code ignores a top-level
   `effortLevel` in a user's own settings.
@@ -241,7 +245,7 @@ VM
 │   └── /home/local/work   a root of its own: claude-team
 ├── ssh-agent              its socket is mounted into the personas that use it: your keys stay outside
 ├── ~/.ddev + mkcert CA    shared with ddev-context personas
-└── ~/agent                checkout: config-tools, nexus, .env, personas.json, compose files,
+└── ~/agent                checkout: nexus, .env, personas.json, compose files,
                            personas/ (*.env, *.key, grok.toml)
 ```
 
@@ -271,29 +275,30 @@ statusline/claude/settings.json ── mount (ro) ───► /etc/claude-code/
 
                                                    inside a grok persona
 personas/grok.toml ──────┐
-statusline/grok/         ├─ config-tools ─► personas/<name>.grok.toml ─ mount (ro) ─► /etc/grok/managed_config.toml
-  settings.toml ─────────┘  (statusline on)                                            below ~/.grok/config.toml, which wins
+statusline/grok/         ├─ nexus --config ─► personas/<name>.grok.toml ─ mount (ro) ─► /etc/grok/managed_config.toml
+  settings.toml ─────────┘  (statusline on)                                              below ~/.grok/config.toml, which wins
 ```
 
-### Setup, once per VM (re-run it to change anything)
+### Setup, once per VM (run it again to change anything)
 
 ```text
-bash config-tools
-  │  personas:  first run: add one (flavour, context, name, statusline, projects root; - = the VM's, ssh)
-  │             re-run:    the list and a menu: add · change · remove · done (it asks which persona)
-  │  VM:        projects root, registry, Claude Code version (a re-run asks only whether to keep them)
-  │  new ones:  sign-in key/token, git identity, GH_TOKEN
+nexus --config
+  │  first run:  shared settings: projects root, registry, Claude Code version   ─► .env
+  │              the launcher: links /usr/local/bin/nexus
+  │              the first persona: flavour, context, name, statusline, projects root (- = the VM's), ssh,
+  │                then its sign-in key/token, git identity, GH_TOKEN               ─► saved, its image built
   ▼
-writes .env, personas.json, personas/<name>.env    all together, or nothing
-  │    and compose.personas.yml, generated from personas.json
+what is set up (shared settings, launcher, personas, env files of no persona), and a menu:
+  list · add · change · remove · shared · launcher · images · quit
+  │  each action: its questions, then saved: .env, personas.json, personas/<name>.env, and
+  │               compose.personas.yml generated from personas.json; all together, or nothing
+  │  then:        personas/<name>.key for a new ssh key (its public half shown, to add), the image
   ▼
-makes personas/<name>.key for a persona given a new ssh key, and shows its public half to add
-  ▼
-links /usr/local/bin/nexus
-  ▼
-builds one image per flavour × context      (pulls instead when a registry is set)
-  local/agent-claude-ddev:<ver>    local/agent-grok-ddev:<ver>
+quit: how to start one
 ```
+
+`nexus --config --yes [options]` does it all in one go, without questions: the settings, the personas, the link,
+one image per flavour × context (`local/agent-claude-ddev:<ver>`, …; pulled instead when a registry is set).
 
 ### Daily use
 
@@ -343,7 +348,7 @@ git diff | nexus claude-max headless "review this diff" --output-format json
 
 ```text
 nexus claude-max upgrade [VERSION | stable] [-y]
-  ├─ takes the lock (one config-tools or upgrade at a time)
+  ├─ takes the lock (one nexus --config or upgrade at a time)
   ├─ looks up the newest version (downloads.claude.ai; x.ai/cli for grok)
   ├─ pins CLAUDE_VERSION in .env ─────────── on a failure or Ctrl-C, the old pin goes back
   ├─ builds each context's image, checks `claude --version`
