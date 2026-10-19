@@ -10,23 +10,6 @@ rc: 0
 \e[K
 \e[90mPERSONA  STATE        CPU  MEM  PANES\e[0m\e[K
 \e[1mc1\e[0m       \e[90mnot started\e[0m    -    -  -\e[K
-\e[K
-\e[90mno Claude Code or grok pane in a running persona\e[0m\e[K\e[J\e[H\e[1mnexus top\e[0m  <HOST>  <HH:MM:SS>  \e[90mevery 1s, q quits, any other key redraws\e[0m\e[K
-\e[K
-\e[90mPERSONA  STATE        CPU  MEM  PANES\e[0m\e[K
-\e[1mc1\e[0m       \e[90mnot started\e[0m    -    -  -\e[K
-\e[1mc2\e[0m       \e[90mnot started\e[0m    -    -  -\e[K
-\e[K
-\e[90mno Claude Code or grok pane in a running persona\e[0m\e[K\e[J\e[H\e[1mnexus top\e[0m  <HOST>  <HH:MM:SS>  \e[90mevery 1s, q quits, any other key redraws\e[0m\e[K
-\e[K
-\e[90mPERSONA  STATE        CPU  MEM  PANES\e[0m\e[K
-\e[1mc1\e[0m       \e[90mnot started\e[0m    -    -  -\e[K
-\e[1mc2\e[0m       \e[90mnot started\e[0m    -    -  -\e[K
-\e[K
-\e[90mno Claude Code or grok pane in a running persona\e[0m\e[K\e[J\e[H\e[1mnexus top\e[0m  <HOST>  <HH:MM:SS>  \e[90mevery 1s, q quits, any other key redraws\e[0m\e[K
-\e[K
-\e[90mPERSONA  STATE        CPU  MEM  PANES\e[0m\e[K
-\e[1mc1\e[0m       \e[90mnot started\e[0m    -    -  -\e[K
 \e[1mc2\e[0m       \e[90mnot started\e[0m    -    -  -\e[K
 \e[K
 \e[90mno Claude Code or grok pane in a running persona\e[0m\e[K\e[J\e[?7h\e[?25h\e[?1049l

@@ -13,6 +13,14 @@ def hms(text):
     return re.sub(r"(nexus top(?:\\e\[[0-9;]*m)?  \S*  )\d\d:\d\d:\d\d", r"\1<HH:MM:SS>", text)
 
 
+def frames(text):
+    """hms, and top's frames (and the docker calls each one makes) as they change, not how many of each came:
+    that depends on how fast the machine draws them."""
+    parts = re.split(r"(?=\\e\[H)|(?=\\e\[\?7h\\e\[\?25h\\e\[\?1049l)", hms(text))
+    text = "".join(p for i, p in enumerate(parts) if i == 0 or p != parts[i - 1])
+    return re.sub(r'^(\{"argv".*\n)(?:\1)+', r"\1", text, flags=re.M)
+
+
 MANAGED = "a/personas/claude.managed.json"
 
 
@@ -102,9 +110,10 @@ def _(sb):
     sb.run("nexus", "c1", "start", label="nexus c1 start  (a key path with a latin1 byte)")
 
 
-@case("nexus/m4-top-live-reread", norm=hms)
+@case("nexus/m4-top-live-reread", norm=frames)
 def _(sb):
-    # nexus --config adds a persona while `nexus top` is open: bash's top read the personas each frame.
+    # nexus --config adds a persona while `nexus top` is open: bash's top read the personas each frame. q goes once
+    # c2 is drawn, and the frames count as they change (a slow machine draws fewer in the time).
     sb.personas("c1:claude:docker")
     keep = {}
     for f in ("personas.json", "compose.personas.yml"):
@@ -117,7 +126,7 @@ def _(sb):
         sb.write("a/" + f, keep[f])
     w = sb.script("wrap", "cd %s && (sleep 2; for f in personas.json compose.personas.yml; do [ -e $f.two ] && cp $f.two $f; "
                   "done) & exec %s/nexus top -n 1" % (sb.a, sb.a))
-    sb.run(w, mode="tty-all", steps=[("q quits", "<SLEEP>4.5"), ("q quits", "q")], label="nexus top -n 1  (c2 added at 2 s)")
+    sb.run(w, mode="tty-all", steps=[("\x1b[1mc2\x1b[0m", "q")], label="nexus top -n 1  (c2 added at 2 s)")
 
 
 def _json(sb, data, raw=None):
