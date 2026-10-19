@@ -3,7 +3,7 @@
 
   1. refuse root; take the lock (not for --list); read the personas; --list stops here
   2. preflight: Docker, its compose plugin, the ssh-agent, ddev on the VM
-  3. the personas: --remove, --persona, --ssh
+  3. the personas: --remove, --persona, --ssh, --permissions
   4. .env staged: the VM's projects root, the registry, the Claude Code version, DDEV_VERSION, AGENT_CPUS
   5. env files staged for the personas without a fitting one (sign-in and git identity)
   6. the settings files checked (JSON for Claude Code, TOML for grok), each grok persona's config staged

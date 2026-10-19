@@ -130,6 +130,24 @@ def new_id(w, ref):
     return "sha256:%064x" % (int(hashlib.sha256(("%s#%d" % (ref, w["counter"])).encode()).hexdigest(), 16))
 
 
+ASK_TARGET = "/etc/claude-code/managed-settings.d/16-ask.json"
+
+
+def service_text(files, service):
+    """SERVICE's lines in the compose files given (compose.personas.yml's), or ""."""
+    for f in files:
+        try:
+            with open(f, encoding="utf-8", errors="surrogateescape") as fh:
+                text = fh.read()
+        except OSError:
+            continue
+        at = text.find('\n  "%s":\n' % service)
+        if at >= 0:
+            end = text.find('\n  "', at + 1)
+            return text[at:end if end >= 0 else len(text)]
+    return ""
+
+
 def compose(world, args):
     w = world.w
     files, profile, i = [], None, 0
@@ -171,6 +189,7 @@ def compose(world, args):
         ref = service_image(w, service) or "local/agent-%s:latest" % service
         img = w["images"].get(ref, {}).get("id") or new_id(w, ref)
         name = "agent-" + service
+        mounts = [ASK_TARGET] if ASK_TARGET in service_text(files, service) else []
         w["containers"][name] = {
             "state": "running", "status": "Up Less than a second (health: starting)", "image": img,
             "env": {"PROJECTS_ROOT": os.environ.get("PROJECTS_ROOT", "")},
@@ -178,6 +197,8 @@ def compose(world, args):
             "sessions": [{"name": "main", "windows": 1, "attached": 0, "path": os.environ.get("PROJECTS_ROOT", "")}],
             "home": w["containers"].get(name, {}).get("home") or os.path.join(SB, "ctr", service, "home"),
         }
+        if mounts:
+            w["containers"][name]["mounts"] = mounts
         world.save()
         err(" Container %s  %s\n" % (name, "Recreated" if "--force-recreate" in rest else "Started"))
         return 0
@@ -262,6 +283,19 @@ def docker_exec(world, args):
             if ctr.get("panes_hang"):                   # a probe that hangs after its output
                 world.close()
                 time.sleep(ctr["panes_hang"])
+            return 0
+        if "NEXUS_PERMISSIONS" in script and "managed-settings.d" in script:
+            # The permissions probe: no_wrapper (an image from before claude-mode.sh), the mode the mounts give
+            # (16-ask.json: ask), and the session asked about, if it is there, with its "permissions" (? as the
+            # probe says when it can't read it); perm_probe_rc: a probe that fails, saying nothing.
+            if ctr.get("perm_probe_rc"):
+                return ctr["perm_probe_rc"]
+            out("wrapper=%s\n" % ("no" if ctr.get("no_wrapper") else "yes"))
+            out("config=%s\n" % ("ask" if ASK_TARGET in ctr.get("mounts", []) else "bypass"))
+            want = cmd[4] if len(cmd) > 4 else ""
+            for s in ctr.get("sessions", []):
+                if want and s["name"] == want:
+                    out("session=%s\n" % s.get("permissions", ""))
             return 0
         if "NEXUS_RUN" in script:
             if "kill" not in ctr:
@@ -399,6 +433,10 @@ def inspect(world, args):
         elif "PROJECTS_ROOT" in fmt and fmt.startswith("{{.Name}}"):
             pr = ctr["env"].get("PROJECTS_ROOT")
             out("/" + n + ("\tPROJECTS_ROOT=" + pr if pr is not None else "") + "\n")
+        elif fmt == "{{range .Mounts}}{{println .Destination}}{{end}}":
+            for m in ctr.get("mounts", []):
+                out(m + "\n")
+            out("\n")
         elif fmt == "{{range .Config.Env}}{{println .}}{{end}}":
             for k, v in sorted(ctr["env"].items()):
                 out("%s=%s\n" % (k, v))

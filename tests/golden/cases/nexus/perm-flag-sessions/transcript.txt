@@ -1,0 +1,78 @@
+## run 1: nexus c1 --skip-bypass-permissions -- claude  [pipe, cwd projects/new]
+rc: 0
+--- stdout
+[fake attach: new-session -s new -c <P>/new -e NEXUS_PERMISSIONS=ask claude]
+--- stderr
+(empty)
+## run 2: nexus c1 s2 --skip-bypass-permissions -- claude --resume  [pipe]
+rc: 0
+--- stdout
+[fake attach: new-session -s s2 -c <P> -e NEXUS_PERMISSIONS=ask claude --resume]
+--- stderr
+(empty)
+## run 3: nexus c2 --bypass-permissions  [pipe, cwd projects/new]
+rc: 0
+--- stdout
+[fake attach: new-session -s new -c <P>/new -e NEXUS_PERMISSIONS=bypass]
+--- stderr
+(empty)
+## run 4: nexus c1 --bypass-permissions s3  [pipe]
+rc: 0
+--- stdout
+[fake attach: new-session -s s3 -c <P> -e NEXUS_PERMISSIONS=bypass]
+--- stderr
+(empty)
+## run 5: nexus c2 --skip-bypass-permissions s4 -- claude  [pipe]
+rc: 0
+--- stdout
+[fake attach: new-session -s s4 -c <P> -e NEXUS_PERMISSIONS=ask claude]
+--- stderr
+(empty)
+## run 6: nexus c1 --skip-bypass-permissions asks  [pipe]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s asks -c <P>]
+--- stderr
+(empty)
+## run 7: nexus c2 --bypass-permissions bypasses  [pipe]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s bypasses -c <P>]
+--- stderr
+(empty)
+## run 8: nexus c1 --skip-bypass-permissions  [pipe, cwd projects/app]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: session app already runs its tools without asking (c1's own setting): end it, or name a new session: nexus c1 --skip-bypass-permissions NAME
+## run 9: nexus c1 --bypass-permissions asks  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: session asks already asks before running tools (it was started with --skip-bypass-permissions): end it, or name a new session: nexus c1 --bypass-permissions NAME
+## run 10: nexus c2 --bypass-permissions app  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: session app already asks before running tools (c2's own setting): end it, or name a new session: nexus c2 --bypass-permissions NAME
+## run 11: nexus c2 --skip-bypass-permissions bypasses  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: session bypasses already runs its tools without asking (it was started with --bypass-permissions): end it, or name a new session: nexus c2 --skip-bypass-permissions NAME
+## run 12: nexus c1 --skip-bypass-permissions unread  (its mode can't be read)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: can't read the mode session unread runs in: name a new session, nexus c1 --skip-bypass-permissions NAME
+## run 13: nexus c1 asks  [pipe]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s asks -c <P>]
+--- stderr
+(empty)

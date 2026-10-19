@@ -1,0 +1,30 @@
+## run 1: nexus c1 headless nxt hi --skip-bypass-permissions  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+FAKE-REPLY
+--- stderr
+(empty)
+## run 2: nexus c1 --skip-bypass-permissions headless -- nxt hi --output-format json  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+FAKE-REPLY
+--- stderr
+(empty)
+## run 3: nexus c1 headless --bypass-permissions 'nxt hi'  (its own mode, set all the same)  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+FAKE-REPLY
+--- stderr
+(empty)
+## run 4: nexus c2 headless nxt hi --bypass-permissions  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+FAKE-REPLY
+--- stderr
+(empty)
+## run 5: nexus c2 headless 'nxt hi'  (no word)  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+FAKE-REPLY
+--- stderr
+(empty)

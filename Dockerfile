@@ -183,7 +183,12 @@ USER dev
 
 # Last stage = what a plain `docker build .` produces.
 FROM base AS claude
-COPY --from=claude-cli /usr/local/bin/claude /usr/local/bin/claude
+# Claude Code itself is /usr/local/libexec/claude; `claude` is claude-mode.sh, which adds the --permission-mode
+# that `nexus <persona> --skip-bypass-permissions | --bypass-permissions` set for a session (NEXUS_PERMISSIONS).
+COPY --from=claude-cli /usr/local/bin/claude /usr/local/libexec/claude
+COPY --chmod=0755 claude-mode.sh /usr/local/bin/claude
+# What an agent team's teammates start as in a session that asks, or doesn't (claude-mode.sh says).
+RUN ln -s /usr/local/bin/claude /usr/local/libexec/claude-ask && ln -s /usr/local/bin/claude /usr/local/libexec/claude-bypass
 COPY --from=claude-cli /etc/claude-code /etc/claude-code
 COPY --from=apm-cli /opt/apm /opt/apm
 # apm --version: APM runs on this image's python3 and git (it leaves a /root/.apm behind).

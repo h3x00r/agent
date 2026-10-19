@@ -38,7 +38,7 @@ Personas
 What next?
   1) list      the shared settings and the personas, again
   2) add       a new persona
-  3) change    one persona's flavour, context, statusline, projects root or ssh
+  3) change    one persona's flavour, context, statusline, projects root, ssh or permissions
   4) remove    one persona (its env file and home volume stay)
   5) shared    the settings every persona shares: projects root, image registry, Claude Code version
   6) launcher  link nexus into a directory on your PATH
@@ -49,7 +49,7 @@ Start one from a project directory:  cd <P>/<project> && nexus c1
 Day-to-day use, upgrades and troubleshooting: runbook.md
 --- stderr (no newline at the end)
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
-The VM's projects root, for personas without their own (mounted at the same path inside) [<HOME>/projects]: Image registry (local = build on this VM) [local]: Claude Code version, for the claude personas: latest | stable | X.Y.Z [latest]: choice [claude]: choice [docker]: Name [claude-docker]: Statusline (statusline/: model, context, cost; what nexus top shows) in c1? [Y/n]: Projects root for c1 (-: the VM's, now <P>) [-]: choice [agent]: choice [login]: CLAUDE_CODE_OAUTH_TOKEN (hidden; empty to skip): 
+The VM's projects root, for personas without their own (mounted at the same path inside) [<HOME>/projects]: Image registry (local = build on this VM) [local]: Claude Code version, for the claude personas: latest | stable | X.Y.Z [latest]: choice [claude]: choice [docker]: Name [claude-docker]: Statusline (statusline/: model, context, cost; what nexus top shows) in c1? [Y/n]: Projects root for c1 (-: the VM's, now <P>) [-]: choice [agent]: Let c1 run its tools without asking (bypassPermissions; no: it asks first, as personas/claude.ask.json says)? [Y/n]: choice [login]: CLAUDE_CODE_OAUTH_TOKEN (hidden; empty to skip): 
 git author name for c1 [Test User]: git author email for c1 [test@example.invalid]: GH_TOKEN for the gh CLI in c1 (hidden; empty to skip): 
 choice [quit]: 
 --- echo
@@ -59,6 +59,7 @@ choice [quit]:
 \r
 \r
 c1\r
+\r
 \r
 \r
 \r

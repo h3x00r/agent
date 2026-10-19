@@ -156,7 +156,9 @@ stage "lint"
 for f in nexus entrypoint.sh statusline/claude/statusline.sh statusline/grok/statusline.sh tests/run.sh tests/secrets.sh; do
   if out="$(bash -n "$REPO/$f" 2>&1)"; then ok "bash -n $f"; else fail "bash -n $f" "$out"; fi
 done
-if out="$(sh -n "$REPO/tests/fake-grok" 2>&1)"; then ok "sh -n tests/fake-grok"; else fail "sh -n tests/fake-grok" "$out"; fi
+for f in tests/fake-grok claude-mode.sh; do
+  if out="$(sh -n "$REPO/$f" 2>&1)"; then ok "sh -n $f"; else fail "sh -n $f" "$out"; fi
+done
 # Every .py, as Python 3.8 (the oldest the tools run on) reads it. Parsed, never compiled: no __pycache__.
 if command -v python3 >/dev/null; then
   while IFS= read -r -d '' f; do
@@ -180,7 +182,7 @@ elif (( docker_ok )) && docker image inspect koalaman/shellcheck:stable >/dev/nu
   SC=(docker run --rm -v "$REPO:/mnt:ro" -w /mnt koalaman/shellcheck:stable)
 fi
 if (( ${#SC[@]} )); then
-  for f in nexus entrypoint.sh statusline/grok/statusline.sh tests/run.sh tests/secrets.sh tests/fake-grok; do
+  for f in nexus entrypoint.sh claude-mode.sh statusline/grok/statusline.sh tests/run.sh tests/secrets.sh tests/fake-grok; do
     if out="$(cd "$REPO" && "${SC[@]}" "$f" 2>&1)"; then ok "shellcheck $f"; else fail "shellcheck $f" "$out"; fi
   done
   # Claude's statusline.sh keeps its colours in printf formats (SC2059).
@@ -577,6 +579,21 @@ fi
 if [[ -n "$why" ]]; then skip "personas: $why"; summary; fi
 echo "image: $IMAGE"
 
+stage "the image's claude: claude-mode.sh in front of Claude Code"
+# Claude Code swapped for a script that says what it was given, as root, in a throwaway container.
+# shellcheck disable=SC2016  # expanded by sh in the image
+t docker run --rm --network none --user 0 --entrypoint sh "$IMAGE" -c '
+  printf "#!/bin/sh\necho \"[\$CLAUDE_CODE_TEAMMATE_COMMAND] \$*\"\n" > /usr/local/libexec/claude
+  claude -p x; NEXUS_PERMISSIONS=ask claude -p x; NEXUS_PERMISSIONS=bypass claude mcp list
+  /usr/local/libexec/claude-ask --agent-id t1; /usr/local/libexec/claude-bypass --agent-id t2'
+check "without NEXUS_PERMISSIONS: Claude Code as it is" 'rc 0 && out_line "[] -p x"'
+check "  ask or bypass: the mode first, and a team's teammates start as the link that keeps it" \
+      'out_line "[/usr/local/libexec/claude-ask] --permission-mode default -p x" \
+       && out_line "[/usr/local/libexec/claude-bypass] --permission-mode bypassPermissions mcp list"'
+check "  the links themselves: their mode, whatever NEXUS_PERMISSIONS says" \
+      'out_line "[/usr/local/libexec/claude-ask] --permission-mode default --agent-id t1" \
+       && out_line "[/usr/local/libexec/claude-bypass] --permission-mode bypassPermissions --agent-id t2"'
+
 out="$(ssh-agent -s -a "$SOCK" 2>&1)" && AGENT_PID="$(sed -n 's/^SSH_AGENT_PID=\([0-9]*\);.*/\1/p' <<< "$out")"
 if [[ ! -S "$SOCK" || -z "$AGENT_PID" ]]; then fail "a throwaway ssh-agent at $SOCK" "$out"; summary; fi
 
@@ -675,6 +692,51 @@ printf '{"model": "opus", "modelSettings": {"opus": {"effortLevel": "high"}}}\n'
 t nx "$PC" restart </dev/null
 ERR2="$ERR"; t docker exec "agent-$PC" cat /home/dev/.claude/settings.json
 check "  and a model the persona set itself stands" 'out_has "\"model\": \"haiku\"" && [[ $ERR2 != *"Claude defaults from"* ]]'
+
+stage "permissions ($PC): claude.managed.json's bypassPermissions, or claude.ask.json's mode over it"
+# The mode headless runs in (with the word given, if one is), from the init line of stream-json.
+mode_of() { t nx "$PC" ${1:+"$1"} headless "nxt mode" --output-format stream-json --verbose </dev/null; MODE="$(grep -o '"permissionMode":"[A-Za-z]*"' <<< "$OUT" | head -n 1)"; MODE="${MODE#*:}"; }
+# The mode a claude started in a tmux window wrote down in $ROOT/app/.nxt-mode-NAME.
+mode_in() { grep -o '"permissionMode":"[A-Za-z]*"' "$ROOT/app/.nxt-mode-$1" 2>/dev/null | head -n 1 | cut -d '"' -f 4; }
+run_mode='claude -p "nxt mode" --output-format stream-json --verbose </dev/null >'
+
+cp "$A/personas/claude.managed.json" "$T/managed.json"
+printf '{"env": {"NXT_MANAGED": "1"}, "permissions": {"defaultMode": "bypassPermissions"}, "skipDangerousModePermissionPrompt": true}\n' \
+  > "$A/personas/claude.managed.json"
+t nx "$PC" restart </dev/null
+mode_of
+check "with claude.managed.json's bypassPermissions, headless runs in it" '[[ $MODE == \"bypassPermissions\" ]]'
+mode_of --skip-bypass-permissions
+check "  --skip-bypass-permissions headless: it asks (default)" '[[ $MODE == \"default\" ]]'
+# A session's own mode: every claude started in it gets it, in a second window too; main keeps the persona's.
+pty "$ROOT/app" "$PC" --skip-bypass-permissions nxt-perm -- sh -c "$run_mode $ROOT/app/.nxt-mode-s1 2>&1; exec sleep 120"
+wait_for 60 '[[ -n $(mode_in s1) ]]'
+check "--skip-bypass-permissions SESSION: the claude in it asks (default)" '[[ $(mode_in s1) == default ]]'
+docker exec "agent-$PC" tmux new-window -t "=nxt-perm" "sh -c '$run_mode $ROOT/app/.nxt-mode-w2 2>&1'"
+docker exec "agent-$PC" tmux new-window -t "=main" "sh -c '$run_mode $ROOT/app/.nxt-mode-main 2>&1'"
+wait_for 60 '[[ -n $(mode_in w2) && -n $(mode_in main) ]]'
+check "  one in a second window of it too; one in main runs in bypassPermissions, the persona's" \
+      '[[ $(mode_in w2) == default && $(mode_in main) == bypassPermissions ]]'
+t nx "$PC" --bypass-permissions nxt-perm </dev/null
+check "  that session, with the other word: refused" 'rc 1 && err_has "session nxt-perm already asks before running tools"'
+docker exec "agent-$PC" tmux kill-session -t "=nxt-perm"
+pty_end 30
+rm -f "$ROOT"/app/.nxt-mode-*
+t cfg --yes --no-link --no-build --permissions "$PC:ask" </dev/null
+check "nexus --config --permissions $PC:ask: a restart asked for" 'rc 0 && out_has "nexus $PC restart"'
+t nx "$PC" start </dev/null
+check "  until then, a start says it still doesn't ask" 'rc 0 && err_has "its container was made before that"'
+t nx "$PC" restart </dev/null
+t docker exec "agent-$PC" cat /etc/claude-code/managed-settings.d/16-ask.json
+check "  after the restart: claude.ask.json is its 16-ask.json" 'rc 0 && out_has "\"defaultMode\": \"default\""'
+mode_of
+check "  and headless asks (default), over the bypassPermissions of 15-personas.json" '[[ $MODE == \"default\" ]]'
+mode_of --bypass-permissions
+check "  --bypass-permissions headless: it doesn't" '[[ $MODE == \"bypassPermissions\" ]]'
+t cfg --yes --no-link --no-build --permissions "$PC:bypass" </dev/null
+cp "$T/managed.json" "$A/personas/claude.managed.json"
+t nx "$PC" restart </dev/null
+check "back to bypass, with claude.managed.json as it was: restarted" 'rc 0'
 
 stage "headless with grok ($PG, the stand-in grok)"
 # SSH_AUTH_SOCK pointing nowhere: nexus may still find an agent of yours in /run/user/<uid>, but a persona with

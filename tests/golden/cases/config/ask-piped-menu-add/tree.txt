@@ -86,6 +86,10 @@
     |       # managed drop-in: they win over its own settings (the defaults in personas/claude.json don't: nexus
     |       # merges those into them). A single-file mount, so a change (a git pull too) needs a restart.
     |       - { type: bind, source: ./personas/claude.managed.json, target: /etc/claude-code/managed-settings.d/15-personas.json, read_only: true, bind: { create_host_path: false } }
+    |       # It asks before running tools: personas/claude.ask.json, a managed drop-in after 15-personas.json, so
+    |       # the permission mode it sets wins over the bypassPermissions there. A single-file mount, so a change
+    |       # needs a restart.
+    |       - { type: bind, source: ./personas/claude.ask.json, target: /etc/claude-code/managed-settings.d/16-ask.json, read_only: true, bind: { create_host_path: false } }
     |       # Its own ssh key, read-only, and the ssh setting that makes ssh (and git over ssh) use it. Your
     |       # ssh-agent isn't mounted: /dev/null takes the socket's place, and SSH_AUTH_SOCK is empty.
     |       - type: bind
@@ -140,7 +144,8 @@
     |       "context": "docker",
     |       "colour": "colour28",
     |       "statusline": false,
-    |       "ssh": "personas/c2.key"
+    |       "ssh": "personas/c2.key",
+    |       "permissions": "ask"
     |     },
     |     "claude-docker": {
     |       "flavour": "claude",
@@ -166,7 +171,8 @@
     |       "context": "docker",
     |       "colour": "colour28",
     |       "statusline": false,
-    |       "ssh": "personas/c2.key"
+    |       "ssh": "personas/c2.key",
+    |       "permissions": "ask"
     |     }
     |   }
     | }

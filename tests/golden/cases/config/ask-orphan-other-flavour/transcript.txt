@@ -16,7 +16,7 @@ Personas
 What next?
   1) list      the shared settings and the personas, again
   2) add       a new persona
-  3) change    one persona's flavour, context, statusline, projects root or ssh
+  3) change    one persona's flavour, context, statusline, projects root, ssh or permissions
   4) remove    one persona (its env file and home volume stay)
   5) shared    the settings every persona shares: projects root, image registry, Claude Code version
   6) launcher  link nexus into a directory on your PATH
@@ -46,7 +46,7 @@ How does d1 sign in to Claude?
 What next?
   1) list      the shared settings and the personas, again
   2) add       a new persona
-  3) change    one persona's flavour, context, statusline, projects root or ssh
+  3) change    one persona's flavour, context, statusline, projects root, ssh or permissions
   4) remove    one persona (its env file and home volume stay)
   5) shared    the settings every persona shares: projects root, image registry, Claude Code version
   6) launcher  link nexus into a directory on your PATH
@@ -57,13 +57,14 @@ Start one from a project directory:  cd <P>/<project> && nexus c1
 Day-to-day use, upgrades and troubleshooting: runbook.md
 --- stderr (no newline at the end)
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
-choice [quit]: choice [claude]: choice [docker]: Name [claude-docker]: Statusline (statusline/: model, context, cost; what nexus top shows) in d1? [Y/n]: Projects root for d1 (-: the VM's, now <P>) [-]: choice [agent]: personas/d1.env is for a grok persona: write a new personas/d1.env (the old one is kept as a .bak)? [Y/n]: choice [login]: git author name for d1 [Test User]: git author email for d1 [test@example.invalid]: GH_TOKEN for the gh CLI in d1 (hidden; empty to skip): 
+choice [quit]: choice [claude]: choice [docker]: Name [claude-docker]: Statusline (statusline/: model, context, cost; what nexus top shows) in d1? [Y/n]: Projects root for d1 (-: the VM's, now <P>) [-]: choice [agent]: Let d1 run its tools without asking (bypassPermissions; no: it asks first, as personas/claude.ask.json says)? [Y/n]: personas/d1.env is for a grok persona: write a new personas/d1.env (the old one is kept as a .bak)? [Y/n]: choice [login]: git author name for d1 [Test User]: git author email for d1 [test@example.invalid]: GH_TOKEN for the gh CLI in d1 (hidden; empty to skip): 
 choice [quit]: 
 --- echo
 add\r
 claude\r
 \r
 d1\r
+\r
 \r
 \r
 \r

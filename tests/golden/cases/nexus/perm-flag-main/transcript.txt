@@ -1,0 +1,24 @@
+## run 1: nexus c1 --skip-bypass-permissions main  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: session main is c1's shell, in its own mode (it runs its tools without asking): name a new session, nexus c1 --skip-bypass-permissions NAME, or change c1's setting (nexus --config, change)
+## run 2: nexus c1 --bypass-permissions main  [pipe]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s main -c <P>]
+--- stderr
+(empty)
+## run 3: nexus c2 --skip-bypass-permissions main  [pipe]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s main -c <P>]
+--- stderr
+(empty)
+## run 4: nexus c2 --bypass-permissions main  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: session main is c2's shell, in its own mode (it asks before running tools): name a new session, nexus c2 --bypass-permissions NAME, or change c2's setting (nexus --config, change)

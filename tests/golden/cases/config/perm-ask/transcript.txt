@@ -1,0 +1,114 @@
+## run 1: config --yes --no-link --no-build --persona c1:claude:docker --persona c2:claude:docker --permissions c1:ask  [pipe]
+rc: 0
+--- stdout
+nexus --config: setting up <A>
+-- personas/c1.env
+-- personas/c2.env
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  c2                              claude   docker   yes        the VM's             your agent
+  asks before running tools (not bypassPermissions): c1
+
+Start one from a project directory:  cd <HOME>/projects/<project> && nexus c1
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+## run 2: config --list  [pipe]
+rc: 0
+--- stdout
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  c2                              claude   docker   yes        the VM's             your agent
+  asks before running tools (not bypassPermissions): c1
+--- stderr
+(empty)
+## run 3: grep managed-settings.d|^  " compose.personas.yml  [pipe, cwd a]
+rc: 0
+--- stdout
+  "c1":
+      - { type: bind, source: ./personas/claude.managed.json, target: /etc/claude-code/managed-settings.d/15-personas.json, read_only: true, bind: { create_host_path: false } }
+      - { type: bind, source: ./personas/claude.ask.json, target: /etc/claude-code/managed-settings.d/16-ask.json, read_only: true, bind: { create_host_path: false } }
+      - ./statusline/claude/settings.json:/etc/claude-code/managed-settings.d/20-statusline.json:ro
+  "c2":
+      - { type: bind, source: ./personas/claude.managed.json, target: /etc/claude-code/managed-settings.d/15-personas.json, read_only: true, bind: { create_host_path: false } }
+      - ./statusline/claude/settings.json:/etc/claude-code/managed-settings.d/20-statusline.json:ro
+  "c1-home":
+  "c2-home":
+--- stderr
+(empty)
+## run 4: grep permissions personas.json  [pipe, cwd a]
+rc: 0
+--- stdout
+      "permissions": "ask"
+--- stderr
+(empty)
+## run 5: config --yes --no-link --no-build --persona c1:claude:docker  [pipe]
+rc: 0
+--- stdout
+nexus --config: setting up <A>
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  c2                              claude   docker   yes        the VM's             your agent
+  asks before running tools (not bypassPermissions): c1
+
+Start one from a project directory:  cd <HOME>/projects/<project> && nexus c1
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+## run 6: config --yes --no-link --no-build --permissions c1:bypass --permissions c2:ask  [pipe]
+rc: 0
+--- stdout
+nexus --config: setting up <A>
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  c2                              claude   docker   yes        the VM's             your agent
+  asks before running tools (not bypassPermissions): c2
+
+Start one from a project directory:  cd <HOME>/projects/<project> && nexus c1
+c1: changed; `nexus c1 restart` applies it (that ends its tmux sessions)
+c2: changed; `nexus c2 restart` applies it (that ends its tmux sessions)
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+## run 7: grep 16-ask|^  " compose.personas.yml  [pipe, cwd a]
+rc: 0
+--- stdout
+  "c1":
+  "c2":
+      - { type: bind, source: ./personas/claude.ask.json, target: /etc/claude-code/managed-settings.d/16-ask.json, read_only: true, bind: { create_host_path: false } }
+  "c1-home":
+  "c2-home":
+--- stderr
+(empty)
+## run 8: config --yes --no-link --no-build --persona c2:grok:docker  [pipe]
+rc: 0
+--- stdout
+nexus --config: setting up <A>
+-- c2 changed flavour: writing a new personas/c2.env (the old one is kept as a .bak)
+-- personas/c2.env
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  c2                              grok     docker   yes        the VM's             your agent
+
+Start one from a project directory:  cd <HOME>/projects/<project> && nexus c1
+c2: changed; `nexus c2 restart` applies it (that ends its tmux sessions)
+c2: add XAI_API_KEY to <A>/personas/c2.env
+c2: its grok settings and statusline come through personas/c2.grok.toml now; `nexus c2 restart` brings them in
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
+## run 9: grep permissions personas.json  [pipe, cwd a]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+(empty)

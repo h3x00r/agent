@@ -15,7 +15,7 @@ Personas
 What next?
   1) list      the shared settings and the personas, again
   2) add       a new persona
-  3) change    one persona's flavour, context, statusline, projects root or ssh
+  3) change    one persona's flavour, context, statusline, projects root, ssh or permissions
   4) remove    one persona (its env file and home volume stay)
   5) shared    the settings every persona shares: projects root, image registry, Claude Code version
   6) launcher  link nexus into a directory on your PATH
@@ -49,7 +49,7 @@ How does claude-docker-2 sign in to Claude?
 What next?
   1) list      the shared settings and the personas, again
   2) add       a new persona
-  3) change    one persona's flavour, context, statusline, projects root or ssh
+  3) change    one persona's flavour, context, statusline, projects root, ssh or permissions
   4) remove    one persona (its env file and home volume stay)
   5) shared    the settings every persona shares: projects root, image registry, Claude Code version
   6) launcher  link nexus into a directory on your PATH
@@ -80,7 +80,7 @@ g1: add its public key on your git host, as a deploy key (a repo's settings; wri
 What next?
   1) list      the shared settings and the personas, again
   2) add       a new persona
-  3) change    one persona's flavour, context, statusline, projects root or ssh
+  3) change    one persona's flavour, context, statusline, projects root, ssh or permissions
   4) remove    one persona (its env file and home volume stay)
   5) shared    the settings every persona shares: projects root, image registry, Claude Code version
   6) launcher  link nexus into a directory on your PATH
@@ -91,7 +91,7 @@ Start one from a project directory:  cd <P>/<project> && nexus claude-docker
 Day-to-day use, upgrades and troubleshooting: runbook.md
 --- stderr (no newline at the end)
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
-choice [quit]: choice [claude]: choice [docker]: Name [claude-docker-2]: Name [claude-docker-2]: Name [claude-docker-2]: Name [claude-docker-2]: Name [claude-docker-2]: Statusline (statusline/: model, context, cost; what nexus top shows) in claude-docker-2? [Y/n]: Projects root for claude-docker-2 (-: the VM's, now <P>) [-]: choice [agent]: choice [login]: git author name for claude-docker-2 [Test User]: git author email for claude-docker-2 [test@example.invalid]: GH_TOKEN for the gh CLI in claude-docker-2 (hidden; empty to skip): 
+choice [quit]: choice [claude]: choice [docker]: Name [claude-docker-2]: Name [claude-docker-2]: Name [claude-docker-2]: Name [claude-docker-2]: Name [claude-docker-2]: Statusline (statusline/: model, context, cost; what nexus top shows) in claude-docker-2? [Y/n]: Projects root for claude-docker-2 (-: the VM's, now <P>) [-]: choice [agent]: Let claude-docker-2 run its tools without asking (bypassPermissions; no: it asks first, as personas/claude.ask.json says)? [Y/n]: choice [login]: git author name for claude-docker-2 [Test User]: git author email for claude-docker-2 [test@example.invalid]: GH_TOKEN for the gh CLI in claude-docker-2 (hidden; empty to skip): 
 choice [quit]: choice [claude]: choice [docker]: Name [grok-docker]: Statusline (statusline/: model, context, cost; what nexus top shows) in g1? [Y/n]: Projects root for g1 (-: the VM's, now <P>) [-]: choice [agent]: XAI_API_KEY (hidden; empty to skip): 
 git author name for g1 [Test User]: git author email for g1 [test@example.invalid]: GH_TOKEN for the gh CLI in g1 (hidden; empty to skip): 
 config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
@@ -108,6 +108,7 @@ x1-\r
 \r
 \r
 none\r
+\r
 \r
 \r
 \r

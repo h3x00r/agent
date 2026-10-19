@@ -1,8 +1,10 @@
 """Personas: what one is, and the rules its settings follow. No I/O here.
 
 A Persona has a name, a flavour (claude | grok), a context (ddev | docker), a tmux colour, the statusline
-on or off, its own projects root ("" for the VM's) and its ssh: "" (your ssh-agent, forwarded), "none",
-or a key: personas/NAME.key (made by nexus --config) or an absolute path.
+on or off, its own projects root ("" for the VM's), its ssh: "" (your ssh-agent, forwarded), "none",
+or a key: personas/NAME.key (made by nexus --config) or an absolute path; and, for a claude persona, its
+permissions: bypass (personas/claude.managed.json's bypassPermissions; the default) or ask
+(personas/claude.ask.json's mode over it).
 
 Pitfalls (each pinned where named):
 - valid_name() is a fullmatch: a trailing newline is no name (test_domain.Rules.test_names)
@@ -18,6 +20,9 @@ Pitfalls (each pinned where named):
 - from_record(): every key known and of its type, each value held to the rules a line was
   (test_adapters.PersonasJson.test_what_it_refuses)
 - from_record(): no NUL, no surrogate that isn't a byte (golden config/m4-root-nul, golden nexus/m4-json-by-hand)
+- permissions: written only when it is ask, so a personas.json from before it reads the same
+  (test_adapters.PersonasJson.test_a_round_trip_keeps_order_and_bytes); ask only for a claude persona
+  (test_adapters.PersonasJson.test_what_it_refuses, golden config/perm-refused)
 """
 import os
 import re
@@ -29,6 +34,7 @@ FLAVOURS = ("claude", "grok")
 CONTEXTS = ("ddev", "docker")
 COLOURS = ("colour25", "colour28", "colour90", "colour130", "colour31", "colour124", "colour166", "colour61")
 RESERVED = ("ls", "top", "all", "start")
+PERMISSIONS = ("bypass", "ask")
 
 NAME_RULE = ("a lowercase letter, then lowercase letters, digits or -; at most 31, not ending in -; "
              "not ls, top, all or start")
@@ -47,6 +53,7 @@ class Persona:
     statusline: bool = True
     root: str = ""
     ssh: str = ""
+    permissions: str = "bypass"
 
     @property
     def container(self):
@@ -145,7 +152,7 @@ def parse_meta_line(line):
     return Persona(name, f, c, col, sl == "yes", r, k)
 
 
-FIELDS = ("flavour", "context", "colour", "statusline", "root", "ssh")
+FIELDS = ("flavour", "context", "colour", "statusline", "root", "ssh", "permissions")
 
 
 class BadRecord(ValueError):
@@ -164,12 +171,15 @@ def _text_ok(v):
 
 
 def to_record(p):
-    """The persona as personas.json holds it under its name: root and ssh only when it has them."""
+    """The persona as personas.json holds it under its name: root and ssh only when it has them, permissions
+    only when it asks."""
     d = {"flavour": p.flavour, "context": p.context, "colour": p.colour, "statusline": p.statusline}
     if p.root:
         d["root"] = p.root
     if p.ssh:
         d["ssh"] = p.ssh
+    if p.permissions != "bypass":
+        d["permissions"] = p.permissions
     return d
 
 
@@ -184,7 +194,7 @@ def from_record(name, d):
     for k in FIELDS[:4]:
         if k not in d:
             raise BadRecord("has no %s" % k)
-    for k in ("flavour", "context", "colour", "root", "ssh"):
+    for k in ("flavour", "context", "colour", "root", "ssh", "permissions"):
         if k in d and not isinstance(d[k], str):
             raise BadRecord("has a %s that isn't a string" % k)
         if k in d and not _text_ok(d[k]):
@@ -205,7 +215,12 @@ def from_record(name, d):
     if "ssh" in d and k != "none" and not key_path_ok(name, k):
         raise BadRecord("has ssh '%s': it takes none, personas/%s.key, or an absolute path without spaces, ':', "
                         "quotes or $" % (k, name))
-    return Persona(name, f, c, col, d["statusline"], r, k)
+    perm = d.get("permissions", "bypass")
+    if perm not in PERMISSIONS:
+        raise BadRecord("has permissions '%s', not bypass or ask" % perm)
+    if perm == "ask" and f != "claude":
+        raise BadRecord("has permissions 'ask', which only a claude persona takes (grok's come from personas/grok.toml)")
+    return Persona(name, f, c, col, d["statusline"], r, k, perm)
 
 
 def key_file(p, checkout):

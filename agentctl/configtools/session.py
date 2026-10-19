@@ -1,7 +1,8 @@
 """What `nexus --config` holds for a run, and saving it. Nothing here asks a question (questions.py does).
 
 A Session reads the checkout (open(): the root refusal, the lock, personas.json or the `# persona:` lines
-from before it), checks the VM (preflight()), applies the flags (--remove, --persona, --ssh), and saves:
+from before it), checks the VM (preflight()), applies the flags (--remove, --persona, --ssh,
+--permissions), and saves:
 - stage_env(), then env_vm(): .env staged, with what the VM decides (DDEV_VERSION, AGENT_CPUS);
 - prepare(): the settings files checked, each grok persona's config, personas.json and the compose file
   generated from it staged, and all of it checked with `docker compose config`;
@@ -28,6 +29,8 @@ Pitfalls (each pinned where named):
   config/m4-json-bak-dir-zero); a link to it is written through to its target (golden config/m4-json-symlink)
 - a service edited by hand, written again: that persona is told to restart (golden config/m4-hand-edit-rewritten)
 - a grok config whose comments alone changed (they named config-tools) brings no note (golden config/cfg-legacy-grok)
+- a persona that asks: personas/claude.ask.json there, readable and setting a mode that asks, or nothing is
+  written (golden config/perm-file-missing)
 """
 import os
 import pwd
@@ -71,7 +74,7 @@ class Session:
         self.home = os.environ.get("HOME", "")
         self.launcher = os.path.join(checkout, "nexus")
         self.personas = []
-        self.loaded = {}          # name → (flavour, context, statusline, root, ssh) as read
+        self.loaded = {}          # name → (flavour, context, statusline, root, ssh, permissions) as read
         self.staged = {}          # name → its staged env file
         self.gstaged = {}         # name → its staged grok config
         self.backup = set()       # names whose env file is replaced, the old one kept as a .bak
@@ -127,7 +130,7 @@ class Session:
 
     @staticmethod
     def state(p):
-        return (p.flavour, p.context, "yes" if p.statusline else "no", p.root, p.ssh)
+        return (p.flavour, p.context, "yes" if p.statusline else "no", p.root, p.ssh, p.permissions)
 
     def list(self):
         if not self.personas:
@@ -140,6 +143,9 @@ class Session:
         for p in self.personas:
             self.say(row(p.name, p.flavour, p.context, "yes" if p.statusline else "no", p.root or "the VM's",
                          p.ssh or "your agent"))
+        asking = [p.name for p in self.personas if p.permissions == "ask"]
+        if asking:
+            self.say("  asks before running tools (not bypassPermissions): " + ", ".join(asking))
 
     def moved_notes(self, old, kept):
         """After the move from the `# persona:` lines: where the old file is, and which persona's service
@@ -178,6 +184,10 @@ class Session:
             self.check_spec(spec)
         for spec in self.o.ssh:
             self.check_ssh_flag(spec)
+        for spec in self.o.permissions:
+            n, _, v = spec.partition(":")
+            if not rules.valid_name(n) or v not in rules.PERMISSIONS:
+                die("--permissions %s: it takes NAME:ask or NAME:bypass" % spec)
         if self.o.root:
             self.o.root = self.norm_dir(self.o.root)
             if not rules.root_ok(self.o.root):
@@ -228,9 +238,9 @@ class Session:
         i = self.idx(n)
         if i is not None:
             old = self.personas[i]
-            col, keep, key, sl = old.colour, old.root, old.ssh, old.statusline
+            col, keep, key, sl, perm = old.colour, old.root, old.ssh, old.statusline, old.permissions
         else:
-            col, keep, key, sl = rules.next_colour(self.personas), "", "", True
+            col, keep, key, sl, perm = rules.next_colour(self.personas), "", "", True, "bypass"
         if self.o.statusline:
             sl = self.o.statusline == "yes"
         if spec.count(":") >= 3:
@@ -242,7 +252,7 @@ class Session:
                     die("--persona %s: can't create the projects root '%s'" % (spec, r))
         else:
             r = keep
-        self.put(Persona(n, f, c, col, sl, r, key))
+        self.put(Persona(n, f, c, col, sl, r, key, perm if f == "claude" else "bypass"))
 
     def ssh_flag(self, spec):
         n, _, k = spec.partition(":")
@@ -253,6 +263,15 @@ class Session:
             else self.norm_dir(k)
         self.personas[i].ssh = k
 
+    def permissions_flag(self, spec):
+        n, _, v = spec.partition(":")
+        i = self.idx(n)
+        if i is None:
+            die("--permissions %s: no persona %s (add it with --persona)" % (spec, n))
+        if v == "ask" and self.personas[i].flavour != "claude":
+            die("--permissions %s: %s is a grok persona, and grok takes its approval mode from personas/grok.toml" % (spec, n))
+        self.personas[i].permissions = v
+
     def apply_flags(self):
         for n in self.o.remove:
             if self.idx(n) is None:
@@ -262,6 +281,8 @@ class Session:
             self.add_flag(spec)
         for spec in self.o.ssh:
             self.ssh_flag(spec)
+        for spec in self.o.permissions:
+            self.permissions_flag(spec)
 
     # --- reading the checkout, and the VM ---
     def open(self):
@@ -382,6 +403,11 @@ class Session:
     def prepare(self):
         """The settings files checked, the grok configs and the personas staged, and all of it through
         `docker compose config`; nothing is in place yet."""
+        asking = [p.name for p in self.personas if p.permissions == "ask"]
+        why, fix = checks.ask_problem("personas/claude.ask.json") if asking else ("", "")
+        if why:
+            die("%s/personas/claude.ask.json %s, and %s %s before running tools, so nothing was written: %s"
+                % (self.a, why, " and ".join(asking), "asks" if len(asking) == 1 else "ask", fix))
         for f in ("personas/claude.json", "personas/claude.managed.json"):
             if self.has("claude") and os.path.isfile(f):
                 why = self.settings_problem(f, "json", f)

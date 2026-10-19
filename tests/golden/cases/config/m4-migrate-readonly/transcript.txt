@@ -17,9 +17,11 @@ rc: 0
 .gitignore
 .hadolint.yaml
 Dockerfile
+EXAMPLES.md
 LICENSE
 README.md
 agentctl
+claude-mode.sh
 compose.personas.yml
 compose.yml
 entrypoint.sh

@@ -1,0 +1,4 @@
++ projects/app  d 755
++ projects/app/.keep  f 644
+    | 
+    (no newline at the end)

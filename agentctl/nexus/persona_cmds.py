@@ -1,6 +1,8 @@
 """nexus <persona> …: everything but ls, top, upgrade and headless's own work. In the bash launcher's order,
 which decides which error wins:
 
+  0. --skip-bypass-permissions or --bypass-permissions, taken out wherever they are before a `--` (and from a
+     headless run's arguments): only for an attach or a headless run of a claude persona;
   1. the subcommand: ls, stop/logs/build/pull (compose, exec'd: no checks), start, restart, upgrade,
      headless, or an attach (the default: [SESSION] [-- CMD…]);
   2. preflight: the projects root must be absolute and creatable; a ddev persona gets ~/.ddev and the
@@ -12,7 +14,9 @@ which decides which error wins:
      stale ssh-agent), then compose up and the Claude defaults; a running one: the projects root it was
      created with, if that isn't the persona's now, and a warning if compose.personas.yml is out of step;
   5. start stops here; otherwise where to start (domain.roots.place), then headless or the attach:
-     `docker exec -it … tmux new-session -A`, which takes this process over.
+     `docker exec -it … tmux new-session -A`, which takes this process over. With one of the two words, a
+     probe in the persona first (mode_env): the session's NEXUS_PERMISSIONS, which the image's claude
+     (claude-mode.sh) turns into --permission-mode for every claude started in it.
 
 Pitfalls (each pinned where named):
 - the order (golden nexus/edge-persona-refusal-order)
@@ -28,14 +32,23 @@ Pitfalls (each pinned where named):
 - the session name as $(basename …) gives it, trailing newlines gone, then . and : as _ (golden
   nexus/edge-persona-session-newline, golden nexus/life-attach-names)
 - no TERM: infocmp is asked for dumb, as bash set it (golden nexus/life-attach-term)
-- before creating a container: the key, claude.managed.json, the grok.toml, then compose.personas.yml in step
-  with personas.json (golden nexus/edge-persona-refusal-order, golden nexus/life-legacy-claude-json)
+- before creating a container: the key, claude.managed.json, claude.ask.json for one that asks (there, and setting
+  a mode that asks), the grok.toml, then compose.personas.yml in step with personas.json (golden
+  nexus/edge-persona-refusal-order, golden nexus/life-legacy-claude-json, golden nexus/perm-ask-file-missing)
 - out of step at an attach to a running one: a warning, not a refusal (golden nexus/life-legacy-statusline)
+- one that asks, running in a container made before it did (no 16-ask.json mount): a warning, at a start and an
+  attach (golden nexus/perm-ask-not-restarted)
+- the two words: both refused together, and for anything but an attach or a headless run, and for grok; every
+  other -x is still a session name (golden nexus/perm-flag-refused, golden nexus/perm-dash-session-unchanged)
+- a session that is there already runs in the mode it started in: one in the other mode, or whose mode can't be
+  read, is refused, never attached; a new one gets NEXUS_PERMISSIONS whatever the persona's own mode, and no -A
+  (golden nexus/perm-flag-sessions, golden nexus/perm-flag-main)
+- an image without claude-mode.sh is refused, not run in the persona's mode (golden nexus/perm-flag-old-image)
 """
 import os
 import shutil
 
-from agentctl.adapters import docker
+from agentctl.adapters import checks, docker
 from agentctl.core import proc
 from agentctl.core.errors import Exit, NexusError
 from agentctl.core.shellcompat import bash_basename, mkdir_p, realpath_e, utf8_locale
@@ -43,8 +56,33 @@ from agentctl.domain.roots import moved, place
 from agentctl.nexus import headless, ls, upgrade
 from agentctl.nexus.context import Persona, is_socket
 
+MODES = {"--skip-bypass-permissions": "ask", "--bypass-permissions": "bypass"}
+NOT_FOR = ("ls", "stop", "logs", "build", "pull", "start", "restart", "upgrade")
+SAYS = {"ask": "asks before running tools", "bypass": "runs its tools without asking"}
+ASK_FILE = "personas/claude.ask.json"
+ASK_TARGET = "/etc/claude-code/managed-settings.d/16-ask.json"
+
+
 def die(msg):
     raise NexusError(msg)
+
+
+def take_mode(args):
+    """--skip-bypass-permissions (ask) or --bypass-permissions (bypass) out of ARGS: wherever it is before a
+    `--`, and anywhere in a headless run's (whose arguments are never a command). (mode or "", the word, the
+    rest.)"""
+    headless = next((a for a in args if a not in MODES), "") == "headless"
+    mode, word, rest, cmd = "", "", [], False
+    for a in args:
+        if a == "--" and not headless:
+            cmd = True
+        if not cmd and a in MODES:
+            if mode and MODES[a] != mode:
+                die("pick one of --skip-bypass-permissions and --bypass-permissions")
+            mode, word = MODES[a], a
+            continue
+        rest.append(a)
+    return mode, word, rest
 
 
 class Run:
@@ -52,6 +90,7 @@ class Run:
         self.ctx, self.out = ctx, ctx.out
         self.p = Persona(ctx, name)
         self.args = list(args)
+        self.mode = self.word = ""
         self.env = os.environ
 
     def compose(self, *args, env=None):
@@ -96,9 +135,49 @@ class Run:
         else:
             self.out.warn("%s: the defaults in personas/claude.json couldn't be merged (exit %d): %s" % (self.p.name, r.rc, out))
 
+    def mode_env(self, session):
+        """With one of the two words: the NEXUS_PERMISSIONS for the new SESSION (or the headless run: ""), or ""
+        when SESSION is there already, in that mode. Refused: a session there in the other mode (or one whose mode
+        can't be read), and an image whose claude doesn't read NEXUS_PERMISSIONS. A new session gets it even in the
+        persona's own mode, which the probe only guesses (settings it can't see may differ)."""
+        p = self.p
+        if not self.mode:
+            return ""
+        rc, out = docker.exec_probe(p.container, "perm_probe.sh", session)
+        got = dict(l.partition("=")[::2] for l in out.split("\n") if "=" in l)
+        own = got.get("config")
+        if rc or own not in SAYS:
+            die("can't read %s's permission settings inside it (exit %d); try again, or `nexus %s restart`" % (p.name, rc, p.name))
+        if got.get("session") == "?":
+            die("can't read the mode session %s runs in: name a new session, nexus %s %s NAME" % (session, p.name, self.word))
+        if "session" in got:
+            now = got["session"] if got["session"] in SAYS else own
+            if now != self.mode and session == "main" and got["session"] not in SAYS:
+                die("session main is %s's shell, in its own mode (it %s): name a new session, nexus %s %s NAME, or change "
+                    "%s's setting (nexus --config, change)" % (p.name, SAYS[now], p.name, self.word, p.name))
+            if now != self.mode:
+                how = "it was started with %s" % next(w for w, m in MODES.items() if m == now) \
+                    if got["session"] in SAYS else "%s's own setting" % p.name
+                die("session %s already %s (%s): end it, or name a new session: nexus %s %s NAME"
+                    % (session, SAYS[now], how, p.name, self.word))
+            return ""
+        if got.get("wrapper") != "yes":
+            # build or pull as upgrade does: pull with a registry other than local.
+            verb = "build" if (os.environ.get("REGISTRY") or self.ctx.env_get("REGISTRY") or "local") == "local" else "pull"
+            die("nothing was started: %s's image was built before nexus had %s.\n"
+                "       Run `nexus %s %s`, then `nexus %s restart` (this closes its tmux sessions)."
+                % (p.name, self.word, p.name, verb, p.name))
+        return self.mode
+
     def main(self):
-        p, a, args = self.p, self.ctx.agents_dir, self.args
+        p, a = self.p, self.ctx.agents_dir
+        self.mode, self.word, args = take_mode(self.args)
         sub = args[0] if args else ""
+        if self.mode and sub in NOT_FOR:
+            die("%s is for a session or a headless run, not for %s" % (self.word, sub))
+        if self.mode and p.flavour != "claude":
+            die("%s is for claude personas: %s is a grok one, which takes its approval mode from personas/grok.toml"
+                % (self.word, p.name))
         restart = start_only = is_upgrade = is_headless = False
         if sub == "ls":
             return ls.ls_persona(self.ctx, p)
@@ -168,6 +247,10 @@ class Run:
                     and not os.path.isfile(os.path.join(a, "personas", "claude.managed.json")):
                 die("%s/personas/claude.managed.json isn't there: restore it (git checkout personas/claude.managed.json), "
                     "or re-run %s/nexus --config without it" % (a, a))
+            if p.flavour == "claude" and p.permissions == "ask":
+                why, fix = checks.ask_problem(os.path.join(a, ASK_FILE))
+                if why:
+                    die("%s/%s %s, and %s asks before running tools: %s" % (a, ASK_FILE, why, p.name, fix))
             if "./personas/%s.grok.toml," % p.name in text and not os.path.isfile(os.path.join(a, "personas", p.name + ".grok.toml")):
                 die("%s/personas/%s.grok.toml isn't there: re-run %s/nexus --config, which writes it" % (a, p.name, a))
             why = self.ctx.step_problem()
@@ -197,6 +280,9 @@ class Run:
             self.claude_defaults()
         else:
             old = ls.old_root(p)
+            if p.flavour == "claude" and p.permissions == "ask" and ASK_TARGET not in docker.mounts(p.container):
+                self.out.warn("%s asks before running tools now, but its container was made before that and doesn't: "
+                              "`nexus %s restart` applies it (that ends its tmux sessions)" % (p.name, p.name))
         if start_only:
             if old:
                 self.out.warn(moved(p.name, old, p.root + p.root_from))
@@ -241,9 +327,13 @@ class Run:
             self.out.warn(moved(p.name, old, p.root + p.root_from,
                                 "which %s isn't in; attaching to its session %s" % (self.ctx.here, session)))
             wd = old
+        perm = self.mode_env(session)
         # bash set TERM=dumb itself when it was unset, so ${TERM:-xterm-256color} only caught an empty one.
         term = self.env.get("TERM", "dumb") or "xterm-256color"
         if not proc.ok(["docker", "exec", p.container, "infocmp", term]):
             term = "xterm-256color"
+        # A new session in a mode of its own isn't attached to one that is there after all (made since the probe,
+        # or named so that tmux, which expands # and \ in -s, found it under another name): tmux refuses it then.
         proc.execvp(["docker", "exec", "-it", "-e", "TERM=" + term, "-w", wd, p.container,
-                     "tmux", "new-session", "-A", "-s", session, "-c", wd] + cmd)
+                     "tmux", "new-session"] + ([] if perm else ["-A"]) + ["-s", session, "-c", wd]
+                    + (["-e", "NEXUS_PERMISSIONS=" + perm] if perm else []) + cmd)

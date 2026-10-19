@@ -201,6 +201,7 @@ class Persona:
                 % (name, " ".join(p.name for p in ps), ctx.agents_dir))
         self.name, self.container = name, rec.container
         self.flavour, self.context, self.ssh, self.own_root = rec.flavour, rec.context, rec.ssh, rec.root
+        self.permissions = rec.permissions
         self.root = rec.root or ctx.vm_root
         if self.root.endswith("/"):
             self.root = self.root[:-1]

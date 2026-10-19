@@ -6,6 +6,10 @@ e.g. to /usr/local/bin/nexus.
 
   nexus <persona> [session] [-- cmd ...]   attach to (or create) a tmux session in that persona,
                                            named after $PWD unless given; cmd runs only on create
+  nexus <persona> --skip-bypass-permissions | --bypass-permissions [session] [-- cmd ...]
+                                           the same, for a session whose claude asks before running tools,
+                                           or doesn't, whatever the persona's own setting (nexus --config);
+                                           with headless, for that run
   nexus ls                                 a table of every persona and its state; one of the sessions of
                                            the running ones
   nexus top [-n SECONDS] [--once]          live view of every persona: CPU, memory and, per Claude Code

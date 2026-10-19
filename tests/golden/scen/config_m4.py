@@ -121,7 +121,9 @@ def _(sb):
     os.unlink(sb.path("a/compose.personas.yml.bak"))
     sb.run("nexus", "c1", "start", cwd="projects", label="nexus c1 start  (half-moved)")
     sb.run("config", *YES, label="config --yes  (half-moved)")
-    sb.run(tool(sb, "grep"), "-c", "^# persona:", "-r", ".", "--include=compose.personas.yml*", cwd="a",
+    # The files named, sorted: grep -r lists them in the directory's order, which tmpfs keeps newest first.
+    names = sorted(n for n in os.listdir(sb.path("a")) if n.startswith("compose.personas.yml"))
+    sb.run(tool(sb, "grep"), "-H", "-c", "^# persona:", *["./" + n for n in names], cwd="a",
            label="grep -c persona lines in compose.personas.yml*")
 
 

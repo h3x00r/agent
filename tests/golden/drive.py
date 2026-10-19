@@ -36,6 +36,16 @@ def _rc(status):
     return 128 - status if status < 0 else status   # Popen gives -N for a signal; the shell says 128+N
 
 
+def _readable(fds, timeout):
+    """Those of FDS with something to read, or at their end, within TIMEOUT seconds. poll, not select: select takes
+    no fd past 1023, and a run of the goldens holds about a thousand open (each sandbox's files, which snapshot keeps
+    open so that their inodes can't be handed on)."""
+    p = select.poll()
+    for fd in fds:
+        p.register(fd, select.POLLIN)
+    return [fd for fd, _ in p.poll(max(0, int(timeout * 1000)))]
+
+
 def run(argv, env, cwd, mode="pipe", stdin=None, steps=(), timeout=30.0, merge=False):
     if mode == "pipe":
         return _run_pipe(argv, env, cwd, stdin, timeout, merge)
@@ -119,7 +129,7 @@ def _run_tty(argv, env, cwd, mode, steps, timeout):
         if left <= 0:
             timed_out = True
             break
-        ready, _, _ = select.select(list(open_fds), [], [], min(left, 0.1))
+        ready = _readable(open_fds, min(left, 0.1))
         for fd in ready:
             try:
                 data = os.read(fd, 65536)
@@ -135,8 +145,7 @@ def _run_tty(argv, env, cwd, mode, steps, timeout):
             # Drain what is left, then stop.
             for fd in list(open_fds):
                 while True:
-                    r, _, _ = select.select([fd], [], [], 0.05)
-                    if not r:
+                    if not _readable([fd], 0.05):
                         break
                     try:
                         data = os.read(fd, 65536)

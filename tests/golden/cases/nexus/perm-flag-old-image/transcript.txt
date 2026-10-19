@@ -1,0 +1,40 @@
+## run 1: nexus c1 --skip-bypass-permissions -- claude  [pipe, cwd projects/new]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: nothing was started: c1's image was built before nexus had --skip-bypass-permissions.
+       Run `nexus c1 build`, then `nexus c1 restart` (this closes its tmux sessions).
+## run 2: nexus c1 --skip-bypass-permissions headless nxt hi  [pipe, cwd projects/app]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: nothing was started: c1's image was built before nexus had --skip-bypass-permissions.
+       Run `nexus c1 build`, then `nexus c1 restart` (this closes its tmux sessions).
+## run 3: nexus c1 --bypass-permissions s3  (its own mode, too)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: nothing was started: c1's image was built before nexus had --bypass-permissions.
+       Run `nexus c1 build`, then `nexus c1 restart` (this closes its tmux sessions).
+## run 4: nexus c1 s3  (no word: as ever)  [pipe]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s s3 -c <P>]
+--- stderr
+(empty)
+## run 5: nexus c1 --skip-bypass-permissions s4  (REGISTRY set: pull, not build)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: nothing was started: c1's image was built before nexus had --skip-bypass-permissions.
+       Run `nexus c1 pull`, then `nexus c1 restart` (this closes its tmux sessions).
+## run 6: nexus c1 --skip-bypass-permissions s3  (the probe fails)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: can't read c1's permission settings inside it (exit 1); try again, or `nexus c1 restart`

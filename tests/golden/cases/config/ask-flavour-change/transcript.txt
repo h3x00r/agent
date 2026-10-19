@@ -16,7 +16,7 @@ Personas
 What next?
   1) list      the shared settings and the personas, again
   2) add       a new persona
-  3) change    one persona's flavour, context, statusline, projects root or ssh
+  3) change    one persona's flavour, context, statusline, projects root, ssh or permissions
   4) remove    one persona (its env file and home volume stay)
   5) shared    the settings every persona shares: projects root, image registry, Claude Code version
   6) launcher  link nexus into a directory on your PATH
@@ -48,7 +48,7 @@ c1: its grok settings and statusline come through personas/c1.grok.toml now; `ne
 What next?
   1) list      the shared settings and the personas, again
   2) add       a new persona
-  3) change    one persona's flavour, context, statusline, projects root or ssh
+  3) change    one persona's flavour, context, statusline, projects root, ssh or permissions
   4) remove    one persona (its env file and home volume stay)
   5) shared    the settings every persona shares: projects root, image registry, Claude Code version
   6) launcher  link nexus into a directory on your PATH
@@ -93,7 +93,7 @@ Personas
 What next?
   1) list      the shared settings and the personas, again
   2) add       a new persona
-  3) change    one persona's flavour, context, statusline, projects root or ssh
+  3) change    one persona's flavour, context, statusline, projects root, ssh or permissions
   4) remove    one persona (its env file and home volume stay)
   5) shared    the settings every persona shares: projects root, image registry, Claude Code version
   6) launcher  link nexus into a directory on your PATH
@@ -123,7 +123,7 @@ c2: its grok settings and statusline come through personas/c2.grok.toml now; `ne
 What next?
   1) list      the shared settings and the personas, again
   2) add       a new persona
-  3) change    one persona's flavour, context, statusline, projects root or ssh
+  3) change    one persona's flavour, context, statusline, projects root, ssh or permissions
   4) remove    one persona (its env file and home volume stay)
   5) shared    the settings every persona shares: projects root, image registry, Claude Code version
   6) launcher  link nexus into a directory on your PATH
@@ -164,7 +164,7 @@ Personas
 What next?
   1) list      the shared settings and the personas, again
   2) add       a new persona
-  3) change    one persona's flavour, context, statusline, projects root or ssh
+  3) change    one persona's flavour, context, statusline, projects root, ssh or permissions
   4) remove    one persona (its env file and home volume stay)
   5) shared    the settings every persona shares: projects root, image registry, Claude Code version
   6) launcher  link nexus into a directory on your PATH
@@ -200,7 +200,7 @@ c1: it gets personas/claude.managed.json as managed settings now; `nexus c1 rest
 What next?
   1) list      the shared settings and the personas, again
   2) add       a new persona
-  3) change    one persona's flavour, context, statusline, projects root or ssh
+  3) change    one persona's flavour, context, statusline, projects root, ssh or permissions
   4) remove    one persona (its env file and home volume stay)
   5) shared    the settings every persona shares: projects root, image registry, Claude Code version
   6) launcher  link nexus into a directory on your PATH
@@ -212,12 +212,13 @@ Day-to-day use, upgrades and troubleshooting: runbook.md
 --- stderr (no newline at the end)
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
 config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
-choice [quit]: choice [-]: choice [grok]: choice [docker]: Statusline (statusline/: model, context, cost; what nexus top shows) in c1? [Y/n]: Projects root for c1 (-: the VM's, now <P>) [-]: choice [agent]: c1 changed flavour: write a new personas/c1.env (the old one is kept as a .bak)? [Y/n]: choice [login]: git author name for c1 [Test User]: git author email for c1 [test@example.invalid]: GH_TOKEN for the gh CLI in c1 (hidden; empty to skip): 
+choice [quit]: choice [-]: choice [grok]: choice [docker]: Statusline (statusline/: model, context, cost; what nexus top shows) in c1? [Y/n]: Projects root for c1 (-: the VM's, now <P>) [-]: choice [agent]: Let c1 run its tools without asking (bypassPermissions; no: it asks first, as personas/claude.ask.json says)? [Y/n]: c1 changed flavour: write a new personas/c1.env (the old one is kept as a .bak)? [Y/n]: choice [login]: git author name for c1 [Test User]: git author email for c1 [test@example.invalid]: GH_TOKEN for the gh CLI in c1 (hidden; empty to skip): 
 choice [quit]: 
 --- echo
 change\r
 c1\r
 claude\r
+\r
 \r
 \r
 \r

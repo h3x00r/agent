@@ -58,8 +58,10 @@ sudo git clone <this repo> /opt/agents && sudo chown -R "$USER" /opt/agents
    VM's, or a directory of its own, and how its ssh (git over ssh) signs in: `agent`, your ssh-agent (the
    default); `none`, not at all, so you pull and push from the VM; `new`, a key made for it whose public half you
    add as a deploy key; or the path of a key you have ([§5](#no-ssh-commit-inside-push-from-the-vm)). Personas
-   can share a root. Then its sign-in and identity, unless a `personas/<name>.env` of its flavour is there
-   already (it is reused):
+   can share a root. A Claude persona is then asked `Let <name> run its tools without asking (bypassPermissions;
+   …)? [Y/n]`: Enter leaves it in `bypassPermissions`, as before; `n` makes it ask first
+   ([§5](#asking-before-running-tools)). Then its sign-in and identity, unless a `personas/<name>.env` of its
+   flavour is there already (it is reused):
    - Claude: log in interactively later, an API key, or a `claude setup-token` token.
    - grok: its xAI key.
    - Then the git author name and email (defaults from your `git config`) and an optional `GH_TOKEN`.
@@ -67,7 +69,8 @@ sudo git clone <this repo> /opt/agents && sudo chown -R "$USER" /opt/agents
    ddev persona on a VM without the CA yet, whether to run `mkcert -install`.
 
 Then, and every time you run it after, it shows what is set up (the shared settings, where `nexus` is linked,
-the personas, and any `personas/<name>.env` that belongs to no persona) and a menu. A run after the first
+the personas, with a line `asks before running tools (not bypassPermissions): <name>, …` when one does, and any
+`personas/<name>.env` that belongs to no persona) and a menu. A run after the first
 brings what it generates up to date before that, as a re-run of the setup always did: each grok persona's config after
 an edit of `personas/grok.toml`, `compose.personas.yml`, a deleted ssh key of its own, `.env`'s `DDEV_VERSION`.
 It says which files it wrote (`-- brought up to date: …`), if any.
@@ -75,7 +78,7 @@ It says which files it wrote (`-- brought up to date: …`), if any.
 What next?
   1) list      the shared settings and the personas, again
   2) add       a new persona
-  3) change    one persona's flavour, context, statusline, projects root or ssh
+  3) change    one persona's flavour, context, statusline, projects root, ssh or permissions
   4) remove    one persona (its env file and home volume stay)
   5) shared    the settings every persona shares: projects root, image registry, Claude Code version
   6) launcher  link nexus into a directory on your PATH
@@ -165,6 +168,8 @@ whose `apm.yml` has no `targets:` list of its own (section 2).
 | Open (or reattach to) a project | `cd ~/projects/<project> && nexus <persona>` |
 | Start Claude Code | `claude` in the session; `claude --resume` to continue an earlier conversation |
 | New session straight into Claude | `nexus <persona> <name> -- claude` (the command only runs when the session is created) |
+| A session that asks before running tools | `nexus <persona> --skip-bypass-permissions [session] [-- claude]` (below) |
+| A session that doesn't, in a persona that asks | `nexus <persona> --bypass-permissions [session] [-- claude]` |
 | Same project, other persona | `nexus <other-persona>` from the same directory |
 | Next / previous project session | `Shift+→` / `Shift+←` |
 | Pick a session from a list | `Prefix+s` (Prefix is tmux's default, `Ctrl-b`) |
@@ -182,6 +187,33 @@ Sessions are named after the directory (`.` and `:` become `_`). Two projects wi
 share one session, so give one an explicit name: `nexus claude-ddev api-b`. A persona sees only its projects
 root (its own, or the VM's); run from a directory outside it, `nexus` starts the session in the root. When a
 session's command exits, tmux moves you to another session instead of dropping you out; `Prefix+d` leaves.
+
+**A session that asks, or doesn't.** A Claude persona runs its tools without asking (`bypassPermissions`) unless
+it is set to ask ([section 5](#asking-before-running-tools)). One session can differ: `--skip-bypass-permissions`
+starts it asking (Claude Code's `default` mode: it asks before each tool that needs it), `--bypass-permissions`
+starts it without asking, whatever the persona's setting. The word may stand before or after the session name;
+after `--` it belongs to the command, and any other `-x` after the persona is still a session name, as before.
+- It holds for as long as the session lives. nexus creates it with `NEXUS_PERMISSIONS` (`ask` or `bypass`) in
+  its tmux environment, so its shell, a new window (`Prefix+c`) and a `claude` started again later all get it:
+  the image's `claude` puts `--permission-mode default` (or `bypassPermissions`) first, and an agent team's
+  teammates start in the same mode.
+- It is the mode Claude starts in, not a lock: a flag you type after `claude` wins, so
+  `claude --dangerously-skip-permissions` in a session that asks still bypasses.
+- nexus looks inside the persona first. A session that is there already is attached as usual if it runs in that
+  mode; one in the other mode, or whose mode can't be read, is refused: end it, or name a new session. `main`
+  (the persona's own shell session) is always in the persona's own mode, so a word that differs from it is
+  refused there. A new session is created in the mode and never attached to one that is there: if tmux finds
+  one after all (made meanwhile, or a name with `#` or `\` that tmux rewrites), it says `duplicate session`.
+- Refused before anything runs: both words together, a word with `ls`, `stop`, `logs`, `build`, `pull`,
+  `start`, `restart` or `upgrade`, and a word for a grok persona (grok takes its approval mode from
+  `personas/grok.toml`). With `headless` it sets that one run (section 3).
+- The words need the persona's image built from this checkout, and the persona recreated on it:
+  `nexus <persona> build` (with a registry, `pull`), then `nexus <persona> restart`; or the next
+  `nexus <persona> upgrade`, which does both. On an image from before, a word for a new session or a headless run
+  is refused, saying its image was built before them ([section 10](#10-update-a-vm)); a session that is there already is handled
+  as above. Without a word, nexus works exactly as before.
+- That teammates keep the mode was checked by reading Claude Code 2.1.302 and testing the links
+  `/usr/local/libexec/claude-ask` and `claude-bypass`, not with a real signed-in team.
 
 **APM** ([Agent Package Manager](https://microsoft.github.io/apm/)) is in every persona. In a project,
 `apm install` installs what its `apm.yml` declares (skills, prompts, agents, MCP servers) and
@@ -265,6 +297,12 @@ ssh. The CLI's stdout, stderr and exit code are the command's; nexus's own messa
   `claude -p` itself exits 0 on Ctrl-C.
 - No `-t`: a tty would turn the output's line endings into CRLF and mix stderr into stdout.
 - Claude reports a run that fails inside, e.g. "Not logged in", on stdout with exit code 1.
+- **A run that asks** (a persona set to ask, [section 5](#asking-before-running-tools), or a run given
+  `--skip-bypass-permissions`) can't get approval from anyone in `claude -p`, so tools that need it are denied.
+  For such a run, give `--bypass-permissions`, or allow what it needs with `--allowedTools`. Either word may
+  stand before `headless` or anywhere among its arguments, after the prompt too; nexus takes it out, and runs the
+  CLI with `NEXUS_PERMISSIONS` set, so the image's `claude` puts `--permission-mode` first. The word needs the
+  rebuilt image ([section 2](#2-daily-use)); a grok persona refuses it.
 
 `Bash(ddev *)` allows every ddev subcommand, `ddev exec <anything>` included. In a docker-context persona
 allow what the project needs instead, e.g. `Bash(docker compose *)`. Docker access is root on the VM, so keep
@@ -322,6 +360,8 @@ Each is saved as it is done. Without questions:
 /opt/agents/nexus --config --yes --ssh grok-docker:new                       # an ssh key of its own (below)
 /opt/agents/nexus --config --yes --ssh grok-docker:~/.ssh/grok_deploy        # a key you have
 /opt/agents/nexus --config --yes --ssh grok-docker:agent                     # back to your ssh-agent
+/opt/agents/nexus --config --yes --permissions claude-docker:ask             # it asks before running tools (below)
+/opt/agents/nexus --config --yes --permissions claude-docker:bypass          # back to bypassPermissions
 ```
 - A persona's own projects root is kept in `personas.json` (`root`), and can't contain spaces or `:`. Given
   without `:ROOT`, an existing persona keeps its root. Changing the root takes `nexus <persona> restart`; its
@@ -339,6 +379,9 @@ Each is saved as it is done. Without questions:
   (the old one to `.env.bak`).
 - `--statusline` / `--no-statusline` with `--persona` turn a persona's statusline on or off; without either, an
   existing persona keeps its setting, and a new one gets it.
+- `--permissions <name>:ask|bypass` (repeatable) works on a persona that is there, or one `--persona` adds in the
+  same run; without it a new persona bypasses, and an existing one keeps its setting. `ask` for a grok persona,
+  or a name no persona has, is refused.
 - Removing keeps the env file, the ssh key and the home volume; `nexus --config` prints the commands that delete
   them. While that `personas/<name>.env` stays, the menu lists it as belonging to no persona (adding one of that
   name reuses it); delete it to stop that.
@@ -350,7 +393,8 @@ persona order (the order of their colours and of `--list`), each under its name:
 
 ```json
 {"version": 1, "personas": {
-  "claude-ddev": {"flavour": "claude", "context": "ddev", "colour": "colour25", "statusline": true},
+  "claude-ddev": {"flavour": "claude", "context": "ddev", "colour": "colour25", "statusline": true,
+                  "permissions": "ask"},
   "grok-docker": {"flavour": "grok", "context": "docker", "colour": "colour28", "statusline": false,
                   "root": "/srv/work", "ssh": "none"}}}
 ```
@@ -363,6 +407,7 @@ persona order (the order of their colours and of `--list`), each under its name:
 | `statusline` | `true` or `false` |
 | `root` | only with a projects root of its own: an absolute directory other than `/`, without spaces or `:` |
 | `ssh` | only when it doesn't use your agent: `none`, `personas/<name>.key`, or the absolute path of a key (no spaces, `:`, quotes or `$`) |
+| `permissions` | only for a Claude persona that asks before running tools: `ask`. Left out (or `bypass`), it runs them without asking |
 
 - `nexus --config` writes it by a rename, under its lock, and keeps the one before as `personas.json.bak`. Then it
   generates `compose.personas.yml` from it: a service per persona, under a header that says "generated by
@@ -418,6 +463,31 @@ the access its persona needs, never your own key; removing it on the git host cu
 (it makes the key and prints it), add it on the git host, and `nexus <name> restart`: a running persona keeps the
 key it started with until then. The same goes for a key file you named and then replaced.
 
+### Asking before running tools
+
+As committed, every Claude persona runs its tools without asking: `personas/claude.managed.json` starts Claude
+Code in `bypassPermissions` ([below](#settings-for-every-persona)). One can ask first instead (`nexus --config`:
+add or change it, and answer `n` at `Let <name> run its tools without asking …?`; or `--permissions <name>:ask`),
+then, for one that is there already, `nexus <name> restart`; `nexus --config` says so (`<name>: changed; …`).
+
+- Its container gets the committed `personas/claude.ask.json` mounted read-only as the managed drop-in
+  `/etc/claude-code/managed-settings.d/16-ask.json`. It comes after `15-personas.json`, so its mode wins: as
+  committed `default`, which asks before each tool that needs it. For another mode that asks (`acceptEdits`,
+  `plan`, …), edit `claude.ask.json`: every persona that asks gets it, at its next restart.
+- It covers every `claude` in the persona (its sessions, one you type, headless runs, an agent team's
+  teammates), since it is Claude Code's own managed setting, except a session or headless run given one of the
+  words ([section 2](#2-daily-use)): `--bypass-permissions` runs without asking, and `--skip-bypass-permissions`
+  starts in `default`, whatever mode `claude.ask.json` sets. It works on any image. Like a word, it is the mode
+  Claude starts in, not a lock.
+- Until the restart, a start or an attach of the running persona warns: `<name> asks before running tools now,
+  but its container was made before that and doesn't`.
+- While a persona asks and `claude.ask.json` is missing, unreadable, not JSON, sets no `permissions.defaultMode`,
+  or sets `bypassPermissions`, `nexus --config` writes nothing and nexus won't start or restart that persona: it
+  would bypass. `git checkout personas/claude.ask.json` restores the committed one.
+- Headless runs of a persona that asks can't get approval, so tools that need it are denied
+  ([section 3](#3-headless-runs)).
+- grok personas can't be set to ask (refused): grok takes its approval mode from `personas/grok.toml`.
+
 ### Settings for every persona
 
 Committed files hold the settings every persona of a flavour gets, on every VM that pulls the repo. Each is
@@ -427,6 +497,7 @@ either **defaults**, which a persona's own settings override key by key, or **en
 |---|---|---|---|
 | `personas/claude.json` | Claude Code: preferences (`model`, effort per model, `theme`, `outputStyle`, `tui`, …) | defaults | merged into the persona's own `~/.claude/settings.json` by nexus, each time it creates or starts the container (below) |
 | `personas/claude.managed.json` | Claude Code: policy (`permissions.defaultMode`, `skipDangerousModePermissionPrompt`, `env`) | enforced | mounted read-only as the managed drop-in `/etc/claude-code/managed-settings.d/15-personas.json`, next to the image's `10-agent-image.json` (its update lock) and the statusline's `20-statusline.json` |
+| `personas/claude.ask.json` | Claude Code: the mode of a persona that asks (`permissions.defaultMode`, as committed `default`) | enforced | for a persona that asks only, mounted read-only as the managed drop-in `/etc/claude-code/managed-settings.d/16-ask.json`, after `15-personas.json`, so its mode wins ([above](#asking-before-running-tools)) |
 | `personas/grok.toml` | grok: everything | defaults | `nexus --config` writes it, with the statusline's `[ui.status_line]` where that's on, to `personas/<name>.grok.toml`, mounted read-only as grok's `/etc/grok/managed_config.toml` |
 
 Claude Code has no layer of its own below a user's settings, hence the merge. When nexus creates or starts a
@@ -450,20 +521,24 @@ writes as you change settings there, wins.
 |---|---|
 | `personas/claude.json` | `nexus <persona> restart` (the merge runs as the container starts) |
 | `personas/claude.managed.json` | `nexus <persona> restart`: it is mounted on its own, so a running container keeps the version it started with |
+| `personas/claude.ask.json` | `nexus <persona> restart` for each persona that asks, for the same reason |
 | `personas/grok.toml` | re-run `nexus --config`: it rewrites `personas/<name>.grok.toml` in place, so the next grok started in a running persona reads it |
 
 - `nexus --config` writes nothing if a file wouldn't parse, since a broken one stops the CLI in every persona it
   reaches. JSON it checks itself; TOML with the VM's python3 if that is 3.11 or newer (tomllib), else in a persona
   image already there, and with neither it warns.
-- `nexus --config` checks each file before it writes anything (JSON for Claude; TOML for grok, on its own and with the
-  statusline added).
+- `nexus --config` checks each file before it writes anything (JSON for Claude, and `claude.ask.json`, while a
+  persona asks, for a mode that asks; TOML for grok, on its own and with the statusline added).
 - A persona that had no such mount yet gets it when it is next created: `nexus --config` says `nexus <persona> restart`.
 - Without a file, there is nothing to mount or merge. A persona's service that names a mounted one while it's
   missing won't start: nexus says to restore it (`git checkout personas/claude.managed.json`) or re-run
-  `nexus --config`.
+  `nexus --config`. A persona that asks is given `claude.ask.json` whether it is there or not, and won't start
+  while it is missing or would bypass ([above](#asking-before-running-tools)).
 - As committed, `personas/claude.managed.json` starts Claude Code in `bypassPermissions` mode without its warning,
-  and `personas/grok.toml` sets grok to `always-approve`: every persona runs its tools without asking. Change
-  them there if a persona should ask.
+  and `personas/grok.toml` sets grok to `always-approve`: every persona runs its tools without asking. For a
+  Claude persona that should ask, set it to ask ([above](#asking-before-running-tools)): `claude.ask.json`'s mode
+  then wins over that; for one session, `--skip-bypass-permissions` ([section 2](#2-daily-use)). For grok, change
+  `personas/grok.toml`, which every grok persona gets.
 - Leave out of `personas/grok.toml` what grok records for itself, such as `[privacy]` and the `[marketplace]`
   install flags: grok keeps those in each persona's own file, and reads `[privacy]` from no other.
 - To see what a persona got: inside it, `claude`'s banner shows the model and effort, `~/.claude/settings.json`
@@ -587,10 +662,11 @@ included, on throwaway personas. Nothing of your setup is read or changed, and w
 /opt/agents/tests/run.sh                  # about two minutes: ok or FAIL per check, a summary, exit 1 on a failure
 /opt/agents/tests/run.sh --no-containers  # a minute or two: lint, the goldens, nexus --config and nexus, no persona
 ```
-- Starting personas needs a Claude persona image built for your uid (the newest `agent-claude-docker` here, or
-  `--image REF`), `ssh-agent` and `script`; a stage it can't run is skipped, saying why. There is no real sign-in:
-  Claude Code talks to a stand-in API (`tests/fake-api.py`) and grok is a stand-in (`tests/fake-grok`), so it tests
-  nexus and `nexus --config`, not a CLI release.
+- Starting personas needs a Claude persona image built for your uid from this checkout (the newest
+  `agent-claude-docker` here, or `--image REF`; one built before the session words fails the stages "the image's
+  claude" and "permissions", so `nexus <persona> build` first), `ssh-agent` and `script`; a stage it can't run is
+  skipped, saying why. There is no real sign-in: Claude Code talks to a stand-in API (`tests/fake-api.py`) and grok
+  is a stand-in (`tests/fake-grok`), so it tests nexus and `nexus --config`, not a CLI release.
 - It lints with shellcheck and hadolint if they are installed or their images are here; it never pulls them.
 - Its goldens stage compares what the tools print, call and write with the scenarios in `tests/golden`, recorded
   from the bash tools, or from the Python where the behaviour is new (`tests/golden/ODDITIES.md` lists where they
@@ -675,6 +751,15 @@ git -C /opt/agents pull
 it generates from them again, and its closing lines name any persona that needs `nexus <persona> restart` for what
 it wrote: a setting changed, a mount added, or a service in `compose.personas.yml` that wasn't what `personas.json`
 gives (edited by hand, say).
+
+**Asking before running tools** needs nothing at the update: after the pull, `nexus --config --yes --no-build`
+changes nothing for it (every persona still runs its tools without asking, and the files it writes are as
+before), and setting a persona to ask works on any image. The session words, `--skip-bypass-permissions` and
+`--bypass-permissions` ([section 2](#2-daily-use)), need each Claude image built once from the new checkout:
+`nexus <persona> build` (with a registry, `pull`) once per context, then `nexus <persona> restart` for each
+Claude persona; or the next `nexus <persona> upgrade`, which does both. Until then a word for a new session or a
+headless run is refused with `nothing was started: <persona>'s image was built before nexus had …`, even when
+it is the persona's own mode; without a word nexus works as before.
 
 **From before `nexus --config`:** after the `git pull`, `config-tools` is gone; `nexus --config --yes --no-build`
 does what `config-tools --yes --no-build` did, with the same flags. A `compose.personas.yml` config-tools wrote is
@@ -789,11 +874,25 @@ Back on the Python tools (`git checkout main`), `# persona:` lines in `compose.p
 | `nexus: …/compose.personas.yml is out of step with personas.json (edited by hand, or written by an older nexus --config): …` | the file was edited by hand, or an older `nexus --config` wrote it before a `git pull` changed what it generates; or `personas.json` was edited by hand | `…/nexus --config --yes`, then `nexus <persona> restart` for a running persona ([section 10](#out-of-step-with-personasjson)) |
 | `nexus --config`: `personas/grok.toml isn't TOML grok can read` | a typo in your grok settings (the message names line and column) | fix it and re-run; nothing was written |
 | `nexus --config`: `personas/claude.json isn't JSON Claude Code can read` (or `claude.managed.json`) | a typo in the Claude settings (the message names line and column) | fix it and re-run; nothing was written |
-| A change to `personas/claude.json` or `claude.managed.json` doesn't show in a persona | the defaults merge as the container starts, and the managed file is mounted on its own | `nexus <persona> restart` |
+| A change to `personas/claude.json`, `claude.managed.json` or `claude.ask.json` doesn't show in a persona | the defaults merge as the container starts, and the managed files are mounted on their own | `nexus <persona> restart` |
 | A default from `personas/claude.json` doesn't reach a persona | the persona has its own value for that key in `~/.claude/settings.json` (set there, by `/config`, or there before), or took the key out | set it there; or take it out of `~/.claude/.nexus-defaults.json` too (or delete that file), then `nexus <persona> restart`, and the default comes back |
 | `…/personas.json is missing, and …/compose.personas.yml was generated from it: put back …/personas.json.bak (the one nexus --config kept before it)` | `personas.json` was deleted | `cp personas.json.bak personas.json` in the checkout: it is the one from before `nexus --config`'s last change, so check it with `nexus --config --list`, then `nexus --config --yes`. Without a `.bak` the message says to remove `compose.personas.yml` and set the personas up again |
 | `…/personas.json isn't valid JSON (…)`, `… is version 2; this checkout reads version 1`, `… has '<key>' twice`, `… persona '<name>' has …` | a hand edit the tools won't take | fix it as the message says, or put back `personas.json.bak` (the message names it when there is one); then `nexus --config --yes` ([section 5](#personasjson)) |
 | `nexus: warning: <persona>: its ~/.claude/settings.json is not valid JSON` | that file is broken | fix it inside the persona; nexus merges the defaults at the next restart |
+| `…/personas/claude.ask.json isn't there, and <persona> asks before running tools` (or `can't be read`, `isn't JSON Claude Code can read`, `sets no permissions.defaultMode`, `sets permissions.defaultMode to bypassPermissions`), from `nexus --config` or nexus | a persona is set to ask, and the file that makes it ask is gone, broken, or would bypass: `nexus --config` wrote nothing, nexus didn't start it | `git checkout personas/claude.ask.json`, or give it a `permissions.defaultMode` that asks (`default`, `acceptEdits`, `plan`, …); or let the persona bypass: `--permissions <persona>:bypass` ([§5](#asking-before-running-tools)) |
+| `nexus: warning: <persona> asks before running tools now, but its container was made before that and doesn't: …` | it was set to ask while it ran: its container has no `16-ask.json` yet, and still bypasses | `nexus <persona> restart` (ends its tmux sessions) |
+| `nexus --config`: `--permissions …: it takes NAME:ask or NAME:bypass`, or `… no persona <name> (add it with --persona)` | a typo, or a persona that isn't set up | `--permissions <name>:ask` or `<name>:bypass`, for a persona `--list` shows or one `--persona` adds in that run |
+| `--skip-bypass-permissions is for claude personas: <persona> is a grok one, …` (or `--bypass-permissions`); `nexus --config`: `--permissions <persona>:ask: <persona> is a grok persona, …` | grok takes its approval mode from `personas/grok.toml` | leave the word out; change `personas/grok.toml`, which every grok persona gets |
+| `pick one of --skip-bypass-permissions and --bypass-permissions` | both words given | give one |
+| `--skip-bypass-permissions is for a session or a headless run, not for <command>` (or `--bypass-permissions`) | a word with `ls`, `stop`, `logs`, `build`, `pull`, `start`, `restart` or `upgrade` | leave it out there: it goes with `nexus <persona> [session]` or `headless` |
+| `nothing was started: <persona>'s image was built before nexus had --skip-bypass-permissions` (or `--bypass-permissions`) | its image was built before the session words: its `claude` is Claude Code itself, not `claude-mode.sh` | `nexus <persona> build` (with a registry, `pull`: the message says which), then `nexus <persona> restart` (ends its tmux sessions) ([section 10](#10-update-a-vm)) |
+| `session <name> already runs its tools without asking (…)`, or `… already asks before running tools (…)` | that session started in the other mode (with the other word, or in the persona's own mode), and keeps it | end it, or name a new session: `nexus <persona> --skip-bypass-permissions <new>` (or `--bypass-permissions`) |
+| `session main is <persona>'s shell, in its own mode (…)` | `main`, the persona's own shell session, always runs in the persona's mode | name a new session; or change the persona's setting (`nexus --config`, change), then `nexus <persona> restart` |
+| `can't read the mode session <name> runs in: …` | nexus couldn't read that session's tmux environment | name a new session |
+| `can't read <persona>'s permission settings inside it (exit N); …` | the look inside the persona before a session word failed, or took over 10 s | try again, or `nexus <persona> restart` |
+| `duplicate session: <name>`, with a session word | a session of that name was made since nexus looked, or a name with `#` or `\`, which tmux rewrites, matched one | name another session |
+| A headless run of a persona that asks, or given `--skip-bypass-permissions`, doesn't use the tools it needs | `claude -p` can't get approval from anyone, so tools that need it are denied | `--bypass-permissions` for that run, or allow them with `--allowedTools` (section 3) |
+| Claude doesn't ask in a session started with `--skip-bypass-permissions` | a flag typed after `claude` wins (`--dangerously-skip-permissions`, `--permission-mode …`): the word sets where Claude starts, not a lock | start `claude` without that flag |
 | grok's status line row stays empty | grok shows its welcome screen (the row comes with the first prompt), statusline off, or the persona's own `~/.grok/config.toml` sets `[ui.status_line]` | start a session; turn it on with `nexus --config`; or remove that section there |
 | No statusline in Claude | workspace not trusted yet, or statusline off for this persona | accept the trust prompt (section 7); else turn it on with `nexus --config` and restart |
 | `nexus: headless: give the prompt first …` | no prompt, and nothing piped in (or the first argument is a one-word flag) | `nexus <persona> headless "PROMPT" [FLAGS…]`, or pipe the prompt in |
@@ -872,6 +971,8 @@ Keep comments on their own lines: after an empty value, compose reads an inline 
 | `AGENT_PERSONA`, `AGENT_COLOUR` | persona name and status-bar colour |
 | `DISABLE_AUTOUPDATER`, `GROK_DISABLE_AUTOUPDATER` | `1`; the Claude image also sets `DISABLE_UPDATES` and `DISABLE_INSTALLATION_CHECKS` as managed settings |
 | `CAROOT`, `NODE_EXTRA_CA_CERTS` | ddev context only: the VM's mkcert CA dir and file, so ddev, node and Claude trust `https://*.ddev.site` (`NODE_EXTRA_CA_CERTS` is empty when the launcher finds no CA) |
+| `NEXUS_PERMISSIONS` | Claude personas: `ask` or `bypass` in a session started with `--skip-bypass-permissions` or `--bypass-permissions` (in that tmux session's environment), or in that headless run; unset otherwise. Set by nexus, not by hand: the image's `claude` (`claude-mode.sh`) turns it into `--permission-mode default` or `bypassPermissions`, in front of Claude Code at `/usr/local/libexec/claude` |
+| `CLAUDE_CODE_TEAMMATE_COMMAND` | set by `claude-mode.sh` when it has a mode: `/usr/local/libexec/claude-ask` or `claude-bypass` (links to it), what an agent team's teammates start as, so they keep the session's mode |
 
 ### Build: targets and arguments
 

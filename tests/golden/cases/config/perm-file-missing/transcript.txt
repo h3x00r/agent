@@ -1,0 +1,80 @@
+## run 1: config --yes …  (claude.ask.json gone, c1 asks)  [pipe]
+rc: 1
+--- stdout
+nexus --config: setting up <A>
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: <A>/personas/claude.ask.json isn't there, and c1 asks before running tools, so nothing was written: restore it (git checkout personas/claude.ask.json)
+## run 2: config --yes … --permissions c1:bypass  (nobody asks)  [pipe]
+rc: 0
+--- stdout
+nexus --config: setting up <A>
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  c2                              claude   docker   yes        the VM's             your agent
+
+Start one from a project directory:  cd <P>/<project> && nexus c1
+c1: changed; `nexus c1 restart` applies it (that ends its tmux sessions)
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+## run 3: config --yes …  (broken, but nobody asks)  [pipe]
+rc: 0
+--- stdout
+nexus --config: setting up <A>
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  c2                              claude   docker   yes        the VM's             your agent
+
+Start one from a project directory:  cd <P>/<project> && nexus c1
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+## run 4: config --yes … --permissions c2:ask  (broken)  [pipe]
+rc: 1
+--- stdout
+nexus --config: setting up <A>
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: <A>/personas/claude.ask.json isn't JSON Claude Code can read (Expecting property name enclosed in double quotes: line 1 column 3 (char 2)), and c2 asks before running tools, so nothing was written: it needs a permissions.defaultMode that asks (default, acceptEdits, plan, …); git checkout personas/claude.ask.json restores the committed one
+## run 5: config --yes … --permissions c1:ask --permissions c2:ask  (no mode)  [pipe]
+rc: 1
+--- stdout
+nexus --config: setting up <A>
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: <A>/personas/claude.ask.json sets no permissions.defaultMode, and c1 and c2 ask before running tools, so nothing was written: it needs a permissions.defaultMode that asks (default, acceptEdits, plan, …); git checkout personas/claude.ask.json restores the committed one
+## run 6: config --yes … --permissions c1:ask --permissions c2:ask  (bypassPermissions)  [pipe]
+rc: 1
+--- stdout
+nexus --config: setting up <A>
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: <A>/personas/claude.ask.json sets permissions.defaultMode to bypassPermissions, and c1 and c2 ask before running tools, so nothing was written: it needs a permissions.defaultMode that asks (default, acceptEdits, plan, …); git checkout personas/claude.ask.json restores the committed one
+## run 7: config --yes … --permissions c2:ask  (unreadable)  [pipe]
+rc: 1
+--- stdout
+nexus --config: setting up <A>
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: <A>/personas/claude.ask.json can't be read (Permission denied), and c2 asks before running tools, so nothing was written: make it readable to you, or git checkout personas/claude.ask.json restores the committed one
+## run 8: config --yes … --permissions c2:ask  (restored)  [pipe]
+rc: 0
+--- stdout
+nexus --config: setting up <A>
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  c2                              claude   docker   yes        the VM's             your agent
+  asks before running tools (not bypassPermissions): c2
+
+Start one from a project directory:  cd <P>/<project> && nexus c1
+c2: changed; `nexus c2 restart` applies it (that ends its tmux sessions)
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside

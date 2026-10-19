@@ -39,7 +39,7 @@ Personas
 What next?
   1) list      the shared settings and the personas, again
   2) add       a new persona
-  3) change    one persona's flavour, context, statusline, projects root or ssh
+  3) change    one persona's flavour, context, statusline, projects root, ssh or permissions
   4) remove    one persona (its env file and home volume stay)
   5) shared    the settings every persona shares: projects root, image registry, Claude Code version
   6) launcher  link nexus into a directory on your PATH
@@ -50,7 +50,7 @@ Start one from a project directory:  cd <P>/<project> && nexus d1
 Day-to-day use, upgrades and troubleshooting: runbook.md
 --- stderr (no newline at the end)
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
-The VM's projects root, for personas without their own (mounted at the same path inside) [<HOME>/projects]: Image registry (local = build on this VM) [local]: Claude Code version, for the claude personas: latest | stable | X.Y.Z [latest]: choice [claude]: choice [ddev]: Name [claude-ddev]: Statusline (statusline/: model, context, cost; what nexus top shows) in d1? [Y/n]: Projects root for d1 (-: the VM's, now <P>) [-]: choice [agent]: choice [login]: git author name for d1 [Test User]: git author email for d1 [test@example.invalid]: GH_TOKEN for the gh CLI in d1 (hidden; empty to skip): 
+The VM's projects root, for personas without their own (mounted at the same path inside) [<HOME>/projects]: Image registry (local = build on this VM) [local]: Claude Code version, for the claude personas: latest | stable | X.Y.Z [latest]: choice [claude]: choice [ddev]: Name [claude-ddev]: Statusline (statusline/: model, context, cost; what nexus top shows) in d1? [Y/n]: Projects root for d1 (-: the VM's, now <P>) [-]: choice [agent]: Let d1 run its tools without asking (bypassPermissions; no: it asks first, as personas/claude.ask.json says)? [Y/n]: choice [login]: git author name for d1 [Test User]: git author email for d1 [test@example.invalid]: GH_TOKEN for the gh CLI in d1 (hidden; empty to skip): 
 Trust ddev's local CA on this VM now (mkcert -install)? [Y/n]: choice [quit]: 
 --- echo
 <P>\r
@@ -59,6 +59,7 @@ Trust ddev's local CA on this VM now (mkcert -install)? [Y/n]: choice [quit]:
 \r
 \r
 d1\r
+\r
 \r
 \r
 \r
@@ -84,7 +85,7 @@ Personas
 What next?
   1) list      the shared settings and the personas, again
   2) add       a new persona
-  3) change    one persona's flavour, context, statusline, projects root or ssh
+  3) change    one persona's flavour, context, statusline, projects root, ssh or permissions
   4) remove    one persona (its env file and home volume stay)
   5) shared    the settings every persona shares: projects root, image registry, Claude Code version
   6) launcher  link nexus into a directory on your PATH
@@ -115,7 +116,7 @@ The local CA is now installed in the system trust store!
 What next?
   1) list      the shared settings and the personas, again
   2) add       a new persona
-  3) change    one persona's flavour, context, statusline, projects root or ssh
+  3) change    one persona's flavour, context, statusline, projects root, ssh or permissions
   4) remove    one persona (its env file and home volume stay)
   5) shared    the settings every persona shares: projects root, image registry, Claude Code version
   6) launcher  link nexus into a directory on your PATH
@@ -126,13 +127,14 @@ Start one from a project directory:  cd <P>/<project> && nexus d1
 Day-to-day use, upgrades and troubleshooting: runbook.md
 --- stderr (no newline at the end)
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
-choice [quit]: choice [claude]: choice [ddev]: Name [claude-ddev]: Statusline (statusline/: model, context, cost; what nexus top shows) in d2? [Y/n]: Projects root for d2 (-: the VM's, now <P>) [-]: choice [agent]: choice [login]: git author name for d2 [Test User]: git author email for d2 [test@example.invalid]: GH_TOKEN for the gh CLI in d2 (hidden; empty to skip): 
+choice [quit]: choice [claude]: choice [ddev]: Name [claude-ddev]: Statusline (statusline/: model, context, cost; what nexus top shows) in d2? [Y/n]: Projects root for d2 (-: the VM's, now <P>) [-]: choice [agent]: Let d2 run its tools without asking (bypassPermissions; no: it asks first, as personas/claude.ask.json says)? [Y/n]: choice [login]: git author name for d2 [Test User]: git author email for d2 [test@example.invalid]: GH_TOKEN for the gh CLI in d2 (hidden; empty to skip): 
 Trust ddev's local CA on this VM now (mkcert -install)? [Y/n]: choice [quit]: 
 --- echo
 add\r
 \r
 \r
 d2\r
+\r
 \r
 \r
 \r

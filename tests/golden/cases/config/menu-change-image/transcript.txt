@@ -15,7 +15,7 @@ Personas
 What next?
   1) list      the shared settings and the personas, again
   2) add       a new persona
-  3) change    one persona's flavour, context, statusline, projects root or ssh
+  3) change    one persona's flavour, context, statusline, projects root, ssh or permissions
   4) remove    one persona (its env file and home volume stay)
   5) shared    the settings every persona shares: projects root, image registry, Claude Code version
   6) launcher  link nexus into a directory on your PATH
@@ -44,7 +44,7 @@ ddev: run `mkcert -install` on this VM (it comes with ddev), then `nexus <person
 What next?
   1) list      the shared settings and the personas, again
   2) add       a new persona
-  3) change    one persona's flavour, context, statusline, projects root or ssh
+  3) change    one persona's flavour, context, statusline, projects root, ssh or permissions
   4) remove    one persona (its env file and home volume stay)
   5) shared    the settings every persona shares: projects root, image registry, Claude Code version
   6) launcher  link nexus into a directory on your PATH
@@ -55,13 +55,14 @@ Start one from a project directory:  cd <P>/<project> && nexus c1
 Day-to-day use, upgrades and troubleshooting: runbook.md
 --- stderr (no newline at the end)
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
-choice [quit]: choice [-]: choice [claude]: choice [docker]: Statusline (statusline/: model, context, cost; what nexus top shows) in c1? [Y/n]: Projects root for c1 (-: the VM's, now <P>) [-]: choice [agent]: config: warning: ddev isn't installed on this VM: the ddev personas get the newest ddev; install the same on the VM (pkg.ddev.com) so both agree, and for mkcert
+choice [quit]: choice [-]: choice [claude]: choice [docker]: Statusline (statusline/: model, context, cost; what nexus top shows) in c1? [Y/n]: Projects root for c1 (-: the VM's, now <P>) [-]: choice [agent]: Let c1 run its tools without asking (bypassPermissions; no: it asks first, as personas/claude.ask.json says)? [Y/n]: config: warning: ddev isn't installed on this VM: the ddev personas get the newest ddev; install the same on the VM (pkg.ddev.com) so both agree, and for mkcert
 Build agent-claude-ddev now, for c1? (seconds for one that is up to date; a first build takes a few minutes) [Y/n]: Trust ddev's local CA on this VM now (mkcert -install)? [Y/n]: choice [quit]: 
 --- echo
 change\r
 c1\r
 \r
 ddev\r
+\r
 \r
 \r
 \r
@@ -93,7 +94,7 @@ Personas
 What next?
   1) list      the shared settings and the personas, again
   2) add       a new persona
-  3) change    one persona's flavour, context, statusline, projects root or ssh
+  3) change    one persona's flavour, context, statusline, projects root, ssh or permissions
   4) remove    one persona (its env file and home volume stay)
   5) shared    the settings every persona shares: projects root, image registry, Claude Code version
   6) launcher  link nexus into a directory on your PATH

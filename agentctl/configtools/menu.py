@@ -37,7 +37,7 @@ from agentctl.ui.prompts import EOF_MESSAGE
 
 ACTIONS = ["list      the shared settings and the personas, again",
            "add       a new persona",
-           "change    one persona's flavour, context, statusline, projects root or ssh",
+           "change    one persona's flavour, context, statusline, projects root, ssh or permissions",
            "remove    one persona (its env file and home volume stay)",
            "shared    the settings every persona shares: projects root, image registry, Claude Code version",
            "launcher  link nexus into a directory on your PATH",
@@ -70,7 +70,7 @@ class Menu:
             s.say("nexus --config: setting up %s for the first time%s" % (s.a, ddev))
         else:
             s.say("nexus --config: %s%s" % (s.a, ddev))
-        flags = bool(o.add or o.ssh or o.remove or o.root or o.registry or o.claude)
+        flags = bool(o.add or o.ssh or o.permissions or o.remove or o.root or o.registry or o.claude)
         before = set(p.name for p in s.personas)
         read = copy.deepcopy(s.personas)
         s.apply_flags()

@@ -14,6 +14,8 @@ Pitfalls (each pinned where named):
   (test_adapters.Render.test_as_the_goldens_have_it)
 - a key's path goes into '…' as it is: persona.key_path_ok must keep refusing ' and $ (golden
   config/cli-bad-ssh)
+- a persona that asks gets personas/claude.ask.json whether or not it is there: left out, it would bypass (and a
+  start without it is refused) (test_adapters.Render.test_ask, golden nexus/perm-ask-file-missing)
 """
 from agentctl.domain import context, flavour
 
@@ -38,6 +40,14 @@ MANAGED = (
     "      # merges those into them). A single-file mount, so a change (a git pull too) needs a restart.\n"
     "      - { type: bind, source: ./personas/claude.managed.json, target: "
     "/etc/claude-code/managed-settings.d/15-personas.json, read_only: true, bind: { create_host_path: false } }\n"
+)
+
+CLAUDE_ASK = (
+    "      # It asks before running tools: personas/claude.ask.json, a managed drop-in after 15-personas.json, so\n"
+    "      # the permission mode it sets wins over the bypassPermissions there. A single-file mount, so a change\n"
+    "      # needs a restart.\n"
+    "      - { type: bind, source: ./personas/claude.ask.json, target: "
+    "/etc/claude-code/managed-settings.d/16-ask.json, read_only: true, bind: { create_host_path: false } }\n"
 )
 
 CLAUDE_STATUSLINE = (
@@ -100,6 +110,8 @@ def _service(p, env_file, managed):
          "env": env_file, "col": p.colour, "more": more}
     if p.flavour == "claude" and managed:
         s += MANAGED
+    if p.flavour == "claude" and p.permissions == "ask":
+        s += CLAUDE_ASK
     if p.flavour == "claude" and p.statusline:
         s += CLAUDE_STATUSLINE
     elif p.flavour == "grok":
