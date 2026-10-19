@@ -12,7 +12,7 @@
     |   }
     | }
 + a/personas/c1.env.bak  f 600
-    | # personas/<name>.env for a Claude persona. ./config-tools writes it from this template; by hand: copy
+    | # personas/<name>.env for a Claude persona. nexus --config writes it from this template; by hand: copy
     | # it, chmod 600, never commit. Comments stay on their own lines: an inline one after an empty value
     | # becomes the value.
     | 
@@ -37,7 +37,7 @@
     | # Default model for this persona:
     | # ANTHROPIC_MODEL=
 + a/personas/c1.env.bak.2  f 600
-    | # personas/<name>.env for a grok persona. ./config-tools writes it from this template; by hand: copy
+    | # personas/<name>.env for a grok persona. nexus --config writes it from this template; by hand: copy
     | # it, chmod 600, never commit. Comments stay on their own lines: an inline one after an empty value
     | # becomes the value.
     | 
@@ -57,13 +57,13 @@
     | # Context ddev: never block an unattended run on a ddev prompt:
     | # DDEV_NONINTERACTIVE=true
 + a/personas/c1.grok.toml  f 600
-    | # /etc/grok/managed_config.toml in grok persona c1, written by config-tools from personas/grok.toml
+    | # /etc/grok/managed_config.toml in grok persona c1, written by nexus --config from personas/grok.toml
     | # (grok settings for every grok persona here) and, with the statusline on, statusline/grok/settings.toml.
-    | # Edit those and re-run config-tools, not this file. A key in the persona's ~/.grok/config.toml wins.
+    | # Edit those and re-run nexus --config, not this file. A key in the persona's ~/.grok/config.toml wins.
     | 
-    | # personas/grok.toml: grok settings for every grok persona, on every VM that pulls this repo. config-tools
+    | # personas/grok.toml: grok settings for every grok persona, on every VM that pulls this repo. nexus --config
     | # copies it into each grok persona's managed config (personas/<name>.grok.toml, /etc/grok/managed_config.toml
-    | # inside, with the statusline after it) and checks it first, so re-run config-tools after an edit: the next grok
+    | # inside, with the statusline after it) and checks it first, so re-run nexus --config after an edit: the next grok
     | # started in a persona reads it.
     | #
     | # It is grok's own config.toml format (~/.grok/docs/user-guide/26-config-reference.md in a persona). These
@@ -99,7 +99,7 @@
     | subagent_model_inheritance = false
     | 
     | 
-    | # statusline/grok/settings.toml: what config-tools adds to a grok persona's managed config
+    | # statusline/grok/settings.toml: what nexus --config adds to a grok persona's managed config
     | # (personas/<name>.grok.toml, /etc/grok/managed_config.toml inside) when the persona has the statusline on.
     | # grok then runs statusline/grok/statusline.sh, so `nexus top` shows its sessions' figures. A status line
     | # in personas/grok.toml, or in the persona's own ~/.grok/config.toml, stands instead.

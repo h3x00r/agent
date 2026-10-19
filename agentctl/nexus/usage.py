@@ -1,7 +1,7 @@
-"""nexus's usage: what `nexus` alone and `nexus --help` print (the old launcher's header, word for word)."""
+"""nexus's usage: what `nexus` alone and `nexus --help` print."""
 
 USAGE = """\
-nexus — launcher for persona containers. ./config-tools sets up the personas and links this script,
+nexus — launcher for persona containers. nexus --config sets up the personas and links this script,
 e.g. to /usr/local/bin/nexus.
 
   nexus <persona> [session] [-- cmd ...]   attach to (or create) a tmux session in that persona,
@@ -23,8 +23,10 @@ e.g. to /usr/local/bin/nexus.
                                            pin its CLI (claude or grok) to VERSION, else to the newest
                                            release (of CHANNEL), build or pull the images, recreate every
                                            persona of that flavour (asks first; -y doesn't), drop the old ones
+  nexus --config [--list | --yes …]        set this VM up: the settings every persona shares, the personas,
+                                           the launcher link, the images (nexus --config --help says more)
 
-Examples, with personas named claude-ddev and grok-docker (the names config-tools suggests):
+Examples, with personas named claude-ddev and grok-docker (the names nexus --config suggests):
   cd ~/projects/billing && nexus claude-ddev            # session "billing", shell at that dir
   nexus claude-ddev review -- claude --resume           # new session "review", straight into Claude Code
   nexus grok-docker                                     # same project, other persona

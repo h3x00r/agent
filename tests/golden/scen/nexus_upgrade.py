@@ -505,7 +505,7 @@ def _(sb):
 
 @case("nexus/upgrade-out-of-step")
 def _(sb):
-    # A compose.personas.yml edited by hand (or written by an older config-tools): upgrade builds from it and may
+    # A compose.personas.yml edited by hand (or written by an older nexus --config): upgrade builds from it and may
     # recreate the containers, so it refuses before any pin, as a start does (M4: new, from the Python).
     personas(sb, "c1:claude:docker")
     templates(sb)

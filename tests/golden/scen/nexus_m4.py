@@ -28,7 +28,7 @@ def _(sb):
 
 @case("nexus/m4-managed-back")
 def _(sb):
-    # The opt-out the claude message offers ("re-run config-tools without it"), then a git checkout or pull
+    # The opt-out the claude message offers ("re-run nexus --config without it"), then a git checkout or pull
     # brings claude.managed.json back.
     two_personas(sb)
     with open(sb.path(MANAGED), "rb") as f:
@@ -104,7 +104,7 @@ def _(sb):
 
 @case("nexus/m4-top-live-reread", norm=hms)
 def _(sb):
-    # config-tools adds a persona while `nexus top` is open: bash's top read the personas each frame.
+    # nexus --config adds a persona while `nexus top` is open: bash's top read the personas each frame.
     sb.personas("c1:claude:docker")
     keep = {}
     for f in ("personas.json", "compose.personas.yml"):
@@ -166,8 +166,8 @@ def _(sb):
     os.unlink(sb.path("a/personas.json"))
     sb.run("nexus", "c1", label="nexus c1  (personas.json gone)")
     sb.run("nexus", "ls", label="nexus ls  (personas.json gone)")
-    sb.run("config", "--list", label="config-tools --list  (personas.json gone)")
-    sb.run("config", "--yes", "--no-link", "--no-build", label="config-tools --yes  (as nexus said)")
+    sb.run("config", "--list", label="nexus --config --list  (personas.json gone)")
+    sb.run("config", "--yes", "--no-link", "--no-build", label="nexus --config --yes  (as nexus said)")
     sb.run("nexus", "ls", label="nexus ls  (after)")
 
 

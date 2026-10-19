@@ -1,4 +1,4 @@
-"""Staged files: every file config-tools writes is first written next to its target, checked with the rest,
+"""Staged files: every file nexus --config writes is first written next to its target, checked with the rest,
 and only then put in place, so a run that stops early changes nothing.
 
 stage(target): a new temp file `TARGET.XXXXXXXX` in the target's directory, mode 600 (it may hold a
@@ -84,10 +84,11 @@ def same(a, b):
 
 
 def commit(staged, target, backup=None):
+    """True if TARGET changed."""
     if os.path.lexists(target):
         if same(staged, target):
             os.unlink(staged)
-            return
+            return False
         if backup and os.path.exists(target):
             shutil.copy2(target, backup)
         old = os.umask(0o077)
@@ -99,13 +100,16 @@ def commit(staged, target, backup=None):
         os.unlink(staged)
     else:
         os.rename(staged, target)
+    return True
 
 
 def replace(staged, target, backup=None):
+    """True if TARGET changed."""
     if os.path.lexists(target):
         if same(staged, target):
             os.unlink(staged)
-            return
+            return False
         if backup and os.path.exists(target):
             shutil.copy2(target, backup)
     os.rename(staged, target)
+    return True

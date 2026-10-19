@@ -14,8 +14,8 @@ ssh-add, sudo, df, and ddev or mkcert where a scenario wants them. A case is thr
   calls.jsonl     the fake commands' calls, per run
   tree.txt        what changed in the sandbox: files added, removed or changed (content, mode, inode)
 Paths, ids and random names are normalised (<A>, <HOME>, <TMP>, <PUBKEY>, …). A tree that still has
-config.sh (recorded or verified) gets that name mapped to config-tools, so the cases name the tool as it is
-called now; a tree with config-tools never does, so a "config.sh" left in its output shows.
+config.sh (recorded or verified) gets that name mapped to config-tools, as the cases recorded from it named the
+tool then; no other tree does, so a "config.sh" left in its output shows.
 """
 import argparse
 import concurrent.futures
@@ -71,7 +71,8 @@ class Sandbox:
                   os.path.join(root, "docker-root")):
             os.makedirs(d)
         copy_tree(tree, self.a)
-        self.cfg = "config-tools" if os.path.exists(os.path.join(self.a, "config-tools")) else "config.sh"
+        # The setup tool's file in this tree: config.sh, then config-tools, then none (`nexus --config`).
+        self.cfg = next((f for f in ("config-tools", "config.sh") if os.path.exists(os.path.join(self.a, f))), None)
         for t in REAL_TOOLS:
             p = shutil.which(t, path="/usr/local/bin:/usr/bin:/bin")
             if p:
@@ -141,8 +142,9 @@ class Sandbox:
 
     @contextlib.contextmanager
     def hold_lock(self):
-        """The tools' lock, held by this process the way a running setup or upgrade holds it."""
-        fd = os.open(os.path.join(self.a, self.cfg), os.O_RDONLY | os.O_CLOEXEC)
+        """The tools' lock, held by this process the way a running setup or upgrade holds it: the checkout's
+        directory, or the setup tool's file in a tree from before `nexus --config`."""
+        fd = os.open(os.path.join(self.a, self.cfg) if self.cfg else self.a, os.O_RDONLY | os.O_CLOEXEC)
         fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         try:
             yield
@@ -208,7 +210,9 @@ class Sandbox:
         return r
 
     def _exec(self, tool, args, mode, stdin, steps, cwd, env, merge, via, timeout):
-        exe = via or os.path.join(self.a, "nexus" if tool == "nexus" else self.cfg)
+        exe = via or os.path.join(self.a, "nexus" if tool == "nexus" else self.cfg or "nexus")
+        if tool == "config" and not self.cfg:
+            args = ["--config"] + list(args)
         if tool not in ("nexus", "config"):
             exe = tool
         cwd = self.path(cwd) if cwd else self.projects
@@ -476,7 +480,7 @@ def cmd_record(args, cases):
         else:
             tree = os.path.join(work, "t")
             prov = "oracle@" + oracle_tree(args.oracle_ref, tree)
-        rename = not os.path.exists(os.path.join(tree, "config-tools"))
+        rename = os.path.exists(os.path.join(tree, "config.sh"))
         futs = parallel(cases, lambda c: run_case(c, tree, rename))
         bad = 0
         for c in cases:
@@ -507,7 +511,7 @@ def write_case(name, files, meta):
 def cmd_verify(args, cases):
     tree = os.path.abspath(args.tree or REPO)
     # Only a tree from before the rename gets the name mapped: after it, a "config.sh" left anywhere shows.
-    rename = not os.path.exists(os.path.join(tree, "config-tools"))
+    rename = os.path.exists(os.path.join(tree, "config.sh"))
     futs = parallel(cases, lambda c: run_case(c, tree, rename))
     bad = 0
     for c in cases:
@@ -542,7 +546,7 @@ def cmd_verify(args, cases):
 
 def cmd_accept(args, cases):
     tree = os.path.abspath(args.tree)
-    rename = not os.path.exists(os.path.join(tree, "config-tools"))
+    rename = os.path.exists(os.path.join(tree, "config.sh"))
     bad = 0
     for c in cases:
         try:

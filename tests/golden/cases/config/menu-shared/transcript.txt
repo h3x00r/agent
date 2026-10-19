@@ -1,0 +1,58 @@
+## run 1: config --no-link --no-build  [tty-in]
+rc: 0
+--- stdout
+nexus --config: <A>
+
+Shared by every persona
+  projects root   <P>
+  image registry  local (images built on this VM)
+  Claude Code     latest
+  launcher        not on your PATH: link it with launcher, or run <A>/nexus
+Personas
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+
+What next?
+  1) list      the shared settings and the personas, again
+  2) add       a new persona
+  3) change    one persona's flavour, context, statusline, projects root or ssh
+  4) remove    one persona (its env file and home volume stay)
+  5) shared    the settings every persona shares: projects root, image registry, Claude Code version
+  6) launcher  link nexus into a directory on your PATH
+  7) images    build (or pull) the image of every persona
+  8) quit
+
+== Shared by every persona
+  the projects root must be an absolute directory other than /, without ':', not 'rel/dir'
+  the projects root must be an absolute directory other than /, without ':', not '/'
+  can't create the projects root '<S>/blocker/sub'
+  local, or a registry like registry.lan:5000 (or registry.lan:5000/team)
+  latest, stable or a version like 2.1.302
+-- saved: the shared settings, in .env
+
+What next?
+  1) list      the shared settings and the personas, again
+  2) add       a new persona
+  3) change    one persona's flavour, context, statusline, projects root or ssh
+  4) remove    one persona (its env file and home volume stay)
+  5) shared    the settings every persona shares: projects root, image registry, Claude Code version
+  6) launcher  link nexus into a directory on your PATH
+  7) images    build (or pull) the image of every persona
+  8) quit
+
+Start one from a project directory:  cd <S>/vmroot/<project> && nexus c1
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr (no newline at the end)
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+choice [quit]: The VM's projects root, for personas without their own (mounted at the same path inside) [<P>]: The VM's projects root, for personas without their own (mounted at the same path inside) [<HOME>/projects]: The VM's projects root, for personas without their own (mounted at the same path inside) [<HOME>/projects]: The VM's projects root, for personas without their own (mounted at the same path inside) [<HOME>/projects]: Image registry (local = build on this VM) [local]: Image registry (local = build on this VM) [local]: Claude Code version, for the claude personas: latest | stable | X.Y.Z [latest]: Claude Code version, for the claude personas: latest | stable | X.Y.Z [latest]: choice [quit]: 
+--- echo
+shared\r
+rel/dir\r
+/\r
+<S>/blocker/sub\r
+<S>/vmroot\r
+Bad Registry!\r
+registry.lan:5000/team/\r
+1.2\r
+stable\r
+\r

@@ -3,13 +3,13 @@ rc: 1
 --- stdout
 (empty)
 --- stderr
-nexus: no <A>/.env yet: run <A>/config-tools
+nexus: no <A>/.env yet: run <A>/nexus --config
 ## run 2: nexus c1 upgrade 2.1.400 -y  (CLAUDE_VERSION=2.1.0 exported too: .env is checked first)  [pipe]
 rc: 1
 --- stdout
 (empty)
 --- stderr
-nexus: no <A>/.env yet: run <A>/config-tools
+nexus: no <A>/.env yet: run <A>/nexus --config
 ## run 3: nexus c1 upgrade -x  (the option first)  [pipe]
 rc: 1
 --- stdout

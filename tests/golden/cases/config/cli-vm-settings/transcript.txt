@@ -1,7 +1,7 @@
 ## run 1: config --yes --no-link --no-build --projects-root ~/p2 --registry registry.lan:5000/team/ --claude-version 2.1.302-beta.1  [pipe]
 rc: 0
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 
 Personas:
   NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
@@ -22,7 +22,7 @@ CLAUDE_VERSION=2.1.302-beta.1
 ## run 3: config --yes --no-link --no-build --projects-root <S>/p3/ --registry local/ --claude-version stable  [pipe]
 rc: 0
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 
 Personas:
   NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
@@ -43,7 +43,7 @@ CLAUDE_VERSION=stable
 ## run 5: config --yes --no-link --no-build --projects-root <S>/p 4 --registry Reg-1.lan:5000/te_am/x--y  [pipe]
 rc: 0
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 
 Personas:
   NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
@@ -63,7 +63,7 @@ REGISTRY=Reg-1.lan:5000/te_am/x--y
 ## run 7: config --yes --no-link --no-build --remove c1 --persona g1:grok:docker --claude-version 2.1.5  [pipe]
 rc: 0
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 -- personas/g1.env
 
 Personas:
@@ -77,7 +77,7 @@ g1: add XAI_API_KEY to <A>/personas/g1.env
 Day-to-day use, upgrades and troubleshooting: runbook.md
 --- stderr
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
-config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run config-tools after the build to check it
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
 ## run 8: grep ^(PROJECTS_ROOT|REGISTRY|CLAUDE_VERSION|GROK_VERSION)= .env  [pipe, cwd a]
 rc: 0
 --- stdout

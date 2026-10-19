@@ -6,12 +6,13 @@ self="$(readlink -f -- "$0")" || { echo "nexus: can't tell where $0 is" >&2; exi
 code="${self%/*}"
 [[ -f "$code/agentctl/_boot.py" ]] || code="${AGENTS_DIR:-$code}"
 if [[ ! -f "$code/agentctl/_boot.py" ]]; then
-  echo "nexus: no agentctl/ next to $self: link it into your PATH (config-tools does) rather than copy it," \
+  echo "nexus: no agentctl/ next to $self: link it into your PATH (nexus --config does) rather than copy it," \
        "or set AGENTS_DIR to the checkout" >&2
   exit 1
 fi
 if ! python3 -I -c 'import sys; sys.exit(sys.version_info < (3, 8))' 2>/dev/null; then
-  echo "nexus: needs Python 3.8 or newer; python3 here is $(python3 --version 2>&1 || echo missing)" >&2
+  p=nexus; [[ ${1-} == --config ]] && p=config   # the setup tool's messages start config:
+  echo "$p: needs Python 3.8 or newer; python3 here is $(python3 --version 2>&1 || echo missing)" >&2
   exit 1
 fi
 # Python takes a C locale for C.UTF-8 and exports that to its children (PEP 538), and judges a locale that

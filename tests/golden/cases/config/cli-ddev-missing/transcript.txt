@@ -1,7 +1,7 @@
 ## run 1: config --yes --no-link --no-build --projects-root <P> --persona d1:grok:ddev  [pipe]
 rc: 0
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 -- personas/d1.env
 
 Personas:
@@ -15,7 +15,7 @@ Day-to-day use, upgrades and troubleshooting: runbook.md
 --- stderr
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
 config: warning: ddev isn't installed on this VM: the ddev personas get the newest ddev; install the same on the VM (pkg.ddev.com) so both agree, and for mkcert
-config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run config-tools after the build to check it
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
 ## run 2: grep ^(DDEV_VERSION)= .env  [pipe, cwd a]
 rc: 0
 --- stdout
@@ -25,7 +25,7 @@ DDEV_VERSION=
 ## run 3: config --yes --no-link --no-build --remove d1 --persona c1:claude:docker  [pipe]
 rc: 0
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 -- personas/c1.env
 
 Personas:

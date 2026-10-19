@@ -8,7 +8,7 @@ get():   the value compose would see: the LAST `KEY=` line (an `export ` prefix 
 updated(): the file's text with KEY set: the last active `KEY=` line replaced, else the first commented
          `# KEY=` (or `#KEY=`), else a new line at the end; other lines as they were (their CRs too),
          and a newline at the end.
-quote(): a value as config-tools writes it, so get() gives it back verbatim: bare if plain, '…' if it has
+quote(): a value as nexus --config writes it, so get() gives it back verbatim: bare if plain, '…' if it has
          no ' or \\, else "…" with \\ " $ escaped.
 
 Pitfalls (each pinned where named):

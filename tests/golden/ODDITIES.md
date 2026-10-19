@@ -10,7 +10,7 @@ Lock handling is the exception, already changed on purpose. bash left its lock f
 except the nexus it ran: fd 9 in config.sh, and fd 8 in `nexus upgrade`. The Python tools close it in all
 of them. golden.py ignores fds 8 and 9 for that reason; a lock fd leaked at any other number still shows.
 
-## config-tools
+## nexus --config (config-tools, and config.sh before it)
 - **yesno:** any answer that doesn't start with y or Y counts as no, and the question isn't asked again
   (`maybe` turns the statusline off).
 - **A refused answer resets the default:** after a refused VM root, registry or Claude Code version, the
@@ -133,3 +133,43 @@ tree keeps. Where the two still differ, accepted@M4:
   each service whole, its comments and CRs aside.
 - **New cases** (recorded from the Python, nothing to compare): config/migrate-*, config/personas-json-refused,
   config/m4-* and the nexus/m4-* cases on new behaviour, from the review of M4.
+
+## Changed on purpose: nexus --config (cfg M2)
+The setup tool is `nexus --config` now; the config-tools script is gone. Every case was recorded again from
+the tree and checked, case by case, to differ from before only by that name (in messages, the usage, the
+generated files' comments, the labels), accepted@cfg M2; each says so in its meta.json, after what it was.
+- **The lock** is flock on the checkout's directory, not on the file config-tools: nexus/edge-upgrade-lock-file
+  (that file unreadable, then gone) is retired, as a checkout that can't be opened can't be set up at all.
+- **AGENTS_DIR** names the checkout `nexus --config` sets up, as it does nexus's; config-tools set up its own
+  (config/cfg-agents-dir).
+- **Files config-tools wrote:** a compose.personas.yml whose comments name it is in step all the same
+  (nexus/cfg-legacy-header); the next writing run writes it, and each grok persona's config, as they are now,
+  with no note for either (config/cfg-legacy-grok).
+- **nexus's usage** has a line for `nexus --config`.
+
+## Changed on purpose: the menu (cfg M3)
+Without --yes, `nexus --config` works by section: a first run (no .env) asks the settings every persona shares
+(the Claude Code version too, with no Claude persona yet), then where to link the launcher (without
+--no-link), then the first persona; every run then shows what is set up and a menu: list, add, change,
+remove, shared, launcher, images, quit. Each action is saved as it is done (the same stage, check and commit
+as a --yes run); --yes and --list are as they were, byte for byte. The interactive cases were rewritten for
+it, accepted@cfg M3 after reading each transcript:
+- **Gone:** the "Found personas/NAME.env: set it up as persona NAME?" questions (an env file of no persona is
+  listed with what is set up, and a persona of that name reuses it); the "Keep them?" question; the launcher,
+  mkcert and image questions at the end of every run (they come with the action they belong to: launcher,
+  images, an add or change, a registry or Claude Code version changed).
+- **remove** asks first ("Remove NAME? … [y/N]").
+- **Options without --yes** (--persona, --projects-root, …) are saved first, then the menu.
+- **The end of input at the menu** is a quit, rc 0; within an action the run stops (rc 1), and what it hadn't
+  saved yet isn't; ^C keeps what was saved before it (rc 130). An action the check refuses is said, nothing of
+  it written (the personas and the shared settings as saved, none of its notes), and the menu comes back; the
+  run then ends with rc 1, as one whose build failed. A first persona refused on a first run gets the menu too.
+- **Options without --yes** set the shared settings once: saved first, then .env's are the defaults.
+- **Every run but a first** brings what it generates up to date before the menu, as a re-run of config-tools
+  did (the grok configs, compose.personas.yml, a deleted key of its own, .env's DDEV_VERSION), and says which
+  files it wrote, if any (config/menu-refresh); one the check refuses is said, and the menu comes all the
+  same. A save that writes nothing says so.
+- **Warnings** a save gives (no ddev on the VM, a TOML it couldn't check) are said once a run.
+- **Renamed:** config/ask-adopt-first, ask-adopt-later → config/menu-leftover-first, menu-leftover-later;
+  config/ask-keep-vm-no, ask-keep-vm-yes → config/menu-shared, menu-shared-kept. New: config/menu-* (some from
+  the review of cfg M3) and config/ask-tty-first-link.

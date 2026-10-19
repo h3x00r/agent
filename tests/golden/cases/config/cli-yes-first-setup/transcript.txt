@@ -1,7 +1,7 @@
 ## run 1: config --yes --no-link --no-build --projects-root <P> --registry local --persona c1:claude:docker --persona g1:grok:docker --ssh g1:new  [pipe]
 rc: 0
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 -- personas/c1.env
 -- personas/g1.env
 -- made personas/g1.key, the ssh key of g1
@@ -19,4 +19,4 @@ g1: add its public key on your git host, as a deploy key (a repo's settings; wri
 Day-to-day use, upgrades and troubleshooting: runbook.md
 --- stderr
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
-config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run config-tools after the build to check it
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it

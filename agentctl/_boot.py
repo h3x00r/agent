@@ -1,4 +1,5 @@
-# The entry point the shims `nexus` and `config-tools` exec: python3 -I -B -S agentctl/_boot.py TOOL ARGS…
+# The entry point the shim `nexus` execs: python3 -I -B -S agentctl/_boot.py nexus ARGS… (`nexus --config …` is the
+# setup tool).
 # Its first lines run on any Python 3, so an older one still gets a clear message; the rest needs 3.8.
 """Pitfalls (each pinned where named):
 - the whole file is compiled before the version check runs, so all of it must parse on any Python 3 (no
@@ -10,7 +11,7 @@
   nexus/edge-persona-sigint-ignored)
 - SIGPIPE back at its default: a closed pipe ends the run as it ended bash (golden nexus/basic-sigpipe)
 - nexus: SIGINT at SIG_DFL, never KeyboardInterrupt and its traceback (golden nexus/edge-headless-sig-spool)
-- config-tools: INT, TERM and HUP exit 130, the staged files removed (golden config/ask-int-tty)
+- nexus --config: INT, TERM and HUP exit 130, the staged files removed (golden config/ask-int-tty)
 - text is measured by the locale the shim saw (AGENTCTL_LOCALE), not by Python's view of it (golden
   nexus/edge-ls-bad-locale, golden nexus/edge-top-locale-missing)
 - LC_CTYPE goes back to the shim's for every child, PEP 538's coercion undone
@@ -25,7 +26,8 @@ import sys
 
 if sys.version_info < (3, 8):
     sys.stderr.write("%s: needs Python 3.8 or newer; python3 here is %d.%d\n"
-                     % (sys.argv[1] if len(sys.argv) > 1 else "agentctl", sys.version_info[0], sys.version_info[1]))
+                     % ("config" if sys.argv[2:3] == ["--config"] else sys.argv[1] if len(sys.argv) > 1 else "agentctl",
+                        sys.version_info[0], sys.version_info[1]))
     sys.exit(1)
 
 sys.dont_write_bytecode = True
@@ -96,6 +98,8 @@ def main():
     _streams()
     signal.signal(signal.SIGPIPE, signal.SIG_DFL)   # a closed pipe ends the run quietly, as it ended bash
     tool, argv = (sys.argv[1], sys.argv[2:]) if len(sys.argv) > 1 else ("", [])
+    if tool == "nexus" and argv[:1] == ["--config"]:   # the setup tool: its own signals and prefix, from the start
+        tool, argv = "config", argv[1:]
     if tool == "config":
         out = Output("config")
 
@@ -111,7 +115,7 @@ def main():
         from agentctl.nexus import cli
         run = lambda: cli.main(argv, out)  # noqa: E731
     else:
-        sys.stderr.write("agentctl: run it as nexus or config-tools\n")
+        sys.stderr.write("agentctl: run it as nexus\n")
         return 1
     if stdout_closed:     # bash's first printf failed there ("write error: Bad file descriptor"); stop first
         out.note("its output is closed (>&-): nothing it says would show")

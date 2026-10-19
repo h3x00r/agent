@@ -3,7 +3,7 @@ rc: 1
 --- stdout
 (empty)
 --- stderr
-nexus: no persona 'nope' (set up: c1 g1); add it with <A>/config-tools
+nexus: no persona 'nope' (set up: c1 g1); add it with <A>/nexus --config
 ## run 2: nexus ls  [pipe]
 rc: 0
 --- stdout

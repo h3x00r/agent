@@ -1,5 +1,5 @@
 # /opt/agents/compose.yml — templates for the persona containers, one long-lived container per
-# persona per VM. No personas here: ./config-tools generates them from personas.json into
+# persona per VM. No personas here: nexus --config generates them from personas.json into
 # compose.personas.yml, and the nexus launcher always loads both files.
 #
 # Each persona container holds a tmux server; every project you work on gets a tmux
@@ -90,11 +90,11 @@ services:
       # SSH via agent forwarding: your keys never enter the container. The socket path is
       # fixed when the container is created; if it is gone at a later start, the start fails
       # instead of Docker creating a root-owned directory there.
-      # Or a persona has an ssh key of its own (config-tools: SSH, new or a key's path, e.g. a deploy
+      # Or a persona has an ssh key of its own (nexus --config: SSH, new or a key's path, e.g. a deploy
       # key), or no ssh at all (none): its service then puts /dev/null here, so its ssh doesn't use your
       # agent. Not a wall: the Docker socket above is root on the VM (README, rules).
       - type: bind
-        source: ${SSH_AUTH_SOCK:?run an ssh-agent on the VM, or set the persona up with a key of its own or no ssh (config-tools)}
+        source: ${SSH_AUTH_SOCK:?run an ssh-agent on the VM, or set the persona up with a key of its own or no ssh (nexus --config)}
         target: /ssh-agent
         bind:
           create_host_path: false
@@ -133,5 +133,5 @@ services:
       # ddev global state (config, router, ssh-agent container, downloaded binaries) shared
       # with the VM user, so both sides agree on which global containers exist.
       - ${HOME}/.ddev:/home/dev/.ddev
-      # mkcert CA (see CAROOT above): `mkcert -install` once on the VM (config-tools offers it).
+      # mkcert CA (see CAROOT above): `mkcert -install` once on the VM (nexus --config offers it).
       - ${HOME}/.local/share/mkcert:${HOME}/.local/share/mkcert:ro

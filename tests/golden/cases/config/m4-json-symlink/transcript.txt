@@ -1,7 +1,7 @@
 ## run 1: config --yes --no-link --no-build --persona c2:claude:docker  [pipe]
 rc: 0
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 -- personas/c2.env
 
 Personas:

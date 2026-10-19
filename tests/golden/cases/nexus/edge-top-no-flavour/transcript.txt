@@ -3,4 +3,4 @@ rc: 1
 --- stdout
 (empty)
 --- stderr
-nexus: the personas are still in <A>/compose.personas.yml, from before personas.json: run <A>/config-tools --yes (it keeps every setting)
+nexus: the personas are still in <A>/compose.personas.yml, from before personas.json: run <A>/nexus --config --yes (it keeps every setting)

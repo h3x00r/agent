@@ -3,8 +3,8 @@ import stat
 import tempfile
 import unittest
 
-from agentctl.configtools import cli, staging
-from agentctl.configtools.setup import cpus_ok, env_flavour
+from agentctl.configtools import cli, menu, staging
+from agentctl.configtools.host import cpus_ok, env_flavour
 from agentctl.core.errors import NexusError
 
 
@@ -125,6 +125,63 @@ class Rules(unittest.TestCase):
                 with open(p, "w") as f:
                     f.write(text)
                 self.assertEqual(env_flavour(p), want, repr(text))
+
+
+
+class _Session:
+    """What Menu reads of a Session, for its parts that only look."""
+    def __init__(self, checkout, names):
+        self.a, self.launcher = checkout, os.path.join(checkout, "nexus")
+        self.personas = [type("P", (), {"name": n})() for n in names]
+
+    def idx(self, name):
+        return next((i for i, p in enumerate(self.personas) if p.name == name), None)
+
+
+class Menu(unittest.TestCase):
+    def test_every_action_is_a_method(self):
+        keys = [o.split(" ", 1)[0] for o in menu.ACTIONS]
+        self.assertEqual(keys, ["list", "add", "change", "remove", "shared", "launcher", "images", "quit"])
+        for k in keys[:-1]:
+            self.assertTrue(callable(getattr(menu.Menu, "act_" + k)), k)
+
+    def test_leftovers_are_env_files_of_no_persona(self):
+        with tempfile.TemporaryDirectory() as d:
+            os.mkdir(os.path.join(d, "personas"))
+            for n, text in (("c1", ""), ("o1", "ANTHROPIC_API_KEY=\n"), ("g2", "# XAI_API_KEY=\n"), ("o3", ""),
+                            ("Bad", ""), (".x", ""), ("c1.env", "")):
+                put(os.path.join(d, "personas", n + ".env"), text)
+            os.mkdir(os.path.join(d, "personas", "dir.env"))
+            put(os.path.join(d, "personas", "o1.env.example"), "")
+            m = menu.Menu.__new__(menu.Menu)
+            m.s = _Session(d, ["c1"])
+            old = os.getcwd()
+            os.chdir(d)
+            try:
+                self.assertEqual(m.leftovers(), [("g2", "grok"), ("o1", "claude"), ("o3", "")])
+            finally:
+                os.chdir(old)
+
+    def test_the_launcher_as_path_finds_it(self):
+        with tempfile.TemporaryDirectory() as d:
+            put(os.path.join(d, "nexus"), "#!/bin/sh\n")
+            os.chmod(os.path.join(d, "nexus"), 0o755)
+            for b in ("mine", "other"):
+                os.mkdir(os.path.join(d, b))
+            os.symlink(os.path.join(d, "nexus"), os.path.join(d, "mine", "nexus"))
+            put(os.path.join(d, "other", "nexus"), "#!/bin/sh\n")
+            os.chmod(os.path.join(d, "other", "nexus"), 0o755)
+            m = menu.Menu.__new__(menu.Menu)
+            m.s = _Session(d, [])
+            old = os.environ.get("PATH")
+            try:
+                for path, want in ((os.path.join(d, "mine"), os.path.join(d, "mine", "nexus")),
+                                   (os.path.join(d, "other"), "`nexus` on your PATH is %s/other/nexus, another one" % d),
+                                   (os.path.join(d, "none"), "not on your PATH: link it with launcher")):
+                    os.environ["PATH"] = path + ":/usr/bin:/bin"
+                    self.assertTrue(m.launcher_state().startswith(want), (path, m.launcher_state()))
+            finally:
+                os.environ["PATH"] = old
 
 
 if __name__ == "__main__":

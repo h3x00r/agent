@@ -5,9 +5,9 @@ context, colour, statusline, root?, ssh?}}}, in persona order (the order of thei
 of the hints).
 - load_json(): the personas, each held to persona.from_record's rules; a name or key that comes twice,
   a key it doesn't take, another version, or JSON that doesn't parse is BadPersonasJson, for both tools.
-- dumps(): the file's text, as config-tools writes it (indented, a newline at the end).
+- dumps(): the file's text, as nexus --config writes it (indented, a newline at the end).
 
-Before personas.json, they were the `# persona: NAME key=value …` lines in compose.personas.yml; config-tools
+Before personas.json, they were the `# persona: NAME key=value …` lines in compose.personas.yml; nexus --config
 reads those once, to move them into personas.json (and --list shows them until then):
 - lines(): every such line, in file order, without the prefix and a CR (anywhere in the file; a last
   line without a newline isn't read, as `while read` didn't), the spaces around it trimmed.
@@ -126,8 +126,8 @@ def where(checkout):
 
 
 def restore_hint(path):
-    """What to do about a personas.json that is wrong or gone: its .bak, if config-tools kept one."""
-    return "put back %s.bak (the one config-tools kept before it)" % path if os.path.isfile(path + ".bak") else ""
+    """What to do about a personas.json that is wrong or gone: its .bak, if nexus --config kept one."""
+    return "put back %s.bak (the one nexus --config kept before it)" % path if os.path.isfile(path + ".bak") else ""
 
 
 def lost(checkout):
@@ -135,7 +135,7 @@ def lost(checkout):
     hint = restore_hint(j)
     return ("%s is missing, and %s was generated from it: %s" % (j, c, hint) if hint else
             "%s is missing, and %s was generated from it: remove that, and set the personas up again with "
-            "config-tools" % (j, c))
+            "nexus --config" % (j, c))
 
 
 def lines(path):

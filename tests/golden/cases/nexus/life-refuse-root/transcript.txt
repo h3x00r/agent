@@ -45,7 +45,7 @@ rc: 1
 --- stdout
 (empty)
 --- stderr
-nexus: can't create the projects root <S>/blocker/own (c1's own, in <A>/personas.json; change it with config-tools)
+nexus: can't create the projects root <S>/blocker/own (c1's own, in <A>/personas.json; change it with nexus --config)
 ## run 9: nexus c1 stop  (the same)  [pipe]
 rc: 0
 --- stdout

@@ -18,4 +18,4 @@ rc: 1
 --- stdout
 (empty)
 --- stderr
-nexus: no <A>/.env yet: run <A>/config-tools
+nexus: no <A>/.env yet: run <A>/nexus --config

@@ -3,7 +3,7 @@ rc: 1
 --- stdout
 (empty)
 --- stderr
-nexus: <A>/compose.personas.yml is out of step with personas.json (edited by hand, or written by an older config-tools): <A>/config-tools --yes writes it again from personas.json
+nexus: <A>/compose.personas.yml is out of step with personas.json (edited by hand, or written by an older nexus --config): <A>/nexus --config --yes writes it again from personas.json
 ## run 2: nexus c1 start  (running)  [pipe]
 rc: 0
 --- stdout
@@ -15,4 +15,4 @@ rc: 0
 --- stdout
 [fake attach: new-session -A -s review -c <P>]
 --- stderr
-nexus: warning: <A>/compose.personas.yml is out of step with personas.json (edited by hand, or written by an older config-tools): <A>/config-tools --yes writes it again from personas.json, then `nexus c1 restart`
+nexus: warning: <A>/compose.personas.yml is out of step with personas.json (edited by hand, or written by an older nexus --config): <A>/nexus --config --yes writes it again from personas.json, then `nexus c1 restart`

@@ -116,7 +116,7 @@ class Run:
 
         # 2. preflight
         if p.own_root:
-            where = "%s's own, in %s; change it with config-tools" % (p.name, self.ctx.json_file)
+            where = "%s's own, in %s; change it with nexus --config" % (p.name, self.ctx.json_file)
         else:
             where = "PROJECTS_ROOT from your shell or %s/.env; fix it, or unset it for ~/projects" % a
         if not (len(p.root) >= 2 and p.root.startswith("/")):
@@ -161,15 +161,15 @@ class Run:
         old = ""
         if restart or not docker.running(p.container):
             if key and not (os.path.isfile(key) and os.access(key, os.R_OK)):
-                die("%s's ssh key %s isn't there; config-tools makes one (SSH: new), or points it at another, none or your "
+                die("%s's ssh key %s isn't there; nexus --config makes one (SSH: new), or points it at another, none or your "
                     "agent" % (p.name, key))
             text = self.personas_text()
             if "./personas/claude.managed.json," in text and p.flavour == "claude" \
                     and not os.path.isfile(os.path.join(a, "personas", "claude.managed.json")):
                 die("%s/personas/claude.managed.json isn't there: restore it (git checkout personas/claude.managed.json), "
-                    "or re-run %s/config-tools without it" % (a, a))
+                    "or re-run %s/nexus --config without it" % (a, a))
             if "./personas/%s.grok.toml," % p.name in text and not os.path.isfile(os.path.join(a, "personas", p.name + ".grok.toml")):
-                die("%s/personas/%s.grok.toml isn't there: re-run %s/config-tools, which writes it" % (a, p.name, a))
+                die("%s/personas/%s.grok.toml isn't there: re-run %s/nexus --config, which writes it" % (a, p.name, a))
             why = self.ctx.step_problem()
             if why:
                 die(why)

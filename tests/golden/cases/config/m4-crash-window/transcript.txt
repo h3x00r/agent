@@ -3,11 +3,11 @@ rc: 1
 --- stdout
 (empty)
 --- stderr
-nexus: the personas are still in <A>/compose.personas.yml, from before personas.json: run <A>/config-tools --yes (it keeps every setting)
+nexus: the personas are still in <A>/compose.personas.yml, from before personas.json: run <A>/nexus --config --yes (it keeps every setting)
 ## run 2: config --yes  (half-moved)  [pipe]
 rc: 0
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 
 Personas:
   NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
@@ -19,7 +19,7 @@ personas: moved from compose.personas.yml's `# persona:` lines into <A>/personas
 Day-to-day use, upgrades and troubleshooting: runbook.md
 --- stderr
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
-config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run config-tools after the build to check it
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
 ## run 3: grep -c persona lines in compose.personas.yml*  [pipe, cwd a]
 rc: 0
 --- stdout

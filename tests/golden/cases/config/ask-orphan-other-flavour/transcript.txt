@@ -1,17 +1,29 @@
 ## run 1: config --no-link --no-build  [tty-in]
 rc: 0
 --- stdout
-config-tools: setting up <A>
+nexus --config: <A>
 
-== Personas
-
+Shared by every persona
+  projects root   <P>
+  image registry  local (images built on this VM)
+  Claude Code     latest
+  launcher        not on your PATH: link it with launcher, or run <A>/nexus
+Personas
   NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
   c1                              claude   docker   yes        the VM's             your agent
+  personas/d1.env (a grok one) is no persona's (one removed earlier?): add one named d1 to use it again
+
 What next?
-  1) add      a new persona
-  2) change   one persona's flavour, context, statusline, projects root or ssh
-  3) remove   one persona (its env file and home volume stay)
-  4) done     go on with the rest of the setup
+  1) list      the shared settings and the personas, again
+  2) add       a new persona
+  3) change    one persona's flavour, context, statusline, projects root or ssh
+  4) remove    one persona (its env file and home volume stay)
+  5) shared    the settings every persona shares: projects root, image registry, Claude Code version
+  6) launcher  link nexus into a directory on your PATH
+  7) images    build (or pull) the image of every persona
+  8) quit
+
+== A new persona
 Flavour:
   1) claude   Claude Code (Anthropic)
   2) grok     Grok Build (xAI)
@@ -24,40 +36,34 @@ SSH (git over ssh) for d1:
   3) new      a key of its own, made as personas/d1.key: add its public half as a deploy key
   4) path     a private key you already have, without a passphrase
 
-  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
-  c1                              claude   docker   yes        the VM's             your agent
-  d1                              claude   docker   yes        the VM's             your agent
-What next?
-  1) add      a new persona
-  2) change   one persona's flavour, context, statusline, projects root or ssh
-  3) remove   one persona (its env file and home volume stay)
-  4) done     go on with the rest of the setup
-
-== VM settings, shared by every persona
-
 == d1: sign-in and identity (personas/d1.env)
 How does d1 sign in to Claude?
   1) login    interactively, inside the persona (a Claude subscription; kept in its home volume)
   2) apikey   an Anthropic API key (Console / API billing)
   3) token    a long-lived token from `claude setup-token` (Pro/Max/Team/Enterprise plan)
+-- saved: d1, a new persona
 
-Personas:
-  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
-  c1                              claude   docker   yes        the VM's             your agent
-  d1                              claude   docker   yes        the VM's             your agent
+What next?
+  1) list      the shared settings and the personas, again
+  2) add       a new persona
+  3) change    one persona's flavour, context, statusline, projects root or ssh
+  4) remove    one persona (its env file and home volume stay)
+  5) shared    the settings every persona shares: projects root, image registry, Claude Code version
+  6) launcher  link nexus into a directory on your PATH
+  7) images    build (or pull) the image of every persona
+  8) quit
 
 Start one from a project directory:  cd <P>/<project> && nexus c1
 Day-to-day use, upgrades and troubleshooting: runbook.md
---- stderr
+--- stderr (no newline at the end)
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
-Found personas/d1.env (flavour grok): set it up as persona d1? [y/N]: choice [done]: choice [claude]: choice [docker]: Name [claude-docker]: Statusline (statusline/: model, context, cost; what nexus top shows) in d1? [Y/n]: Projects root for d1 (-: the VM's, now <P>) [-]: choice [agent]: choice [done]: Keep them? projects root <P>, image registry local, Claude Code latest [Y/n]: personas/d1.env is for a grok persona: write a new personas/d1.env (the old one is kept as a .bak)? [Y/n]: choice [login]: git author name for d1 [Test User]: git author email for d1 [test@example.invalid]: GH_TOKEN for the gh CLI in d1 (hidden; empty to skip): 
+choice [quit]: choice [claude]: choice [docker]: Name [claude-docker]: Statusline (statusline/: model, context, cost; what nexus top shows) in d1? [Y/n]: Projects root for d1 (-: the VM's, now <P>) [-]: choice [agent]: personas/d1.env is for a grok persona: write a new personas/d1.env (the old one is kept as a .bak)? [Y/n]: choice [login]: git author name for d1 [Test User]: git author email for d1 [test@example.invalid]: GH_TOKEN for the gh CLI in d1 (hidden; empty to skip): 
+choice [quit]: 
 --- echo
-n\r
 add\r
 claude\r
 \r
 d1\r
-\r
 \r
 \r
 \r

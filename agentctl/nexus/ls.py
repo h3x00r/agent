@@ -13,7 +13,7 @@ Pitfalls (each pinned where named):
   nexus/edge-ls-probe-hang-child)
 - a probe that fails gets the same row (golden nexus/edge-ls-probe-rc)
 - the personas as personas.json has them, in its order; lines edited by hand reach it only through
-  config-tools (golden nexus/edge-ls-line-spaces, golden nexus/edge-ls-line-tab)
+  nexus --config (golden nexus/edge-ls-line-spaces, golden nexus/edge-ls-line-tab)
 - a root compared as lexical() spells it, a trailing newline gone (golden nexus/edge-ls-root-newline)
 - orphan containers in sort(1)'s order (golden nexus/basic-ls-orphan)
 """

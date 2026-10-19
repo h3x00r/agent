@@ -1,39 +1,40 @@
-## run 1: config  (menu: remove c1, ^C)  [tty-in]
+## run 1: config  (moved; menu: remove c1, ^C)  [tty-in]
 rc: 130
 --- stdout
-config-tools: setting up <A>
+nexus --config: <A>
+-- saved: the personas, moved into personas.json
+personas: moved from compose.personas.yml's `# persona:` lines into <A>/personas.json; the old file is kept as compose.personas.yml.bak
 
-== Personas
-
+Shared by every persona
+  projects root   <P>
+  image registry  local (images built on this VM)
+  Claude Code     latest
+  launcher        not on your PATH: link it with launcher, or run <A>/nexus
+Personas
   NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
   c1                              claude   docker   yes        the VM's             your agent
   g1                              grok     docker   yes        the VM's             personas/g1.key
+
 What next?
-  1) add      a new persona
-  2) change   one persona's flavour, context, statusline, projects root or ssh
-  3) remove   one persona (its env file and home volume stay)
-  4) done     go on with the rest of the setup
+  1) list      the shared settings and the personas, again
+  2) add       a new persona
+  3) change    one persona's flavour, context, statusline, projects root or ssh
+  4) remove    one persona (its env file and home volume stay)
+  5) shared    the settings every persona shares: projects root, image registry, Claude Code version
+  6) launcher  link nexus into a directory on your PATH
+  7) images    build (or pull) the image of every persona
+  8) quit
 Which persona to remove?
   1) c1                              claude, docker
   2) g1                              grok, docker
   3) -        none: back to the menu
-
-  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
-  g1                              grok     docker   yes        the VM's             personas/g1.key
-What next?
-  1) add      a new persona
-  2) change   one persona's flavour, context, statusline, projects root or ssh
-  3) remove   one persona (its env file and home volume stay)
-  4) done     go on with the rest of the setup
-
-== VM settings, shared by every persona
 --- stderr (no newline at the end)
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
-choice [done]: choice [-]: choice [done]: Keep them? projects root <P>, image registry local [Y/n]: 
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
+choice [quit]: choice [-]: Remove c1? Its env file and home volume stay [y/N]: 
 --- echo (no newline at the end)
 remove\r
 c1\r
-done\r
 ^C
 ## run 2: ls a  [pipe, cwd .]
 rc: 0
@@ -43,11 +44,12 @@ LICENSE
 README.md
 agentctl
 compose.personas.yml
+compose.personas.yml.bak
 compose.yml
-config-tools
 entrypoint.sh
 nexus
 personas
+personas.json
 runbook.md
 ssh
 statusline

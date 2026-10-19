@@ -234,7 +234,7 @@ def _(sb):
     edit(sb, "a/.env", "PROJECTS_ROOT=" + sb.projects + "\n", "PROJECTS_ROOT=projects\n")
     sb.run("nexus", "c1", "start", label="nexus c1 start  (PROJECTS_ROOT=projects in .env)")
     edit(sb, "a/.env", "PROJECTS_ROOT=projects\n", "PROJECTS_ROOT=" + sb.projects + "\n")
-    # The persona's own root, edited by hand (config-tools checks it; a hand edit doesn't).
+    # The persona's own root, edited by hand (nexus --config checks it; a hand edit doesn't).
     set_field(sb, "c1", "root", "rel/own")
     sb.run("nexus", "c1", "start", label="nexus c1 start  (its own root=rel/own, by hand)")
     set_field(sb, "c1", "root", sb.path("blocker/own"))

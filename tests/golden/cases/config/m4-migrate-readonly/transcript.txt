@@ -1,7 +1,7 @@
 ## run 1: config --yes --no-link --no-build  [pipe]
 rc: 1
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 --- stderr
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
 config: can't make a file next to <A>/.env (Permission denied), so nothing was written
@@ -22,7 +22,6 @@ README.md
 agentctl
 compose.personas.yml
 compose.yml
-config-tools
 entrypoint.sh
 nexus
 personas

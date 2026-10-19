@@ -1,10 +1,12 @@
 ## run 1: config --no-link --no-build  [pipe]
 rc: 0
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A> for the first time
 
-== Personas
-No personas yet; the first one:
+== Shared by every persona (asked once; `shared` in the menu changes them)
+-- saved: the shared settings, in .env
+
+== The first persona
 Flavour:
   1) claude   Claude Code (Anthropic)
   2) grok     Grok Build (xAI)
@@ -17,13 +19,33 @@ SSH (git over ssh) for c1:
   3) new      a key of its own, made as personas/c1.key: add its public half as a deploy key
   4) path     a private key you already have, without a passphrase
 
+== c1: sign-in and identity (personas/c1.env)
+How does c1 sign in to Claude?
+  1) login    interactively, inside the persona (a Claude subscription; kept in its home volume)
+  2) apikey   an Anthropic API key (Console / API billing)
+  3) token    a long-lived token from `claude setup-token` (Pro/Max/Team/Enterprise plan)
+-- saved: c1, a new persona
+
+Shared by every persona
+  projects root   <P>
+  image registry  local (images built on this VM)
+  Claude Code     latest
+  launcher        not on your PATH: link it with launcher, or run <A>/nexus
+Personas
   NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
   c1                              claude   docker   yes        the VM's             your agent
+
 What next?
-  1) add      a new persona
-  2) change   one persona's flavour, context, statusline, projects root or ssh
-  3) remove   one persona (its env file and home volume stay)
-  4) done     go on with the rest of the setup
+  1) list      the shared settings and the personas, again
+  2) add       a new persona
+  3) change    one persona's flavour, context, statusline, projects root or ssh
+  4) remove    one persona (its env file and home volume stay)
+  5) shared    the settings every persona shares: projects root, image registry, Claude Code version
+  6) launcher  link nexus into a directory on your PATH
+  7) images    build (or pull) the image of every persona
+  8) quit
+
+== A new persona
 Flavour:
   1) claude   Claude Code (Anthropic)
   2) grok     Grok Build (xAI)
@@ -36,14 +58,28 @@ SSH (git over ssh) for c2:
   3) new      a key of its own, made as personas/c2.key: add its public half as a deploy key
   4) path     a private key you already have, without a passphrase
 
-  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
-  c1                              claude   docker   yes        the VM's             your agent
-  c2                              claude   docker   no         the VM's             personas/c2.key
+== c2: sign-in and identity (personas/c2.env)
+How does c2 sign in to Claude?
+  1) login    interactively, inside the persona (a Claude subscription; kept in its home volume)
+  2) apikey   an Anthropic API key (Console / API billing)
+  3) token    a long-lived token from `claude setup-token` (Pro/Max/Team/Enterprise plan)
+-- saved: c2, a new persona
+-- made personas/c2.key, the ssh key of c2
+c2: add its public key on your git host, as a deploy key (a repo's settings; write access to push)
+    or to a machine user's account, then git over ssh works inside:
+    ssh-ed25519 <PUBKEY> c2@<HOST> (nexus)
+
 What next?
-  1) add      a new persona
-  2) change   one persona's flavour, context, statusline, projects root or ssh
-  3) remove   one persona (its env file and home volume stay)
-  4) done     go on with the rest of the setup
+  1) list      the shared settings and the personas, again
+  2) add       a new persona
+  3) change    one persona's flavour, context, statusline, projects root or ssh
+  4) remove    one persona (its env file and home volume stay)
+  5) shared    the settings every persona shares: projects root, image registry, Claude Code version
+  6) launcher  link nexus into a directory on your PATH
+  7) images    build (or pull) the image of every persona
+  8) quit
+
+== A new persona
 Flavour:
   1) claude   Claude Code (Anthropic)
   2) grok     Grok Build (xAI)
@@ -56,47 +92,24 @@ SSH (git over ssh) for claude-docker:
   3) new      a key of its own, made as personas/claude-docker.key: add its public half as a deploy key
   4) path     a private key you already have, without a passphrase
 
-  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
-  c1                              claude   docker   yes        the VM's             your agent
-  c2                              claude   docker   no         the VM's             personas/c2.key
-  claude-docker                   claude   docker   yes        the VM's             none
-What next?
-  1) add      a new persona
-  2) change   one persona's flavour, context, statusline, projects root or ssh
-  3) remove   one persona (its env file and home volume stay)
-  4) done     go on with the rest of the setup
-
-== VM settings, shared by every persona
-
-== c1: sign-in and identity (personas/c1.env)
-How does c1 sign in to Claude?
-  1) login    interactively, inside the persona (a Claude subscription; kept in its home volume)
-  2) apikey   an Anthropic API key (Console / API billing)
-  3) token    a long-lived token from `claude setup-token` (Pro/Max/Team/Enterprise plan)
-
-== c2: sign-in and identity (personas/c2.env)
-How does c2 sign in to Claude?
-  1) login    interactively, inside the persona (a Claude subscription; kept in its home volume)
-  2) apikey   an Anthropic API key (Console / API billing)
-  3) token    a long-lived token from `claude setup-token` (Pro/Max/Team/Enterprise plan)
-
 == claude-docker: sign-in and identity (personas/claude-docker.env)
 How does claude-docker sign in to Claude?
   1) login    interactively, inside the persona (a Claude subscription; kept in its home volume)
   2) apikey   an Anthropic API key (Console / API billing)
   3) token    a long-lived token from `claude setup-token` (Pro/Max/Team/Enterprise plan)
--- made personas/c2.key, the ssh key of c2
+-- saved: claude-docker, a new persona
 
-Personas:
-  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
-  c1                              claude   docker   yes        the VM's             your agent
-  c2                              claude   docker   no         the VM's             personas/c2.key
-  claude-docker                   claude   docker   yes        the VM's             none
+What next?
+  1) list      the shared settings and the personas, again
+  2) add       a new persona
+  3) change    one persona's flavour, context, statusline, projects root or ssh
+  4) remove    one persona (its env file and home volume stay)
+  5) shared    the settings every persona shares: projects root, image registry, Claude Code version
+  6) launcher  link nexus into a directory on your PATH
+  7) images    build (or pull) the image of every persona
+  8) quit
 
 Start one from a project directory:  cd <P>/<project> && nexus c1
-c2: add its public key on your git host, as a deploy key (a repo's settings; write access to push)
-    or to a machine user's account, then git over ssh works inside:
-    ssh-ed25519 <PUBKEY> c2@<HOST> (nexus)
 Day-to-day use, upgrades and troubleshooting: runbook.md
 --- stderr
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside

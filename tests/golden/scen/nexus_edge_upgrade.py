@@ -75,22 +75,6 @@ def _(sb):
     sb.run("nexus", "c1", "upgrade", "２.1.400", label="nexus c1 upgrade <fullwidth 2>.1.400")
 
 
-# --- the lock --------------------------------------------------------------------------------------
-@case("nexus/edge-upgrade-lock-file")
-def _(sb):
-    # The lock's file, config-tools, unreadable, then gone.
-    personas(sb, "c1:claude:docker")
-    templates(sb)
-    pin(sb)   # the first run takes the tree's snapshot, which must read every file
-    os.chmod(sb.path("a/config-tools"), 0)
-    try:
-        sb.run("nexus", "c1", "upgrade", "2.1.400", "-y", label="nexus c1 upgrade 2.1.400 -y  (config-tools mode 000)")
-    finally:
-        os.chmod(sb.path("a/config-tools"), 0o755)
-    os.unlink(sb.path("a/config-tools"))
-    sb.run("nexus", "c1", "upgrade", "2.1.400", "-y", label="nexus c1 upgrade 2.1.400 -y  (no config-tools)")
-
-
 # --- .env ------------------------------------------------------------------------------------------
 @case("nexus/edge-upgrade-env-unreadable")
 def _(sb):

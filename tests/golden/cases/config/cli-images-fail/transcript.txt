@@ -1,7 +1,7 @@
 ## run 1: config --yes --no-link  [pipe]
 rc: 1
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 -- building the image of every persona; one that is already up to date takes seconds
 -- build agent-claude-docker, for c1
 -- build agent-grok-docker, for g1
@@ -17,6 +17,6 @@ images: the build of agent-grok-docker failed (see above); retry with: <A>/nexus
 Day-to-day use, upgrades and troubleshooting: runbook.md
 --- stderr
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
-config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run config-tools after the build to check it
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
 fake compose: the build of c1 failed
 fake compose: the build of g1 failed

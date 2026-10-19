@@ -1,6 +1,6 @@
-# personas/grok.toml: grok settings for every grok persona, on every VM that pulls this repo. config-tools
+# personas/grok.toml: grok settings for every grok persona, on every VM that pulls this repo. nexus --config
 # copies it into each grok persona's managed config (personas/<name>.grok.toml, /etc/grok/managed_config.toml
-# inside, with the statusline after it) and checks it first, so re-run config-tools after an edit: the next grok
+# inside, with the statusline after it) and checks it first, so re-run nexus --config after an edit: the next grok
 # started in a persona reads it.
 #
 # It is grok's own config.toml format (~/.grok/docs/user-guide/26-config-reference.md in a persona). These

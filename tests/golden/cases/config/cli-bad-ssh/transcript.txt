@@ -109,7 +109,7 @@ config: --ssh c1:/etc/passwd: it isn't yours, and the persona runs as you (uid <
 ## run 19: config --yes --no-link --no-build --persona c1:claude:docker --ssh x1:agent  [pipe]
 rc: 1
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 --- stderr
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
 config: --ssh x1:agent: no persona x1 (add it with --persona)

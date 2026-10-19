@@ -3,19 +3,19 @@ rc: 1
 --- stdout
 (empty)
 --- stderr
-nexus: no personas set up yet: run <A>/config-tools
+nexus: no personas set up yet: run <A>/nexus --config
 ## run 2: nexus c1  [pipe]
 rc: 1
 --- stdout
 (empty)
 --- stderr
-nexus: no personas set up yet: run <A>/config-tools
+nexus: no personas set up yet: run <A>/nexus --config
 ## run 3: nexus top --once  [pipe]
 rc: 1
 --- stdout
 (empty)
 --- stderr
-nexus: no personas set up yet: run <A>/config-tools
+nexus: no personas set up yet: run <A>/nexus --config
 ## run 4: nexus top -n 0  [pipe]
 rc: 1
 --- stdout
@@ -27,10 +27,10 @@ rc: 1
 --- stdout
 (empty)
 --- stderr
-nexus: no personas set up yet: run <A>/config-tools
+nexus: no personas set up yet: run <A>/nexus --config
 ## run 6: nexus Bad!  [pipe]
 rc: 1
 --- stdout
 (empty)
 --- stderr
-nexus: no personas set up yet: run <A>/config-tools
+nexus: no personas set up yet: run <A>/nexus --config

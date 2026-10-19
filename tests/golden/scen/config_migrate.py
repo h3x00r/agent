@@ -1,4 +1,4 @@
-"""config-tools moving a checkout's personas from compose.personas.yml's `# persona:` lines into personas.json
+"""The setup tool moving a checkout's personas from compose.personas.yml's `# persona:` lines into personas.json
 (M4), and personas.json refused by both tools. New behaviour: recorded from the Python tree (accept)."""
 import os
 

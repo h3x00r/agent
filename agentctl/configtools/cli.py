@@ -1,4 +1,4 @@
-"""config-tools' command line: the flags, checked before anything is asked or written.
+"""nexus --config's command line: the flags, checked before anything is asked or written.
 
 The grammar is the bash tool's, kept as it was (not argparse, whose exit codes and messages differ):
 options are read left to right; --help prints the usage and stops when it is reached; a flag that takes a
@@ -13,14 +13,18 @@ Pitfalls (each pinned where named):
 from agentctl.core.errors import NexusError
 
 USAGE = """\
-config-tools — set this checkout up for one dev VM: which personas it runs, the flavour of each
+nexus --config — set this checkout up for one dev VM: which personas it runs, the flavour of each
 (claude | grok), and the context each one works in:
   ddev     ddev projects: ddev inside, sharing the VM's ~/.ddev and mkcert CA
   docker   projects run with docker compose / Dockerfiles: no ddev at all
 
-  ./config-tools                  interactive; re-run it any time to add, change or remove personas
-  ./config-tools --list           the personas set up so far
-  ./config-tools --yes [options]  no questions, for scripts: current settings are kept, and the
+  nexus --config                  the first time: the settings every persona shares, the launcher, the
+                                first persona; then, each time, what is set up and a menu: list, add,
+                                change or remove a persona, the shared settings, the launcher, the
+                                images. Each action is saved as it is done; the options below are
+                                saved first
+  nexus --config --list           the personas set up so far
+  nexus --config --yes [options]  no questions, for scripts: current settings are kept, and the
                                 defaults below apply to new ones
     --persona NAME:FLAVOUR:CONTEXT[:ROOT]
                                      add or update a persona; repeatable. ROOT: its own projects root
@@ -41,10 +45,11 @@ config-tools — set this checkout up for one dev VM: which personas it runs, th
 
 Writes .env, personas.json (this VM's personas; the one before is kept as personas.json.bak), the
 compose.personas.yml generated from it, and personas/<name>.env (mode 600; an existing one is kept), all
-at once and only after `docker compose config` accepts them: a run that stops early changes nothing,
-except the projects roots (the VM's and a persona's own), which are created as they are named. A
-checkout from before personas.json has its personas moved into it (the old file is kept as .bak). Then
-it makes the ssh keys asked for (personas/<name>.key) that don't exist yet. Every Claude persona gets
+at once and only after `docker compose config` accepts them, a --yes run or a menu action at a time: one
+that stops early changes nothing, except the projects roots (the VM's and a persona's own), which are
+created as they are named. A checkout from before personas.json has its personas moved into it first
+(the old file is kept as .bak). Then it makes the ssh keys asked for (personas/<name>.key) that don't
+exist yet. Every Claude persona gets
 personas/claude.managed.json (committed) as a managed settings drop-in; nexus merges the defaults in
 personas/claude.json into its own settings when it starts it. A grok persona gets
 personas/<name>.grok.toml, its grok managed config: personas/grok.toml (the grok settings for every

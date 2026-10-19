@@ -1,3 +1,3 @@
 {
-  "provenance": "accepted: M4: new: upgrade refuses a compose.personas.yml out of step with personas.json, before any pin (no bash to record it from)"
+  "provenance": "accepted: M4: new: upgrade refuses a compose.personas.yml out of step with personas.json, before any pin (no bash to record it from); then accepted: cfg M2: the rename to nexus --config only"
 }

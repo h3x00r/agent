@@ -1,14 +1,14 @@
 ## run 1: config --yes --no-link --no-build --persona c1:claude:docker:<S>/blocker/sub  [pipe]
 rc: 1
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 --- stderr
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
 config: --persona c1:claude:docker:<S>/blocker/sub: can't create the projects root '<S>/blocker/sub'
 ## run 2: config --yes --no-link --no-build --projects-root <S>/blocker/sub  [pipe]
 rc: 1
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 --- stderr
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
 config: can't create the projects root '<S>/blocker/sub'

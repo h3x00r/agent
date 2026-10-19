@@ -1,4 +1,4 @@
-"""agentctl: nexus (the launcher) and config-tools (the setup tool) for the persona containers.
+"""agentctl: nexus (the launcher, and with --config the setup tool) for the persona containers.
 
 Layers, each importing only from the ones below it:
   cli        nexus/cli.py, configtools/cli.py: the argument grammar, one service call, the exit code
@@ -10,5 +10,5 @@ Layers, each importing only from the ones below it:
   core       errors, processes, shell-compatible helpers, dotenv files, the lock
 
 Python 3.8, the standard library only. The tools run as `python3 -I -B -S agentctl/_boot.py <tool>`, from
-the bash shims `nexus` and `config-tools` at the repo root.
+the bash shim `nexus` at the repo root (`nexus --config` is the setup tool).
 """

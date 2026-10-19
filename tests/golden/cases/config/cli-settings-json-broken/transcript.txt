@@ -8,28 +8,28 @@ rc: 0
 ## run 2: config --yes --no-link --no-build  [pipe]
 rc: 1
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 --- stderr
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
 config: personas/claude.json isn't JSON Claude Code can read, so nothing was written: Expecting value: line 1 column 11 (char 10)
 ## run 3: config --yes --no-link --no-build  [pipe]
 rc: 1
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 --- stderr
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
 config: personas/claude.managed.json isn't JSON Claude Code can read, so nothing was written: 'utf-8' codec can't decode byte 0xff in position 15: invalid start byte
 ## run 4: config --yes --no-link --no-build  [pipe]
 rc: 1
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 --- stderr
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
 config: personas/claude.json isn't JSON Claude Code can read, so nothing was written: Extra data: line 1 column 19 (char 18)
 ## run 5: config --yes --no-link --no-build --remove c1 --persona g1:grok:docker  [pipe]
 rc: 0
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 -- personas/g1.env
 
 Personas:
@@ -43,4 +43,4 @@ g1: add XAI_API_KEY to <A>/personas/g1.env
 Day-to-day use, upgrades and troubleshooting: runbook.md
 --- stderr
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
-config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run config-tools after the build to check it
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it

@@ -3,10 +3,10 @@ rc: 1
 --- stdout
 (empty)
 --- stderr
-nexus: no personas set up yet: run <A>/config-tools
+nexus: no personas set up yet: run <A>/nexus --config
 ## run 2: nexus top --once  [pipe]
 rc: 1
 --- stdout
 (empty)
 --- stderr
-nexus: the personas are still in <A>/compose.personas.yml, from before personas.json: run <A>/config-tools --yes (it keeps every setting)
+nexus: the personas are still in <A>/compose.personas.yml, from before personas.json: run <A>/nexus --config --yes (it keeps every setting)

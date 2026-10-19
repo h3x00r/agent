@@ -4,7 +4,7 @@ agent_status(): what `ssh-add -l` says of the agent in this shell: 0 keys there,
 answering, 127 no ssh-add at all.
 key_problem(): why a private key wouldn't work inside a persona ("" when it would): ssh wants it to be
 the user's own, private (mode ?00) and without a passphrase.
-make_key(): an ed25519 key without a passphrase, as config-tools makes one (an existing one is never
+make_key(): an ed25519 key without a passphrase, as nexus --config makes one (an existing one is never
 replaced: the caller checks).
 
 Pitfalls (each pinned where named):

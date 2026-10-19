@@ -1,7 +1,7 @@
 ## run 1: config --yes --no-link  [pipe]
 rc: 0
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 -- building the image of every persona; one that is already up to date takes seconds
 -- build agent-claude-docker, for c1, c2
 -- build agent-grok-docker, for g1
@@ -16,13 +16,13 @@ Start one from a project directory:  cd <P>/<project> && nexus c1
 Day-to-day use, upgrades and troubleshooting: runbook.md
 --- stderr
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
-config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run config-tools after the build to check it
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
  c1 Built  done
  g1 Built  done
 ## run 2: config --yes --no-link  [pipe]
 rc: 0
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
   Only 1 GB is free for Docker (<S>/docker-root); a build from scratch needs about 3 GB, and a full disk
   fails it halfway, often as apt's "At least one invalid signature was encountered".
   Free space first: `docker system df` shows what's used; `docker builder prune` and `docker image prune` free it.
@@ -40,6 +40,6 @@ Start one from a project directory:  cd <P>/<project> && nexus c1
 Day-to-day use, upgrades and troubleshooting: runbook.md
 --- stderr
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
-config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run config-tools after the build to check it
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
  c1 Built  done
  g1 Built  done

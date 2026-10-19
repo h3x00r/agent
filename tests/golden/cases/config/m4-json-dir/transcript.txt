@@ -1,7 +1,7 @@
 ## run 1: config --yes --no-link --no-build --persona c2:claude:docker  [pipe]
 rc: 1
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 -- personas/c2.env
 --- stderr
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
@@ -11,4 +11,4 @@ rc: 1
 --- stdout
 (empty)
 --- stderr
-nexus: the personas are still in <A>/compose.personas.yml, from before personas.json: run <A>/config-tools --yes (it keeps every setting)
+nexus: the personas are still in <A>/compose.personas.yml, from before personas.json: run <A>/nexus --config --yes (it keeps every setting)

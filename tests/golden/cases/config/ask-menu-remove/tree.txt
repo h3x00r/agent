@@ -4,12 +4,6 @@
     | {
     |   "version": 1,
     |   "personas": {
-    |     "c1": {
-    |       "flavour": "claude",
-    |       "context": "docker",
-    |       "colour": "colour25",
-    |       "statusline": true
-    |     },
     |     "g1": {
     |       "flavour": "grok",
     |       "context": "docker",

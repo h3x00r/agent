@@ -1,10 +1,10 @@
 ## run 1: config --yes --no-link --no-build  [pipe]
 rc: 1
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 --- stderr
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
-config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run config-tools after the build to check it
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
 config: the new settings don't pass docker compose config, so nothing was written:
 invalid compose project
 ## run 2: ls -a a  [pipe, cwd .]
@@ -24,7 +24,6 @@ README.md
 agentctl
 compose.personas.yml
 compose.yml
-config-tools
 entrypoint.sh
 nexus
 personas
