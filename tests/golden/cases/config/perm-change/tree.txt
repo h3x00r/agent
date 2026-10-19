@@ -1,0 +1,20 @@
+~ a/personas.json  f 644 inode=new (same content)
++ a/personas.json.bak  f 644
+    | {
+    |   "version": 1,
+    |   "personas": {
+    |     "c1": {
+    |       "flavour": "claude",
+    |       "context": "docker",
+    |       "colour": "colour25",
+    |       "statusline": true,
+    |       "permissions": "ask"
+    |     },
+    |     "c2": {
+    |       "flavour": "claude",
+    |       "context": "docker",
+    |       "colour": "colour28",
+    |       "statusline": true
+    |     }
+    |   }
+    | }

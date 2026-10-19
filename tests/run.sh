@@ -676,6 +676,29 @@ t nx "$PC" restart </dev/null
 ERR2="$ERR"; t docker exec "agent-$PC" cat /home/dev/.claude/settings.json
 check "  and a model the persona set itself stands" 'out_has "\"model\": \"haiku\"" && [[ $ERR2 != *"Claude defaults from"* ]]'
 
+stage "permissions ($PC): claude.managed.json's bypassPermissions, or claude.ask.json's mode over it"
+# The mode headless runs in, from the init line of stream-json.
+mode_of() { t nx "$PC" headless "nxt mode" --output-format stream-json --verbose </dev/null; MODE="$(grep -o '"permissionMode":"[A-Za-z]*"' <<< "$OUT" | head -n 1)"; MODE="${MODE#*:}"; }
+cp "$A/personas/claude.managed.json" "$T/managed.json"
+printf '{"env": {"NXT_MANAGED": "1"}, "permissions": {"defaultMode": "bypassPermissions"}, "skipDangerousModePermissionPrompt": true}\n' \
+  > "$A/personas/claude.managed.json"
+t nx "$PC" restart </dev/null
+mode_of
+check "with claude.managed.json's bypassPermissions, headless runs in it" '[[ $MODE == \"bypassPermissions\" ]]'
+t cfg --yes --no-link --no-build --permissions "$PC:ask" </dev/null
+check "nexus --config --permissions $PC:ask: a restart asked for" 'rc 0 && out_has "nexus $PC restart"'
+t nx "$PC" start </dev/null
+check "  until then, a start says it still doesn't ask" 'rc 0 && err_has "its container was made before that"'
+t nx "$PC" restart </dev/null
+t docker exec "agent-$PC" cat /etc/claude-code/managed-settings.d/16-ask.json
+check "  after the restart: claude.ask.json is its 16-ask.json" 'rc 0 && out_has "\"defaultMode\": \"default\""'
+mode_of
+check "  and headless asks (default), over the bypassPermissions of 15-personas.json" '[[ $MODE == \"default\" ]]'
+t cfg --yes --no-link --no-build --permissions "$PC:bypass" </dev/null
+cp "$T/managed.json" "$A/personas/claude.managed.json"
+t nx "$PC" restart </dev/null
+check "back to bypass, with claude.managed.json as it was: restarted" 'rc 0'
+
 stage "headless with grok ($PG, the stand-in grok)"
 # SSH_AUTH_SOCK pointing nowhere: nexus may still find an agent of yours in /run/user/<uid>, but a persona with
 # a key or none mounts /dev/null all the same. (Whether nexus found one isn't up to this test.)

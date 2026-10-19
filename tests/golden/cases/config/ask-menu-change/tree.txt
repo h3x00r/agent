@@ -45,7 +45,8 @@
     |       "context": "docker",
     |       "colour": "colour25",
     |       "statusline": false,
-    |       "root": "<S>/roots/c1"
+    |       "root": "<S>/roots/c1",
+    |       "permissions": "ask"
     |     }
     |   }
     | }

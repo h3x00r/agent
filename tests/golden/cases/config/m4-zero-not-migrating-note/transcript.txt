@@ -18,6 +18,7 @@ config: warning: couldn't check personas/grok.toml (no python3 for it here, nor 
 rc: 0
 --- stdout
 Dockerfile
+EXAMPLES.md
 LICENSE
 README.md
 agentctl

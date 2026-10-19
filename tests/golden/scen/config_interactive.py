@@ -26,6 +26,12 @@ def sl(name, default="Y/n"):
     return "what nexus top shows) in %s? [%s]: " % (name, default)
 
 
+def perm(name, default="Y/n"):
+    """The permissions yes/no for NAME (a claude persona), to the end of its prompt."""
+    return "Let %s run its tools without asking (bypassPermissions; no: it asks first, as personas/claude.ask.json " \
+           "says)? [%s]: " % (name, default)
+
+
 def remove(name):
     return "Remove %s? Its env file and home volume stay [y/N]: " % name
 
@@ -54,7 +60,8 @@ def claude_env(auth="", name="", email="", gh=""):
 
 def persona(name, ssh="", name_q="Name [claude-docker]: "):
     """A Claude persona added: the defaults but its name and ssh, up to its sign-in."""
-    return [(FLAVOUR, ""), (CONTEXT, ""), (name_q, name), (sl(name), ""), ("Projects root for " + name, ""), (SSH, ssh)]
+    return [(FLAVOUR, ""), (CONTEXT, ""), (name_q, name), (sl(name), ""), ("Projects root for " + name, ""), (SSH, ssh),
+            (perm(name), "")]
 
 
 def first(sb, name, ssh=""):
@@ -93,6 +100,7 @@ def _(sb):
         ("[Y/n]: ", "y"),
         ("Projects root for c1", ""),
         ("choice [agent]: ", "none"),
+        ("run its tools without asking", ""),
         ("choice [login]: ", ""),
         ("git author name", ""),
         ("git author email", ""),
@@ -104,7 +112,7 @@ def _(sb):
 
 @case("config/ask-piped-first-setup")
 def _(sb):
-    answers = "\n".join([sb.projects, "", "", "1", "", "c1", "y", "", "none", "", "", "", "", ""]) + "\n"
+    answers = "\n".join([sb.projects, "", "", "1", "", "c1", "y", "", "none", "", "", "", "", "", ""]) + "\n"
     sb.run("config", *NO_LINK, stdin=answers)
 
 
@@ -154,7 +162,8 @@ def _(sb):
                       (path, sb.path("keys/with space")),      # a space in the path
                       (path, "-"),                             # back to the choice
                       (SSH, "path"), (path, ""),               # empty goes back too
-                      (SSH, "path"), (path, "~/keys/c1")]      # ~/ is your HOME
+                      (SSH, "path"), (path, "~/keys/c1"),      # ~/ is your HOME
+                      (perm("c1"), "")]
         + claude_env() + [(MENU, "")])
 
 
@@ -165,7 +174,7 @@ def _(sb):
     path = "Path of c1's private key (-: back): "
     tty(sb, vm(sb) + [(FLAVOUR, ""), (CONTEXT, ""), ("Name [claude-docker]: ", "c1"), (sl("c1"), ""),
                       ("Projects root for c1", ""),
-                      (SSH, "new"), (SSH, "path"), (path, sb.path("keys/any")), (path, "-"), (SSH, "")]
+                      (SSH, "new"), (SSH, "path"), (path, sb.path("keys/any")), (path, "-"), (SSH, ""), (perm("c1"), "")]
         + claude_env() + [(MENU, "")])
 
 
@@ -177,7 +186,8 @@ def _(sb):
     name = "Name [claude-docker-2]: "
     tty(sb, [(MENU, "add"), (FLAVOUR, ""), (CONTEXT, ""),
              (name, "claude-docker"), (name, "Bad!"), (name, "ls"), (name, "x1-"), (name, ""),
-             (sl("claude-docker-2"), ""), ("Projects root for claude-docker-2", ""), (SSH, "none")]
+             (sl("claude-docker-2"), ""), ("Projects root for claude-docker-2", ""), (SSH, "none"),
+             (perm("claude-docker-2"), "")]
         + claude_env()
         + [(MENU, "add"), (FLAVOUR, "grok"), (CONTEXT, ""), ("Name [grok-docker]: ", "g1"), (sl("g1"), "n"),
            ("Projects root for g1", sb.path("roots/g1")), (SSH, "new"), ("XAI_API_KEY (hidden", "")] + ident()
@@ -186,11 +196,12 @@ def _(sb):
 
 @case("config/ask-piped-menu-add")
 def _(sb):
-    # A first run that adds two more from the menu; ssh by number: agent, then new, then none.
+    # A first run that adds two more from the menu; ssh by number: agent, then new, then none; c2 asks before
+    # running tools.
     piped(sb, [sb.projects, "", "",
-               "1", "", "c1", "", "", "1", "", "", "", "",
-               "add", "", "", "c2", "n", "", "3", "", "", "", "",
-               "add", "1", "2", "", "y", "-", "2", "", "", "", "",
+               "1", "", "c1", "", "", "1", "", "", "", "", "",
+               "add", "", "", "c2", "n", "", "3", "n", "", "", "", "",
+               "add", "1", "2", "", "y", "-", "2", "", "", "", "", "",
                ""])
 
 
@@ -200,20 +211,20 @@ def _(sb):
     sb.write("roots/c1/.keep", "")
     sb.write("blocker", "a file\n")
     root = "Projects root for c1 (-: the VM's, now "
-    # Statusline off, a projects root of its own after refused ones, your agent instead of none.
+    # Statusline off, a projects root of its own after refused ones, your agent instead of none, and it asks.
     tty(sb, [(MENU, "change"), (PICK, "c1"), (FLAVOUR, ""), (CONTEXT, ""), (sl("c1"), "n"),
              (root, "rel/dir"), (root, "/"), (root, sb.path("blocker") + "/sub"), (root, sb.path("my root")),
              (root, sb.path("roots/c1") + "/"),
-             ("choice [none]: ", "agent"), (MENU, "")],
-        label="config --no-link --no-build  (change c1: statusline, root, ssh)")
+             ("choice [none]: ", "agent"), (perm("c1"), "n"), (MENU, "")],
+        label="config --no-link --no-build  (change c1: statusline, root, ssh, permissions)")
     # The defaults are what it has now; taking them all changes nothing.
     tty(sb, [(MENU, "change"), (PICK, "1"), (FLAVOUR, ""), (CONTEXT, ""), (sl("c1", "y/N"), ""),
-             ("[%s]: " % sb.path("roots/c1"), ""), (SSH, ""), (MENU, "")],
+             ("[%s]: " % sb.path("roots/c1"), ""), (SSH, ""), (perm("c1", "y/N"), ""), (MENU, "")],
         label="config --no-link --no-build  (change c1, every default)")
-    # The context: ddev, with no ddev on this VM (nor mkcert).
+    # The context: ddev, with no ddev on this VM (nor mkcert); and it bypasses again.
     tty(sb, [(MENU, "change"), (PICK, "c1"), (FLAVOUR, ""), (CONTEXT, "1"), (sl("c1", "y/N"), ""),
-             ("[%s]: " % sb.path("roots/c1"), ""), (SSH, ""), (MENU, "")],
-        label="config --no-link --no-build  (change c1: the ddev context)")
+             ("[%s]: " % sb.path("roots/c1"), ""), (SSH, ""), (perm("c1", "y/N"), "y"), (MENU, "")],
+        label="config --no-link --no-build  (change c1: the ddev context, bypass again)")
 
 
 @case("config/ask-menu-change-path-default")
@@ -223,7 +234,7 @@ def _(sb):
     sb.personas("c1:claude:docker", extra=("--ssh", "c1:" + sb.path("keys/c1")))
     tty(sb, [(MENU, "change"), (PICK, ""), (MENU, "change"), (PICK, "c1"), (FLAVOUR, ""), (CONTEXT, ""),
              (sl("c1"), ""), ("Projects root for c1", ""), ("choice [path]: ", ""),
-             ("Path of c1's private key (-: back) [%s]: " % sb.path("keys/c1"), ""), (MENU, "")])
+             ("Path of c1's private key (-: back) [%s]: " % sb.path("keys/c1"), ""), (perm("c1"), ""), (MENU, "")])
 
 
 @case("config/ask-flavour-change")
@@ -238,7 +249,7 @@ def _(sb):
              ("Projects root for c2", ""), (SSH, ""), (new_env, "n"), (MENU, "")],
         label="config --no-link --no-build  (c2 to grok, its env file kept)")
     tty(sb, [(MENU, "change"), (PICK, "c1"), ("choice [grok]: ", "claude"), (CONTEXT, ""), (sl("c1"), ""),
-             ("Projects root for c1", ""), (SSH, ""), (new_env, "y")] + claude_env() + [(MENU, "")],
+             ("Projects root for c1", ""), (SSH, ""), (perm("c1"), ""), (new_env, "y")] + claude_env() + [(MENU, "")],
         label="config --no-link --no-build  (c1 back to claude, a second backup)")
 
 
@@ -274,7 +285,7 @@ def _(sb):
     sb.personas("c1:claude:docker")
     sb.write("a/personas/o1.env", template(sb, "claude"), 0o600)
     tty(sb, [(MENU, "")], label="config --no-link --no-build  (o1's file listed)")
-    piped(sb, ["add", "", "", "o1", "", "", "", ""], label="config --no-link --no-build  (o1 added, piped)")
+    piped(sb, ["add", "", "", "o1", "", "", "", "", ""], label="config --no-link --no-build  (o1 added, piped)")
 
 
 @case("config/ask-orphan-other-flavour")
@@ -283,7 +294,7 @@ def _(sb):
     sb.personas("c1:claude:docker")
     sb.write("a/personas/d1.env", template(sb, "grok"), 0o600)
     tty(sb, [(MENU, "add"), (FLAVOUR, "claude"), (CONTEXT, ""), ("Name [claude-docker]: ", "d1"), (sl("d1"), ""),
-             ("Projects root for d1", ""), (SSH, ""),
+             ("Projects root for d1", ""), (SSH, ""), (perm("d1"), ""),
              ("personas/d1.env is for a grok persona: write a new personas/d1.env (the old one is kept as a .bak)? "
               "[Y/n]: ", "")]
         + claude_env() + [(MENU, "")])
@@ -356,7 +367,7 @@ def _(sb):
         + [(FLAVOUR, "0"), (FLAVOUR, "3"), (FLAVOUR, "010"), (FLAVOUR, "abc"), (FLAVOUR, "9999999999"),
            (FLAVOUR, "  claude  "),
            (CONTEXT, "02"), ("Name [claude-docker]: ", ""), (sl("claude-docker"), "maybe"),
-           ("Projects root for claude-docker", ""), (SSH, "Agent"), (SSH, "")]
+           ("Projects root for claude-docker", ""), (SSH, "Agent"), (SSH, ""), (perm("claude-docker"), "")]
         + claude_env("1") + [(MENU, "9"), (MENU, "0"), (MENU, "")])
 
 
@@ -369,7 +380,7 @@ def _(sb):
 # --- end of input, Ctrl-C ----------------------------------------------------------------------------
 @case("config/ask-eof-piped")
 def _(sb):
-    c1 = ["", "1", "", "c1", "", "", "none"]     # the menu's add (its default with no persona), then c1
+    c1 = ["", "1", "", "c1", "", "", "none", ""]     # the menu's add (its default with no persona), then c1
     piped(sb, [], label="config --no-link --no-build  (no input: the VM's projects root)")
     piped(sb, [sb.projects, "", "", "1", ""], label="config --no-link --no-build  (input ends at the name; .env saved)")
     piped(sb, c1[:4], label="config --no-link --no-build  (input ends at the statusline yes/no)")
@@ -402,7 +413,7 @@ def _(sb):
 
 @case("config/ask-last-line-no-newline")
 def _(sb):
-    piped(sb, [sb.projects, "", "", "1", "", "c1", "", "", "none", "", "", "", "nxt-fake-gh-1"], newline=False,
+    piped(sb, [sb.projects, "", "", "1", "", "c1", "", "", "none", "", "", "", "", "nxt-fake-gh-1"], newline=False,
           label="config --no-link --no-build  (the GH_TOKEN line has no newline)")
     piped(sb, ["2"], newline=False, label="config --no-link --no-build  (a re-run: just 2 for add, no newline)")
 
@@ -440,7 +451,7 @@ def _(sb):
     tty(sb, [(MENU, "add")] + persona("c2") + [(AUTH, "apikey"), ("ANTHROPIC_API_KEY (hidden", "")] + ident()
         + [(MENU, "remove"), (PICK, "c1"), (remove("c1"), "y"),
            (MENU, "change"), (PICK, "c1"), (FLAVOUR, ""), (CONTEXT, ""), (sl("c1"), "n"), ("Projects root for c1", ""),
-           (SSH, ""),
+           (SSH, ""), (perm("c1"), ""),
            (MENU, "shared"), ("The VM's projects root", sb.path("vmroot")), ("Image registry", "registry.lan:5000"),
            ("Claude Code version", "stable"),
            (MENU, "list"), (MENU, "add"), (FLAVOUR, ""), (CONTEXT, ""), ("Name [claude-docker]: ", "c3"), (sl("c3"), ""),
@@ -474,7 +485,7 @@ def _(sb):
     sb.personas("c1:claude:docker")
     trust = "Trust ddev's local CA on this VM now (mkcert -install)? [Y/n]: "
     tty(sb, [(MENU, "change"), (PICK, "c1"), (FLAVOUR, ""), (CONTEXT, "ddev"), (sl("c1"), ""), ("Projects root for c1", ""),
-             (SSH, ""), ("Build agent-claude-ddev now, for c1?", "n"), (trust, "n"), (MENU, "")], "--no-link",
+             (SSH, ""), (perm("c1"), ""), ("Build agent-claude-ddev now, for c1?", "n"), (trust, "n"), (MENU, "")], "--no-link",
         label="config --no-link  (c1 to the ddev context)")
     tty(sb, claude_env() + [("Build agent-claude-docker now, for c2?", "n"), (MENU, "")], "--no-link",
         "--persona", "c2:claude:docker", label="config --no-link --persona c2:claude:docker")
@@ -565,10 +576,10 @@ def _(sb):
 def _(sb):
     trust = "Trust ddev's local CA on this VM now (mkcert -install)? [Y/n]: "
     tty(sb, vm(sb) + [(FLAVOUR, ""), ("choice [ddev]: ", ""), ("Name [claude-ddev]: ", "d1"), (sl("d1"), ""),
-                      ("Projects root for d1", ""), (SSH, "")] + claude_env() + [(trust, "n"), (MENU, "")],
+                      ("Projects root for d1", ""), (SSH, ""), (perm("d1"), "")] + claude_env() + [(trust, "n"), (MENU, "")],
         label="config --no-link --no-build  (a first setup, the CA not trusted)")
     tty(sb, [(MENU, "add"), (FLAVOUR, ""), ("choice [ddev]: ", ""), ("Name [claude-ddev]: ", "d2"), (sl("d2"), ""),
-             ("Projects root for d2", ""), (SSH, "")] + claude_env() + [(trust, ""), (MENU, "")],
+             ("Projects root for d2", ""), (SSH, ""), (perm("d2"), "")] + claude_env() + [(trust, ""), (MENU, "")],
         label="config --no-link --no-build  (a second ddev persona, the CA trusted)")
 
 

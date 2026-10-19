@@ -34,6 +34,9 @@ nexus --config — set this checkout up for one dev VM: which personas it runs, 
                                      key of its own made as personas/NAME.key, to add as a deploy key (an
                                      existing one is kept); or KEY, the path of a private key of yours
                                      without a passphrase; repeatable
+    --permissions NAME:ask|bypass    whether that claude persona runs its tools without asking: bypass
+                                     (personas/claude.managed.json's bypassPermissions; the default) or
+                                     ask (personas/claude.ask.json's mode over it); repeatable
     --remove NAME                    drop a persona (its env file and home volume stay); repeatable
     --projects-root DIR              default: $HOME/projects
     --registry HOST                  local (build on this VM; the default) or host[:port][/path]
@@ -50,7 +53,8 @@ that stops early changes nothing, except the projects roots (the VM's and a pers
 created as they are named. A checkout from before personas.json has its personas moved into it first
 (the old file is kept as .bak). Then it makes the ssh keys asked for (personas/<name>.key) that don't
 exist yet. Every Claude persona gets
-personas/claude.managed.json (committed) as a managed settings drop-in; nexus merges the defaults in
+personas/claude.managed.json (committed) as a managed settings drop-in, and one that asks
+personas/claude.ask.json after it; nexus merges the defaults in
 personas/claude.json into its own settings when it starts it. A grok persona gets
 personas/<name>.grok.toml, its grok managed config: personas/grok.toml (the grok settings for every
 grok persona, committed) and, with the statusline on, statusline/grok/settings.toml.
@@ -69,6 +73,7 @@ class Options:
         self.claude = ""
         self.add = []
         self.ssh = []
+        self.permissions = []
         self.remove = []
         self.help = False
 
@@ -76,6 +81,7 @@ class Options:
 VALUED = {
     "--persona": ("NAME:FLAVOUR:CONTEXT[:ROOT]", "add"),
     "--ssh": ("NAME:agent, NAME:none, NAME:new or NAME:KEY", "ssh"),
+    "--permissions": ("NAME:ask or NAME:bypass", "permissions"),
     "--remove": ("a NAME", "remove"),
     "--projects-root": ("a DIR", "root"),
     "--registry": ("local or a HOST", "registry"),

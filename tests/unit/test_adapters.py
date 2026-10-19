@@ -52,6 +52,39 @@ class Render(unittest.TestCase):
         self.assertIn('environment: { AGENT_PERSONA: "k1", AGENT_COLOUR: colour25, SSH_AUTH_SOCK: "" }', out)
         self.assertTrue(out.endswith('volumes:\n  "n1-home":\n  "k1-home":\n'))
 
+    def test_ask_problem(self):
+        from agentctl.adapters import checks
+        d = tempfile.mkdtemp()
+        try:
+            f = os.path.join(d, "ask.json")
+            self.assertEqual(checks.ask_problem(f)[0], "isn't there")
+            for text, why in (('{"permissions": {"defaultMode": "default"}}', ""),
+                              ('{"permissions": {"defaultMode": "acceptEdits"}}', ""),
+                              ('{"permissions": {"defaultMode": "bypassPermissions"}}', "to bypassPermissions"),
+                              ('{"permissions": {}}', "sets no permissions.defaultMode"),
+                              ('[1]', "sets no permissions.defaultMode"),
+                              ('{"permissions": {"defaultMode": 1}}', "sets no permissions.defaultMode"),
+                              ('{nope', "isn't JSON")):
+                with open(f, "w") as fh:
+                    fh.write(text)
+                got = checks.ask_problem(f)[0]
+                self.assertTrue(why in got if why else got == "", (text, got))
+        finally:
+            shutil.rmtree(d)
+
+    def test_ask(self):
+        """A claude persona that asks gets claude.ask.json after claude.managed.json, whether or not that is there;
+        a grok one never does."""
+        ps = [Persona("c1", "claude", "docker", "colour25", permissions="ask"), Persona("c2", "claude", "docker", "colour28"),
+              Persona("g1", "grok", "docker", "colour90", permissions="ask")]
+        for managed in (True, False):
+            out = compose_render.render(ps, managed=managed)
+            self.assertEqual(out.count("16-ask.json"), 1)
+            c1 = out[out.index('  "c1":'):out.index('  "c2":')]
+            self.assertIn("source: ./personas/claude.ask.json, target: /etc/claude-code/managed-settings.d/16-ask.json", c1)
+            if managed:
+                self.assertLess(c1.index("15-personas.json"), c1.index("16-ask.json"))
+
     def test_legacy_is_what_config_tools_wrote(self):
         # The file as config-tools wrote it, before it was `nexus --config`: only its comments differ.
         ps = [Persona("c1", "claude", "docker", "colour1"), Persona("g1", "grok", "docker", "colour25")]
@@ -154,9 +187,11 @@ class PersonasJson(unittest.TestCase):
 
     def test_a_round_trip_keeps_order_and_bytes(self):
         ps = [Persona("z9", "grok", "ddev", "colour28", False, "/srv/caf\udce9", "personas/z9.key"),
-              Persona("a1", "claude", "docker", "colour25", True, "", "none")]
+              Persona("a1", "claude", "docker", "colour25", True, "", "none"),
+              Persona("k2", "claude", "docker", "colour90", permissions="ask")]
         text = self.store.dumps(ps)
         self.assertTrue(text.endswith("}\n") and text.index('"z9"') < text.index('"a1"'))
+        self.assertEqual(text.count('"permissions"'), 1)   # the default isn't written
         self.assertEqual(self.load(text), ps)
 
     def test_what_it_refuses(self):
@@ -173,6 +208,10 @@ class PersonasJson(unittest.TestCase):
                 ('{"version": 1, "personas": {"c1": {%s}}}' % ok.replace('"claude"', '"other"'), "flavour 'other'"),
                 ('{"version": 1, "personas": {"c1": {%s, "root": "rel/dir"}}}' % ok, "root 'rel/dir'"),
                 ('{"version": 1, "personas": {"c1": {%s, "ssh": "personas/g1.key"}}}' % ok, "ssh 'personas/g1.key'"),
+                ('{"version": 1, "personas": {"c1": {%s, "permissions": "maybe"}}}' % ok, "permissions 'maybe'"),
+                ('{"version": 1, "personas": {"c1": {%s, "permissions": false}}}' % ok, "permissions that isn't a string"),
+                ('{"version": 1, "personas": {"g1": {%s, "permissions": "ask"}}}' % ok.replace('"claude"', '"grok"'),
+                 "only a claude persona takes"),
                 ("{nope", "isn't valid JSON")):
             with self.assertRaises(self.store.BadPersonasJson) as c:
                 self.load(text)

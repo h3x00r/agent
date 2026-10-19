@@ -147,6 +147,15 @@ def roots(containers):
     return out
 
 
+MOUNTS_FORMAT = "{{range .Mounts}}{{println .Destination}}{{end}}"
+
+
+def mounts(container):
+    """Where the container's mounts are inside it (one docker inspect); none if it can't be inspected."""
+    r = proc.run(["docker", "inspect", "-f", MOUNTS_FORMAT, container])
+    return set(r.out.split("\n")) - {""} if r.rc == 0 else set()
+
+
 def exec_probe(container, script, *args, timeout=10, pipe_stdin=False):
     """`timeout T docker exec C sh -c SCRIPT sh ARGS…`, stderr dropped: (rc, stdout). pipe_stdin: an empty
     pipe for stdin, as a call inside bash's `while read …; done < <(…)` got (docker exec without -i

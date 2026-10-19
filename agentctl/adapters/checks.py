@@ -7,12 +7,17 @@ can import what the program needs (tomllib wants 3.11), else in a persona image 
 goldens record what goes to docker.
 
 check(path, fmt) → (rc, output): rc 0 fine, 3 broken (output says why), -1 nothing here could check,
-anything else the check itself failed (counts as unchecked).
+anything else the check itself failed (counts as unchecked). ask_problem(path): what keeps
+personas/claude.ask.json from making a persona ask and what to do, or ("", "") (read here: it is JSON, and no
+CLI is needed).
 
 Pitfalls (each pinned where named):
 - the programs as spelt, in a persona image when this python3 has no tomllib (golden config/cli-images-build)
 - -1 makes nexus --config warn, not refuse (run.sh "with nothing to check the TOML with: it says so")
+- ask_problem(): a claude.ask.json without a mode, or with bypassPermissions, or unreadable, is a problem, as the
+  persona would bypass (golden config/perm-file-missing, golden nexus/perm-ask-file-missing)
 """
+import json
 import os
 import re
 
@@ -40,6 +45,33 @@ def py_on(path, code):
 
 def check(path, fmt):
     return py_on(path, JSON if fmt == "json" else TOML)
+
+
+ASK_RESTORE = "git checkout personas/claude.ask.json restores the committed one"
+
+
+def ask_problem(path):
+    """What keeps the file at PATH (personas/claude.ask.json) from making a persona ask, as a phrase after its
+    name, and what to do about it; or ("", ""). It must be there, readable JSON, and set permissions.defaultMode to
+    a mode that isn't bypassPermissions: otherwise the drop-in changes nothing, and claude.managed.json's
+    bypassPermissions holds."""
+    mode_hint = "it needs a permissions.defaultMode that asks (default, acceptEdits, plan, …); " + ASK_RESTORE
+    if not os.path.isfile(path):
+        return "isn't there", "restore it (git checkout personas/claude.ask.json)"
+    try:
+        with open(path, "rb") as f:
+            d = json.loads(f.read().decode("utf-8", "replace"))
+    except OSError as e:
+        return "can't be read (%s)" % e.strerror, "make it readable to you, or " + ASK_RESTORE
+    except ValueError as e:
+        return "isn't JSON Claude Code can read (%s)" % e, mode_hint
+    perms = d.get("permissions") if isinstance(d, dict) else None
+    mode = perms.get("defaultMode") if isinstance(perms, dict) else None
+    if not isinstance(mode, str) or not mode:
+        return "sets no permissions.defaultMode", mode_hint
+    if mode == "bypassPermissions":
+        return "sets permissions.defaultMode to bypassPermissions", mode_hint
+    return "", ""
 
 
 _S = "[ \t\r\f\v]"   # [[:space:]] within one line

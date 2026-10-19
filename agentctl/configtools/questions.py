@@ -1,6 +1,6 @@
 """nexus --config's questions, each kind in one place, asked through the Prompter (on a terminal, by piped lines,
 or answered by their defaults under --yes): the VM settings, a persona's flavour, context, name, statusline,
-projects root and ssh, its sign-in and git identity, and the launcher, mkcert and image questions.
+projects root, ssh and permissions, its sign-in and git identity, and the launcher, mkcert and image questions.
 
 They change the Session (its personas, its staged files) and return what was decided; saving is the
 Session's, and what happens after a save is after.py's.
@@ -24,6 +24,7 @@ CONTEXTS = ["ddev     ddev projects: ddev inside, sharing the VM's ddev state an
             "docker   projects run with docker compose / Dockerfiles: no ddev"]
 CONTEXT_Q = "Context: which kind of projects does it work on?"
 SL_Q = "Statusline (statusline/: model, context, cost; what nexus top shows) in"
+PERM_Q = "Let %s run its tools without asking (bypassPermissions; no: it asks first, as personas/claude.ask.json says)?"
 SSH_HOW = ["agent    your ssh-agent, forwarded: your own keys; starting it then needs an agent in your shell",
            "none     no ssh: it commits, and you pull and push from the VM, in the same directory",
            "new      a key of its own, made as personas/NAME.key: add its public half as a deploy key",
@@ -145,6 +146,12 @@ class Questions:
                 s.say("  %s's key: %s" % (name, why))
                 k = ""
 
+    def permissions(self, name, f, current):
+        """bypass or ask, asked of a claude persona; a grok one bypasses (grok's own setting decides)."""
+        if f != "claude":
+            return "bypass"
+        return "bypass" if self.ask.yesno(PERM_Q % name, "y" if current == "bypass" else "n") else "ask"
+
     def add(self):
         s = self.s
         f, c = self.flavour_context("claude", s.default_context)
@@ -156,7 +163,8 @@ class Questions:
         sl = self.ask.yesno("%s %s?" % (SL_Q, n), "y")
         r = self.root(n, "")
         k = self.ssh(n, "")
-        s.put(Persona(n, f, c, rules.next_colour(s.personas), sl, r, k))
+        perm = self.permissions(n, f, "bypass")
+        s.put(Persona(n, f, c, rules.next_colour(s.personas), sl, r, k, perm))
         return n
 
     def change(self, name):
@@ -166,7 +174,8 @@ class Questions:
         sl = self.ask.yesno("%s %s?" % (SL_Q, name), "y" if p.statusline else "n")
         r = self.root(name, p.root)
         k = self.ssh(name, p.ssh)
-        s.put(Persona(name, f, c, p.colour, sl, r, k))
+        perm = self.permissions(name, f, p.permissions)
+        s.put(Persona(name, f, c, p.colour, sl, r, k, perm))
 
     def pick(self, verb):
         s = self.s

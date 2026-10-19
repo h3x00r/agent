@@ -28,20 +28,27 @@ Pitfalls (each pinned where named):
 - the session name as $(basename …) gives it, trailing newlines gone, then . and : as _ (golden
   nexus/edge-persona-session-newline, golden nexus/life-attach-names)
 - no TERM: infocmp is asked for dumb, as bash set it (golden nexus/life-attach-term)
-- before creating a container: the key, claude.managed.json, the grok.toml, then compose.personas.yml in step
-  with personas.json (golden nexus/edge-persona-refusal-order, golden nexus/life-legacy-claude-json)
+- before creating a container: the key, claude.managed.json, claude.ask.json for one that asks (there, and setting
+  a mode that asks), the grok.toml, then compose.personas.yml in step with personas.json (golden
+  nexus/edge-persona-refusal-order, golden nexus/life-legacy-claude-json, golden nexus/perm-ask-file-missing)
 - out of step at an attach to a running one: a warning, not a refusal (golden nexus/life-legacy-statusline)
+- one that asks, running in a container made before it did (no 16-ask.json mount): a warning, at a start and an
+  attach (golden nexus/perm-ask-not-restarted)
 """
 import os
 import shutil
 
-from agentctl.adapters import docker
+from agentctl.adapters import checks, docker
 from agentctl.core import proc
 from agentctl.core.errors import Exit, NexusError
 from agentctl.core.shellcompat import bash_basename, mkdir_p, realpath_e, utf8_locale
 from agentctl.domain.roots import moved, place
 from agentctl.nexus import headless, ls, upgrade
 from agentctl.nexus.context import Persona, is_socket
+
+ASK_FILE = "personas/claude.ask.json"
+ASK_TARGET = "/etc/claude-code/managed-settings.d/16-ask.json"
+
 
 def die(msg):
     raise NexusError(msg)
@@ -168,6 +175,10 @@ class Run:
                     and not os.path.isfile(os.path.join(a, "personas", "claude.managed.json")):
                 die("%s/personas/claude.managed.json isn't there: restore it (git checkout personas/claude.managed.json), "
                     "or re-run %s/nexus --config without it" % (a, a))
+            if p.flavour == "claude" and p.permissions == "ask":
+                why, fix = checks.ask_problem(os.path.join(a, ASK_FILE))
+                if why:
+                    die("%s/%s %s, and %s asks before running tools: %s" % (a, ASK_FILE, why, p.name, fix))
             if "./personas/%s.grok.toml," % p.name in text and not os.path.isfile(os.path.join(a, "personas", p.name + ".grok.toml")):
                 die("%s/personas/%s.grok.toml isn't there: re-run %s/nexus --config, which writes it" % (a, p.name, a))
             why = self.ctx.step_problem()
@@ -197,6 +208,9 @@ class Run:
             self.claude_defaults()
         else:
             old = ls.old_root(p)
+            if p.flavour == "claude" and p.permissions == "ask" and ASK_TARGET not in docker.mounts(p.container):
+                self.out.warn("%s asks before running tools now, but its container was made before that and doesn't: "
+                              "`nexus %s restart` applies it (that ends its tmux sessions)" % (p.name, p.name))
         if start_only:
             if old:
                 self.out.warn(moved(p.name, old, p.root + p.root_from))

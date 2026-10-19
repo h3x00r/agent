@@ -1,3 +1,3 @@
 {
-  "provenance": "accepted: M4: tree.txt only: personas.json (and its .bak) beside a compose.personas.yml generated from it, without the # persona: lines, under a new header; checked case by case against the bash's tree; then accepted: cfg M2: the rename to nexus --config only; then accepted: cfg M3: the menu (the first run's shared settings first, each action saved), its steps rewritten; then the refresh at the start of a menu run"
+  "provenance": "accepted: perm M1: the permissions question, menu line and usage"
 }

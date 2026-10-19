@@ -15,7 +15,7 @@ Personas
 What next?
   1) list      the shared settings and the personas, again
   2) add       a new persona
-  3) change    one persona's flavour, context, statusline, projects root or ssh
+  3) change    one persona's flavour, context, statusline, projects root, ssh or permissions
   4) remove    one persona (its env file and home volume stay)
   5) shared    the settings every persona shares: projects root, image registry, Claude Code version
   6) launcher  link nexus into a directory on your PATH
@@ -29,7 +29,7 @@ images: skipped for lack of disk space; after freeing some, run: <A>/nexus c1 bu
 What next?
   1) list      the shared settings and the personas, again
   2) add       a new persona
-  3) change    one persona's flavour, context, statusline, projects root or ssh
+  3) change    one persona's flavour, context, statusline, projects root, ssh or permissions
   4) remove    one persona (its env file and home volume stay)
   5) shared    the settings every persona shares: projects root, image registry, Claude Code version
   6) launcher  link nexus into a directory on your PATH
@@ -62,7 +62,7 @@ Personas
 What next?
   1) list      the shared settings and the personas, again
   2) add       a new persona
-  3) change    one persona's flavour, context, statusline, projects root or ssh
+  3) change    one persona's flavour, context, statusline, projects root, ssh or permissions
   4) remove    one persona (its env file and home volume stay)
   5) shared    the settings every persona shares: projects root, image registry, Claude Code version
   6) launcher  link nexus into a directory on your PATH
@@ -92,7 +92,7 @@ How does c2 sign in to Claude?
 What next?
   1) list      the shared settings and the personas, again
   2) add       a new persona
-  3) change    one persona's flavour, context, statusline, projects root or ssh
+  3) change    one persona's flavour, context, statusline, projects root, ssh or permissions
   4) remove    one persona (its env file and home volume stay)
   5) shared    the settings every persona shares: projects root, image registry, Claude Code version
   6) launcher  link nexus into a directory on your PATH
@@ -103,13 +103,14 @@ Start one from a project directory:  cd <P>/<project> && nexus c1
 Day-to-day use, upgrades and troubleshooting: runbook.md
 --- stderr (no newline at the end)
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
-choice [quit]: choice [claude]: choice [docker]: Name [claude-docker]: Statusline (statusline/: model, context, cost; what nexus top shows) in c2? [Y/n]: Projects root for c2 (-: the VM's, now <P>) [-]: choice [agent]: choice [login]: git author name for c2 [Test User]: git author email for c2 [test@example.invalid]: GH_TOKEN for the gh CLI in c2 (hidden; empty to skip): 
+choice [quit]: choice [claude]: choice [docker]: Name [claude-docker]: Statusline (statusline/: model, context, cost; what nexus top shows) in c2? [Y/n]: Projects root for c2 (-: the VM's, now <P>) [-]: choice [agent]: Let c2 run its tools without asking (bypassPermissions; no: it asks first, as personas/claude.ask.json says)? [Y/n]: choice [login]: git author name for c2 [Test User]: git author email for c2 [test@example.invalid]: GH_TOKEN for the gh CLI in c2 (hidden; empty to skip): 
 Build agent-claude-docker now, for c2? (seconds for one that is up to date; a first build takes a few minutes) [Y/n]: choice [quit]: 
 --- echo
 add\r
 \r
 \r
 c2\r
+\r
 \r
 \r
 \r

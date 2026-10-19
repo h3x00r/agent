@@ -1,0 +1,24 @@
+## run 1: nexus c1 start  (running, made before it asked)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+nexus: warning: c1 asks before running tools now, but its container was made before that and doesn't: `nexus c1 restart` applies it (that ends its tmux sessions)
+## run 2: nexus c1  (an attach, made before it asked)  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s app -c <P>/app]
+--- stderr
+nexus: warning: c1 asks before running tools now, but its container was made before that and doesn't: `nexus c1 restart` applies it (that ends its tmux sessions)
+## run 3: nexus c1 restart  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-c1  Recreated
+## run 4: nexus c1 start  (restarted: it has 16-ask.json)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+(empty)

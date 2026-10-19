@@ -19,6 +19,7 @@ rc: 0
 .gitignore
 .hadolint.yaml
 Dockerfile
+EXAMPLES.md
 LICENSE
 README.md
 agentctl

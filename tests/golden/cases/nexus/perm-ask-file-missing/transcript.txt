@@ -1,0 +1,43 @@
+## run 1: nexus c1 start  (claude.ask.json gone)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: <A>/personas/claude.ask.json isn't there, and c1 asks before running tools: restore it (git checkout personas/claude.ask.json)
+## run 2: nexus c2 start  (claude.ask.json gone, c2 bypasses)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-c2  Started
+nexus: c2: Claude defaults from personas/claude.json: model, modelSettings.opus.effortLevel, outputStyle, teammateMode, theme, tui, worktree.baseRef
+## run 3: nexus c1 restart  (claude.ask.json gone)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: <A>/personas/claude.ask.json isn't there, and c1 asks before running tools: restore it (git checkout personas/claude.ask.json)
+## run 4: nexus c1 start  (claude.managed.json and claude.ask.json gone)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: <A>/personas/claude.managed.json isn't there: restore it (git checkout personas/claude.managed.json), or re-run <A>/nexus --config without it
+## run 5: nexus c1 start  (claude.ask.json: no mode)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: <A>/personas/claude.ask.json sets no permissions.defaultMode, and c1 asks before running tools: it needs a permissions.defaultMode that asks (default, acceptEdits, plan, …); git checkout personas/claude.ask.json restores the committed one
+## run 6: nexus c1 start  (claude.ask.json: bypassPermissions)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: <A>/personas/claude.ask.json sets permissions.defaultMode to bypassPermissions, and c1 asks before running tools: it needs a permissions.defaultMode that asks (default, acceptEdits, plan, …); git checkout personas/claude.ask.json restores the committed one
+## run 7: nexus c1 start  (claude.ask.json: not JSON)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: <A>/personas/claude.ask.json isn't JSON Claude Code can read (Expecting property name enclosed in double quotes: line 1 column 3 (char 2)), and c1 asks before running tools: it needs a permissions.defaultMode that asks (default, acceptEdits, plan, …); git checkout personas/claude.ask.json restores the committed one

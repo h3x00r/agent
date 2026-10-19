@@ -15,7 +15,7 @@ Personas
 What next?
   1) list      the shared settings and the personas, again
   2) add       a new persona
-  3) change    one persona's flavour, context, statusline, projects root or ssh
+  3) change    one persona's flavour, context, statusline, projects root, ssh or permissions
   4) remove    one persona (its env file and home volume stay)
   5) shared    the settings every persona shares: projects root, image registry, Claude Code version
   6) launcher  link nexus into a directory on your PATH
@@ -28,7 +28,7 @@ Which persona to change?
 What next?
   1) list      the shared settings and the personas, again
   2) add       a new persona
-  3) change    one persona's flavour, context, statusline, projects root or ssh
+  3) change    one persona's flavour, context, statusline, projects root, ssh or permissions
   4) remove    one persona (its env file and home volume stay)
   5) shared    the settings every persona shares: projects root, image registry, Claude Code version
   6) launcher  link nexus into a directory on your PATH
@@ -55,7 +55,7 @@ SSH (git over ssh) for c1:
 What next?
   1) list      the shared settings and the personas, again
   2) add       a new persona
-  3) change    one persona's flavour, context, statusline, projects root or ssh
+  3) change    one persona's flavour, context, statusline, projects root, ssh or permissions
   4) remove    one persona (its env file and home volume stay)
   5) shared    the settings every persona shares: projects root, image registry, Claude Code version
   6) launcher  link nexus into a directory on your PATH
@@ -66,12 +66,13 @@ Start one from a project directory:  cd <P>/<project> && nexus c1
 Day-to-day use, upgrades and troubleshooting: runbook.md
 --- stderr (no newline at the end)
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
-choice [quit]: choice [-]: choice [quit]: choice [-]: choice [claude]: choice [docker]: Statusline (statusline/: model, context, cost; what nexus top shows) in c1? [Y/n]: Projects root for c1 (-: the VM's, now <P>) [-]: choice [path]: Path of c1's private key (-: back) [<S>/keys/c1]: choice [quit]: 
+choice [quit]: choice [-]: choice [quit]: choice [-]: choice [claude]: choice [docker]: Statusline (statusline/: model, context, cost; what nexus top shows) in c1? [Y/n]: Projects root for c1 (-: the VM's, now <P>) [-]: choice [path]: Path of c1's private key (-: back) [<S>/keys/c1]: Let c1 run its tools without asking (bypassPermissions; no: it asks first, as personas/claude.ask.json says)? [Y/n]: choice [quit]: 
 --- echo
 change\r
 \r
 change\r
 c1\r
+\r
 \r
 \r
 \r

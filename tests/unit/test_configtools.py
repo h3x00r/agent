@@ -24,6 +24,8 @@ class Parse(unittest.TestCase):
                        "--no-link", "--no-build", "--statusline", "--no-statusline", "--registry", "a", "--registry", "b"])
         self.assertEqual((o.yes, o.add, o.ssh, o.link, o.build, o.statusline, o.registry),
                          (True, ["c1:claude:docker", "g1:grok:ddev"], ["g1:new"], "none", False, "no", "b"))
+        self.assertEqual(cli.parse(["--permissions", "c1:ask", "--permissions", "c2:bypass"]).permissions,
+                         ["c1:ask", "c2:bypass"])
 
     def test_help_stops_where_it_is_read(self):
         self.assertTrue(cli.parse(["--help", "--bogus"]).help)

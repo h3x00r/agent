@@ -1,3 +1,3 @@
 {
-  "provenance": "accepted: M4: new, from the review of M4: personas.json and the move at their edges (no bash to record it from); then accepted: cfg M2: the rename to nexus --config only; then accepted: cfg M3: the menu (the first run's shared settings first, each action saved), its steps rewritten"
+  "provenance": "accepted: EXAMPLES.md in the checkout"
 }
