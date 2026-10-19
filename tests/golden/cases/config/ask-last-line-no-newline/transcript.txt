@@ -1,7 +1,7 @@
 ## run 1: config --no-link --no-build  (the GH_TOKEN line has no newline)  [pipe]
 rc: 0
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 
 == Personas
 No personas yet; the first one:
@@ -44,7 +44,7 @@ config: warning: your ssh-agent holds no keys: `ssh-add` before starting a perso
 ## run 2: config --no-link --no-build  (a re-run: just 1 for add, no newline)  [pipe]
 rc: 1
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 
 == Personas
 

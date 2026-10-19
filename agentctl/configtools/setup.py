@@ -1,4 +1,4 @@
-"""config-tools: the flags, then the run. The parts:
+"""nexus --config: the flags, then the run. The parts:
 
   session.py    what a run holds: the personas read, the lock, the preflight, and saving (stage, check, commit)
   questions.py  every question it asks, on a terminal, by piped lines, or by their defaults under --yes
@@ -16,12 +16,14 @@ from agentctl.configtools.cli import USAGE
 from agentctl.configtools.session import Session
 
 
-def main(checkout, argv, out):
+def main(repo, argv, out):
     from agentctl.configtools.cli import parse
+    from agentctl.nexus.context import checkout
     opts = parse(argv)
     if opts.help:
         out.usage(USAGE)
         return 0
+    checkout = checkout(repo)     # after the flags: --help and a bad option touch nothing
     os.chdir(checkout)
     try:
         return scripted.run(Session(checkout, opts, out))

@@ -1,7 +1,7 @@
 ## run 1: config --no-link --no-build  (no input: the flavour choice)  [pipe]
 rc: 1
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 
 == Personas
 No personas yet; the first one:
@@ -15,7 +15,7 @@ config: input ended; answer on a terminal or use --yes
 ## run 2: config --no-link --no-build  (input ends at the name)  [pipe]
 rc: 1
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 
 == Personas
 No personas yet; the first one:
@@ -32,7 +32,7 @@ config: input ended; answer on a terminal or use --yes
 ## run 3: config --no-link --no-build  (input ends at the statusline yes/no)  [pipe]
 rc: 1
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 
 == Personas
 No personas yet; the first one:
@@ -49,7 +49,7 @@ config: input ended; answer on a terminal or use --yes
 ## run 4: config --no-link --no-build  (input ends at the hidden API key)  [pipe]
 rc: 1
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 
 == Personas
 No personas yet; the first one:
@@ -87,7 +87,7 @@ config: input ended; answer on a terminal or use --yes
 ## run 5: config --no-link --no-build  (input ends at the hidden GH_TOKEN)  [pipe]
 rc: 1
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 
 == Personas
 No personas yet; the first one:

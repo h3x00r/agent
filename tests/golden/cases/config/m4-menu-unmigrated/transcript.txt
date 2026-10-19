@@ -1,7 +1,7 @@
 ## run 1: config  (menu: remove c1, ^C)  [tty-in]
 rc: 130
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 
 == Personas
 
@@ -44,7 +44,6 @@ README.md
 agentctl
 compose.personas.yml
 compose.yml
-config-tools
 entrypoint.sh
 nexus
 personas

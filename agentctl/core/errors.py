@@ -13,7 +13,7 @@ class NexusError(Exception):
 
 
 class Interrupted(Exception):
-    """A run stopped by a signal it handles itself, ending with CODE: 130 for config-tools and upgrade,
+    """A run stopped by a signal it handles itself, ending with CODE: 130 for nexus --config and upgrade,
     whichever of INT, TERM or HUP it was, as their bash traps had it."""
 
     def __init__(self, code):

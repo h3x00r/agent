@@ -1,7 +1,7 @@
 ## run 1: config --no-link --no-build  [tty-in]
 rc: 0
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 
 == Personas
 
@@ -89,7 +89,7 @@ g1: removed. Its env file, ssh key and home volume stay; to delete them:
 Day-to-day use, upgrades and troubleshooting: runbook.md
 --- stderr (no newline at the end)
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
-choice [done]: choice [-]: choice [done]: choice [-]: choice [done]: choice [-]: choice [done]: choice [-]: choice [done]: choice [done]: choice [done]: config: warning: no personas configured; add some with ./config-tools (or --persona NAME:FLAVOUR:CONTEXT)
+choice [done]: choice [-]: choice [done]: choice [-]: choice [done]: choice [-]: choice [done]: choice [-]: choice [done]: choice [done]: choice [done]: config: warning: no personas configured; add some with nexus --config (or --persona NAME:FLAVOUR:CONTEXT)
 Keep them? projects root <P>, image registry local [Y/n]: 
 --- echo
 remove\r

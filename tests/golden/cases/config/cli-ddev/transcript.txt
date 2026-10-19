@@ -1,7 +1,7 @@
 ## run 1: config --yes --no-link --no-build --projects-root <P> --persona d1:claude:ddev --persona c1:claude:docker  [pipe]
 rc: 0
 --- stdout
-config-tools: setting up <A> (ddev 1.24.7 on this VM)
+nexus --config: setting up <A> (ddev 1.24.7 on this VM)
 -- personas/d1.env
 -- personas/c1.env
 
@@ -24,7 +24,7 @@ DDEV_VERSION=1.24.7
 ## run 3: config --yes --no-link --no-build  [pipe]
 rc: 0
 --- stdout
-config-tools: setting up <A> (ddev 1.25.0 on this VM)
+nexus --config: setting up <A> (ddev 1.25.0 on this VM)
 
 Personas:
   NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH

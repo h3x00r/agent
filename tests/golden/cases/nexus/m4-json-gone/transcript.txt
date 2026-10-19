@@ -3,28 +3,28 @@ rc: 1
 --- stdout
 (empty)
 --- stderr
-nexus: <A>/personas.json is missing, and <A>/compose.personas.yml was generated from it: put back <A>/personas.json.bak (the one config-tools kept before it)
+nexus: <A>/personas.json is missing, and <A>/compose.personas.yml was generated from it: put back <A>/personas.json.bak (the one nexus --config kept before it)
 ## run 2: nexus ls  (personas.json gone)  [pipe]
 rc: 1
 --- stdout
 (empty)
 --- stderr
-nexus: <A>/personas.json is missing, and <A>/compose.personas.yml was generated from it: put back <A>/personas.json.bak (the one config-tools kept before it)
-## run 3: config-tools --list  (personas.json gone)  [pipe]
+nexus: <A>/personas.json is missing, and <A>/compose.personas.yml was generated from it: put back <A>/personas.json.bak (the one nexus --config kept before it)
+## run 3: nexus --config --list  (personas.json gone)  [pipe]
 rc: 1
 --- stdout
 (empty)
 --- stderr
-config: <A>/personas.json is missing, and <A>/compose.personas.yml was generated from it: put back <A>/personas.json.bak (the one config-tools kept before it)
-## run 4: config-tools --yes  (as nexus said)  [pipe]
+config: <A>/personas.json is missing, and <A>/compose.personas.yml was generated from it: put back <A>/personas.json.bak (the one nexus --config kept before it)
+## run 4: nexus --config --yes  (as nexus said)  [pipe]
 rc: 1
 --- stdout
 (empty)
 --- stderr
-config: <A>/personas.json is missing, and <A>/compose.personas.yml was generated from it: put back <A>/personas.json.bak (the one config-tools kept before it)
+config: <A>/personas.json is missing, and <A>/compose.personas.yml was generated from it: put back <A>/personas.json.bak (the one nexus --config kept before it)
 ## run 5: nexus ls  (after)  [pipe]
 rc: 1
 --- stdout
 (empty)
 --- stderr
-nexus: <A>/personas.json is missing, and <A>/compose.personas.yml was generated from it: put back <A>/personas.json.bak (the one config-tools kept before it)
+nexus: <A>/personas.json is missing, and <A>/compose.personas.yml was generated from it: put back <A>/personas.json.bak (the one nexus --config kept before it)

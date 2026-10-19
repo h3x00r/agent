@@ -1,7 +1,7 @@
 ## run 1: config --yes --no-link --no-build --persona d1:grok:docker  [pipe]
 rc: 0
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 -- personas/d1.env already exists: reusing it
 
 Personas:
@@ -12,11 +12,11 @@ Start one from a project directory:  cd <HOME>/projects/<project> && nexus d1
 Day-to-day use, upgrades and troubleshooting: runbook.md
 --- stderr
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
-config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run config-tools after the build to check it
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
 ## run 2: config --yes --no-link --no-build --persona x1:grok:docker  [pipe]
 rc: 0
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 -- personas/x1.env already exists (a grok one): reusing it
 
 Personas:
@@ -28,11 +28,11 @@ Start one from a project directory:  cd <HOME>/projects/<project> && nexus d1
 Day-to-day use, upgrades and troubleshooting: runbook.md
 --- stderr
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
-config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run config-tools after the build to check it
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
 ## run 3: config --yes --no-link --no-build --persona c1:grok:docker  [pipe]
 rc: 0
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 -- personas/c1.env is for a claude persona: writing a new personas/c1.env (the old one is kept as a .bak)
 -- personas/c1.env
 
@@ -47,4 +47,4 @@ c1: add XAI_API_KEY to <A>/personas/c1.env
 Day-to-day use, upgrades and troubleshooting: runbook.md
 --- stderr
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
-config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run config-tools after the build to check it
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it

@@ -1,4 +1,4 @@
-"""What config-tools does once the settings are saved; a failure here is a note, not a stop (the files are in
+"""What nexus --config does once the settings are saved; a failure here is a note, not a stop (the files are in
 place already): the ssh keys asked for, the launcher linked, mkcert, the images built or pulled.
 """
 import os

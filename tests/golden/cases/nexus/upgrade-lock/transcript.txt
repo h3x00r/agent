@@ -3,19 +3,19 @@ rc: 1
 --- stdout
 (empty)
 --- stderr
-nexus: config-tools or another upgrade is running in <A>; let it finish first
+nexus: nexus --config or another upgrade is running in <A>; let it finish first
 ## run 2: nexus c1 upgrade 1.2  (the lock held: checked before the version)  [pipe]
 rc: 1
 --- stdout
 (empty)
 --- stderr
-nexus: config-tools or another upgrade is running in <A>; let it finish first
+nexus: nexus --config or another upgrade is running in <A>; let it finish first
 ## run 3: nexus g1 upgrade  (the lock held: no channel looked up)  [pipe]
 rc: 1
 --- stdout
 (empty)
 --- stderr
-nexus: config-tools or another upgrade is running in <A>; let it finish first
+nexus: nexus --config or another upgrade is running in <A>; let it finish first
 ## run 4: nexus c1 upgrade 2.1.400  (the lock held, the pin exported: the pin first)  [pipe]
 rc: 1
 --- stdout

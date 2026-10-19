@@ -1,4 +1,4 @@
-"""config-tools in one pass, from the flags to the summary: the order the bash tool took (the order decides
+"""nexus --config in one pass, from the flags to the summary: the order the bash tool took (the order decides
 which error wins, and what a stopped run has already done):
 
   1. refuse root; take the lock (not for --list); read the personas; --list stops here
@@ -32,7 +32,7 @@ def run(s):
     s.preflight()
 
     # 3. the personas
-    s.say("config-tools: setting up %s%s" % (s.a, " (ddev %s on this VM)" % s.vm_ddev if s.vm_ddev else ""))
+    s.say("nexus --config: setting up %s%s" % (s.a, " (ddev %s on this VM)" % s.vm_ddev if s.vm_ddev else ""))
     hint = o.root or dotenv.get(".env", "PROJECTS_ROOT")
     s.vm_root_hint = "now " + hint if hint else "asked below"
     s.apply_flags()
@@ -44,7 +44,7 @@ def run(s):
             q.add()
         q.persona_menu()
     if not s.personas:
-        s.warn("no personas configured; add some with ./config-tools (or --persona NAME:FLAVOUR:CONTEXT)")
+        s.warn("no personas configured; add some with nexus --config (or --persona NAME:FLAVOUR:CONTEXT)")
     s.change_notes(old_names)
 
     # 4. .env

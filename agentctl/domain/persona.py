@@ -2,7 +2,7 @@
 
 A Persona has a name, a flavour (claude | grok), a context (ddev | docker), a tmux colour, the statusline
 on or off, its own projects root ("" for the VM's) and its ssh: "" (your ssh-agent, forwarded), "none",
-or a key: personas/NAME.key (made by config-tools) or an absolute path.
+or a key: personas/NAME.key (made by nexus --config) or an absolute path.
 
 Pitfalls (each pinned where named):
 - valid_name() is a fullmatch: a trailing newline is no name (test_domain.Rules.test_names)
@@ -128,7 +128,7 @@ class BadLine(ValueError):
 
 
 def parse_meta_line(line):
-    """A `# persona:` line (without the prefix) as config-tools reads it: split on whitespace, the name
+    """A `# persona:` line (without the prefix) as nexus --config reads it: split on whitespace, the name
     first, then key=value fields (an unknown one ignored, a repeated one's last value kept), all checked."""
     words = read_array(line, " \t\n")
     name = words[0] if words else ""

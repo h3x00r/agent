@@ -1,0 +1,81 @@
+## run 1: nexus --config --help  [pipe]
+rc: 0
+--- stdout
+nexus --config — set this checkout up for one dev VM: which personas it runs, the flavour of each
+(claude | grok), and the context each one works in:
+  ddev     ddev projects: ddev inside, sharing the VM's ~/.ddev and mkcert CA
+  docker   projects run with docker compose / Dockerfiles: no ddev at all
+
+  nexus --config                  interactive; re-run it any time to add, change or remove personas
+  nexus --config --list           the personas set up so far
+  nexus --config --yes [options]  no questions, for scripts: current settings are kept, and the
+                                defaults below apply to new ones
+    --persona NAME:FLAVOUR:CONTEXT[:ROOT]
+                                     add or update a persona; repeatable. ROOT: its own projects root
+                                     (empty: the VM's; left out: an existing persona keeps its own)
+    --ssh NAME:agent|none|new|KEY    how that persona's ssh (git over ssh) signs in: agent, your ssh-agent
+                                     (the default); none, not at all (pull and push from the VM); new, a
+                                     key of its own made as personas/NAME.key, to add as a deploy key (an
+                                     existing one is kept); or KEY, the path of a private key of yours
+                                     without a passphrase; repeatable
+    --remove NAME                    drop a persona (its env file and home volume stay); repeatable
+    --projects-root DIR              default: $HOME/projects
+    --registry HOST                  local (build on this VM; the default) or host[:port][/path]
+    --claude-version V               latest | stable | X.Y.Z (default: latest)
+    --statusline | --no-statusline   the statusline (what nexus top shows) for the personas given with
+                                     --persona (default: on for a new one; an existing one keeps its own)
+    --link DIR | --no-link           where the `nexus` launcher goes (default: /usr/local/bin)
+    --no-build                       don't build (or pull) the images at the end
+
+Writes .env, personas.json (this VM's personas; the one before is kept as personas.json.bak), the
+compose.personas.yml generated from it, and personas/<name>.env (mode 600; an existing one is kept), all
+at once and only after `docker compose config` accepts them: a run that stops early changes nothing,
+except the projects roots (the VM's and a persona's own), which are created as they are named. A
+checkout from before personas.json has its personas moved into it (the old file is kept as .bak). Then
+it makes the ssh keys asked for (personas/<name>.key) that don't exist yet. Every Claude persona gets
+personas/claude.managed.json (committed) as a managed settings drop-in; nexus merges the defaults in
+personas/claude.json into its own settings when it starts it. A grok persona gets
+personas/<name>.grok.toml, its grok managed config: personas/grok.toml (the grok settings for every
+grok persona, committed) and, with the statusline on, statusline/grok/settings.toml.
+--- stderr
+(empty)
+## run 2: nexus --config --bogus  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: unknown option '--bogus' (see --help)
+## run 3: nexus --config --list  (nothing set up)  [pipe]
+rc: 0
+--- stdout
+  (none yet)
+--- stderr
+(empty)
+## run 4: nexus --configure  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: no personas set up yet: run <A>/nexus --config
+## run 5: nexus --config --list  [pipe]
+rc: 0
+--- stdout
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+--- stderr
+(empty)
+## run 6: nexus --configure  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: not a persona name: '--configure'
+## run 7: nexus ls --config  [pipe]
+rc: 0
+--- stdout
+PERSONA  FLAVOUR  CONTEXT  SSH    STATE        PROJECTS ROOT
+c1       claude   docker   agent  not started  <P>
+
+nexus <persona> starts one that isn't running
+--- stderr
+(empty)

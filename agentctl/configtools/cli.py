@@ -1,4 +1,4 @@
-"""config-tools' command line: the flags, checked before anything is asked or written.
+"""nexus --config's command line: the flags, checked before anything is asked or written.
 
 The grammar is the bash tool's, kept as it was (not argparse, whose exit codes and messages differ):
 options are read left to right; --help prints the usage and stops when it is reached; a flag that takes a
@@ -13,14 +13,14 @@ Pitfalls (each pinned where named):
 from agentctl.core.errors import NexusError
 
 USAGE = """\
-config-tools — set this checkout up for one dev VM: which personas it runs, the flavour of each
+nexus --config — set this checkout up for one dev VM: which personas it runs, the flavour of each
 (claude | grok), and the context each one works in:
   ddev     ddev projects: ddev inside, sharing the VM's ~/.ddev and mkcert CA
   docker   projects run with docker compose / Dockerfiles: no ddev at all
 
-  ./config-tools                  interactive; re-run it any time to add, change or remove personas
-  ./config-tools --list           the personas set up so far
-  ./config-tools --yes [options]  no questions, for scripts: current settings are kept, and the
+  nexus --config                  interactive; re-run it any time to add, change or remove personas
+  nexus --config --list           the personas set up so far
+  nexus --config --yes [options]  no questions, for scripts: current settings are kept, and the
                                 defaults below apply to new ones
     --persona NAME:FLAVOUR:CONTEXT[:ROOT]
                                      add or update a persona; repeatable. ROOT: its own projects root

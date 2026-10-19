@@ -1,7 +1,7 @@
 ## run 1: config --yes --no-link --no-build --remove c1  [pipe]
 rc: 0
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 
 Personas:
   (none yet)
@@ -11,10 +11,10 @@ personas: none left; compose.personas.yml from before personas.json is kept as c
 Day-to-day use, upgrades and troubleshooting: runbook.md
 --- stderr
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
-config: warning: no personas configured; add some with ./config-tools (or --persona NAME:FLAVOUR:CONTEXT)
+config: warning: no personas configured; add some with nexus --config (or --persona NAME:FLAVOUR:CONTEXT)
 ## run 2: nexus ls  [pipe]
 rc: 1
 --- stdout
 (empty)
 --- stderr
-nexus: no personas set up yet: run <A>/config-tools
+nexus: no personas set up yet: run <A>/nexus --config

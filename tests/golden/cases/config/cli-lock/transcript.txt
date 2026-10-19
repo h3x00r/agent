@@ -3,7 +3,7 @@ rc: 1
 --- stdout
 (empty)
 --- stderr
-config: another config-tools, or a `nexus <persona> upgrade`, is running in <A>; let it finish first
+config: another `nexus --config`, or a `nexus <persona> upgrade`, is running in <A>; let it finish first
 ## run 2: config --list  [pipe]
 rc: 0
 --- stdout
@@ -20,7 +20,7 @@ config: --persona Bad: 'Bad' is not a usable name (a lowercase letter, then lowe
 ## run 4: config --yes --no-link --no-build  [pipe]
 rc: 0
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 
 Personas:
   NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH

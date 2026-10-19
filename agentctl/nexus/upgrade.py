@@ -6,8 +6,8 @@ doesn't ask), and remove the old images no container uses.
 The pin is VM-wide. A failure, or INT/TERM/HUP, between the pin and the version check puts the old pin
 back, and each image tag the run built: one that existed before points at its old image again, a new
 one goes. A signal there waits for the step running (a build, say) to end, as bash's trap did, then
-puts things back and exits 130. One upgrade or config-tools run at a time per checkout: they share the
-lock on config-tools.
+puts things back and exits 130. One upgrade or nexus --config run at a time per checkout: they share the
+lock on the checkout.
 
 Pitfalls (each pinned where named):
 - 130 for INT, TERM and HUP alike (golden nexus/edge-upgrade-signals-match)
@@ -197,11 +197,11 @@ class Upgrade:
         self.cli, self.pin, tagvar, channels = fl.cli, fl.pin_var, fl.tag_var, fl.channels
         a = self.ctx.agents_dir
         if not os.path.isfile(self.env_file):
-            die("no %s yet: run %s/config-tools" % (self.env_file, a))
+            die("no %s yet: run %s/nexus --config" % (self.env_file, a))
         if self.pin in os.environ:
             die("%s is exported in this shell and beats %s: unset it, then upgrade" % (self.pin, self.env_file))
         if not lock.take(a):
-            die("config-tools or another upgrade is running in %s; let it finish first" % a)
+            die("nexus --config or another upgrade is running in %s; let it finish first" % a)
         why = self.ctx.step_problem()     # it builds from that file, and may recreate the containers
         if why:
             die(why)
@@ -291,7 +291,7 @@ class Upgrade:
         r = ref_new[builders[0]]
         if r.rsplit(":", 1)[-1] != version:
             if not tag or (self.p.flavour == "grok" and tag == "latest"):   # a personas file or .env from before upgrade
-                self.out.warn("%s is still tagged %s: re-run %s/config-tools once, and the tags follow %s from then on"
+                self.out.warn("%s is still tagged %s: re-run %s/nexus --config once, and the tags follow %s from then on"
                               % (r, r.rsplit(":", 1)[-1], a, self.pin))
             elif tag == "latest":
                 self.out.warn("%s is tagged by %s=latest in %s, not by the version: remove that line, and the tags "

@@ -1,7 +1,7 @@
 ## run 1: config --link <S>/lbin --no-build  (not replaced)  [tty-in]
 rc: 0
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 
 == Personas
 
@@ -39,7 +39,7 @@ rel/bin\r
 ## run 2: config --link <S>/lbin --no-build  (replaced)  [tty-in]
 rc: 0
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 
 == Personas
 
@@ -73,7 +73,7 @@ y\r
 ## run 3: config --link <S>/lbin --no-build  (linked already)  [tty-in]
 rc: 0
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 
 == Personas
 
@@ -106,7 +106,7 @@ choice [done]: Keep them? projects root <P>, image registry local, Claude Code l
 ## run 4: config --link <S>/lbin --no-build  (a dir it can't write: sudo)  [tty-in]
 rc: 0
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 
 == Personas
 
@@ -141,7 +141,7 @@ choice [done]: Keep them? projects root <P>, image registry local, Claude Code l
 ## run 5: config --link <S>/lbin --no-build  (none)  [tty-in]
 rc: 0
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 
 == Personas
 

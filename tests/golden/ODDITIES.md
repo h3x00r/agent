@@ -133,3 +133,16 @@ tree keeps. Where the two still differ, accepted@M4:
   each service whole, its comments and CRs aside.
 - **New cases** (recorded from the Python, nothing to compare): config/migrate-*, config/personas-json-refused,
   config/m4-* and the nexus/m4-* cases on new behaviour, from the review of M4.
+
+## Changed on purpose: nexus --config (cfg M2)
+The setup tool is `nexus --config` now; the config-tools script is gone. Every case was recorded again from
+the tree and checked, case by case, to differ from before only by that name (in messages, the usage, the
+generated files' comments, the labels), accepted@cfg M2; each says so in its meta.json, after what it was.
+- **The lock** is flock on the checkout's directory, not on the file config-tools: nexus/edge-upgrade-lock-file
+  (that file unreadable, then gone) is retired, as a checkout that can't be opened can't be set up at all.
+- **AGENTS_DIR** names the checkout `nexus --config` sets up, as it does nexus's; config-tools set up its own
+  (config/cfg-agents-dir).
+- **Files config-tools wrote:** a compose.personas.yml whose comments name it is in step all the same
+  (nexus/cfg-legacy-header); the next writing run writes it, and each grok persona's config, as they are now,
+  with no note for either (config/cfg-legacy-grok).
+- **nexus's usage** has a line for `nexus --config`.

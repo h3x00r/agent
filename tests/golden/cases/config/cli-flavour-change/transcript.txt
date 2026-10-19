@@ -1,7 +1,7 @@
 ## run 1: config --yes --no-link --no-build --persona c1:grok:docker  [pipe]
 rc: 0
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 -- c1 changed flavour: writing a new personas/c1.env (the old one is kept as a .bak)
 -- personas/c1.env
 
@@ -16,11 +16,11 @@ c1: its grok settings and statusline come through personas/c1.grok.toml now; `ne
 Day-to-day use, upgrades and troubleshooting: runbook.md
 --- stderr
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
-config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run config-tools after the build to check it
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
 ## run 2: config --yes --no-link --no-build --persona c1:claude:docker  [pipe]
 rc: 0
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 -- c1 changed flavour: writing a new personas/c1.env (the old one is kept as a .bak)
 -- personas/c1.env
 

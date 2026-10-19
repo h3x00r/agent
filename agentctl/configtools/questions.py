@@ -1,4 +1,4 @@
-"""config-tools' questions, each kind in one place, asked through the Prompter (on a terminal, by piped lines,
+"""nexus --config's questions, each kind in one place, asked through the Prompter (on a terminal, by piped lines,
 or answered by their defaults under --yes): the VM settings, a persona's flavour, context, name, statusline,
 projects root and ssh, its sign-in and git identity, and the launcher, mkcert and image questions.
 

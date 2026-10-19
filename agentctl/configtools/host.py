@@ -1,4 +1,4 @@
-"""The small helpers of config-tools that touch the system or the files: a staged file's KEY=value, what an
+"""The small helpers of nexus --config that touch the system or the files: a staged file's KEY=value, what an
 env file is for, the VM's git identity, ddev, CPUs and free space, readlink -f, and comparing services.
 
 Pitfalls (each pinned where named):

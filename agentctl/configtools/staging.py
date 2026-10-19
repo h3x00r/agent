@@ -1,4 +1,4 @@
-"""Staged files: every file config-tools writes is first written next to its target, checked with the rest,
+"""Staged files: every file nexus --config writes is first written next to its target, checked with the rest,
 and only then put in place, so a run that stops early changes nothing.
 
 stage(target): a new temp file `TARGET.XXXXXXXX` in the target's directory, mode 600 (it may hold a

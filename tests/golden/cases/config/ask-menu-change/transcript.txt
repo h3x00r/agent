@@ -1,7 +1,7 @@
 ## run 1: config --no-link --no-build  (change c1: statusline, root, ssh)  [tty-in]
 rc: 0
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 
 == Personas
 
@@ -68,7 +68,7 @@ y\r
 ## run 2: config --no-link --no-build  (change c1, every default)  [tty-in]
 rc: 0
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 
 == Personas
 
@@ -126,7 +126,7 @@ change\r
 ## run 3: config --no-link --no-build  (change c1: the ddev context)  [tty-in]
 rc: 0
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 
 == Personas
 

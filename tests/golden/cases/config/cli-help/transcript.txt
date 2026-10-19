@@ -1,14 +1,14 @@
 ## run 1: config --help  [pipe]
 rc: 0
 --- stdout
-config-tools — set this checkout up for one dev VM: which personas it runs, the flavour of each
+nexus --config — set this checkout up for one dev VM: which personas it runs, the flavour of each
 (claude | grok), and the context each one works in:
   ddev     ddev projects: ddev inside, sharing the VM's ~/.ddev and mkcert CA
   docker   projects run with docker compose / Dockerfiles: no ddev at all
 
-  ./config-tools                  interactive; re-run it any time to add, change or remove personas
-  ./config-tools --list           the personas set up so far
-  ./config-tools --yes [options]  no questions, for scripts: current settings are kept, and the
+  nexus --config                  interactive; re-run it any time to add, change or remove personas
+  nexus --config --list           the personas set up so far
+  nexus --config --yes [options]  no questions, for scripts: current settings are kept, and the
                                 defaults below apply to new ones
     --persona NAME:FLAVOUR:CONTEXT[:ROOT]
                                      add or update a persona; repeatable. ROOT: its own projects root

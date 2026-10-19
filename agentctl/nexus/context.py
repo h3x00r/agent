@@ -13,8 +13,8 @@ As the bash launcher did:
   keeps the shell's.
 - SSH_AUTH_SOCK: yours if it is a socket, else the first of the usual agent sockets, else "" (exported).
 - The personas: personas.json, read once and held to its rules (personas_store.load_json). A checkout
-  still on compose.personas.yml's `# persona:` lines is told to run config-tools --yes, which moves them;
-  one whose personas.json is gone, to put back its .bak. compose.personas.yml is what config-tools
+  still on compose.personas.yml's `# persona:` lines is told to run nexus --config --yes, which moves them;
+  one whose personas.json is gone, to put back its .bak. compose.personas.yml is what nexus --config
   generated from it: step_problem() renders it again and compares the bytes (a hand edit makes it out of
   step).
 
@@ -33,12 +33,14 @@ Pitfalls (each pinned where named):
 - no HOME (golden nexus/edge-ls-home-unset)
 - the usual agent sockets, in their order (golden nexus/life-ssh-agent-found)
 - personas.json read once, held to its rules, a refusal naming it (golden config/personas-json-refused)
-- a checkout still on the `# persona:` lines is told to run config-tools --yes (golden config/migrate-older-layout);
+- a checkout still on the `# persona:` lines is told to run nexus --config --yes (golden config/migrate-older-layout);
   one with no line at all has no personas (golden nexus/basic-personas-empty)
 - step_problem(): the bytes of what personas.json renders, with or without the managed mount (golden
   nexus/life-legacy-statusline)
 - step_problem(): with or without the managed mount, as the file comes and goes (golden
   nexus/m4-grok-managed-gone, golden nexus/m4-managed-back); a missing file says so (golden nexus/m4-compose-gone)
+- step_problem(): a file config-tools wrote, before it was `nexus --config`, is in step until the next writing
+  run (golden nexus/cfg-legacy-header)
 """
 import os
 import stat
@@ -65,9 +67,7 @@ class Context:
         self.out = out
         env = os.environ
         given = env.get("AGENTS_DIR") or repo
-        self.here = env.get("PWD", "") if env.get("PWD", "").startswith("/") else _getcwd_or("")
-        if not self.here:
-            die("can't tell which directory this is: it was deleted, and PWD isn't set")
+        self.here = here()
         try:
             os.getcwd()
         except FileNotFoundError:
@@ -110,11 +110,11 @@ class Context:
         if w == "json":
             return
         if w == "lines":
-            die("the personas are still in %s, from before personas.json: run %s/config-tools --yes (it keeps every "
-                "setting)" % (self.personas_file, self.agents_dir))
+            die("the personas are still in %s, from before personas.json: run %s/nexus --config --yes (it keeps "
+                "every setting)" % (self.personas_file, self.agents_dir))
         if w == "lost":
             die(personas_store.lost(self.agents_dir))
-        die("no personas set up yet: run %s/config-tools" % self.agents_dir)
+        die("no personas set up yet: run %s/nexus --config" % self.agents_dir)
 
     def personas(self, fresh=False):
         """The personas, in their order (the domain's Persona); personas.json read once, or again (FRESH: top's
@@ -129,19 +129,42 @@ class Context:
         return self._personas
 
     def step_problem(self):
-        """Why compose.personas.yml isn't what config-tools generates from personas.json, or "" if it is. It may
+        """Why compose.personas.yml isn't what nexus --config generates from personas.json, or "" if it is. It may
         have the managed-settings mount or not: personas/claude.managed.json comes and goes with a checkout (a
-        git pull, a config-tools run without it), and a start that needs it says so on its own."""
+        git pull, a nexus --config run without it), and a start that needs it says so on its own."""
         try:
             with open(self.personas_file, "rb") as f:
                 have = f.read()
         except OSError:
-            return "%s isn't there: %s/config-tools --yes writes it from personas.json" % (self.personas_file,
+            return "%s isn't there: %s/nexus --config --yes writes it from personas.json" % (self.personas_file,
                                                                                           self.agents_dir)
-        if any(have == compose_render.render(self.personas(), m).encode("utf-8", "surrogateescape") for m in (True, False)):
+        if any(have == compose_render.render(self.personas(), m, legacy=l).encode("utf-8", "surrogateescape")
+               for m in (True, False) for l in (False, True)):
             return ""
-        return ("%s is out of step with personas.json (edited by hand, or written by an older config-tools): "
-                "%s/config-tools --yes writes it again from personas.json" % (self.personas_file, self.agents_dir))
+        return ("%s is out of step with personas.json (edited by hand, or written by an older nexus --config): "
+                "%s/nexus --config --yes writes it again from personas.json" % (self.personas_file, self.agents_dir))
+
+
+def here():
+    """This directory as bash's $PWD has it: PWD when it is absolute, else the physical one; a deleted one with
+    no PWD stops the run."""
+    h = os.environ.get("PWD", "") if os.environ.get("PWD", "").startswith("/") else _getcwd_or("")
+    if not h:
+        die("can't tell which directory this is: it was deleted, and PWD isn't set")
+    return h
+
+
+def checkout(repo):
+    """The checkout `nexus --config` sets up: the one nexus works on, AGENTS_DIR (by name, as Context takes
+    it) if that is set, else REPO, its own. Spelt physically, as REPO is: the setup tool compares it with
+    what links resolve to (the launcher's)."""
+    given = os.environ.get("AGENTS_DIR")
+    if not given:
+        return repo
+    d = os.path.realpath(_cd(given, here()))
+    if not all(os.path.isfile(os.path.join(d, f)) for f in ("compose.yml", "nexus", ".env.example")):
+        die("AGENTS_DIR is %s, which isn't a checkout of this repo (its compose.yml, nexus and the rest aren't there)" % given)
+    return d
 
 
 def _getcwd_or(default):
@@ -174,7 +197,7 @@ class Persona:
         ps = ctx.personas()
         rec = next((p for p in ps if p.name == name), None)
         if rec is None:
-            die("no persona '%s' (set up: %s); add it with %s/config-tools"
+            die("no persona '%s' (set up: %s); add it with %s/nexus --config"
                 % (name, " ".join(p.name for p in ps), ctx.agents_dir))
         self.name, self.container = name, rec.container
         self.flavour, self.context, self.ssh, self.own_root = rec.flavour, rec.context, rec.ssh, rec.root

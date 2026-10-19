@@ -1,7 +1,7 @@
 ## run 1: config --yes --no-link --statusline  [pipe]
 rc: 0
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 
 Personas:
   (none yet)
@@ -9,11 +9,11 @@ Day-to-day use, upgrades and troubleshooting: runbook.md
 --- stderr
 config: warning: --statusline / --no-statusline only apply to personas given with --persona
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
-config: warning: no personas configured; add some with ./config-tools (or --persona NAME:FLAVOUR:CONTEXT)
+config: warning: no personas configured; add some with nexus --config (or --persona NAME:FLAVOUR:CONTEXT)
 ## run 2: config --yes --no-link --no-build --no-statusline --persona g1:grok:docker --persona c1:claude:docker  [pipe]
 rc: 0
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 -- personas/g1.env
 -- personas/c1.env
 
@@ -27,11 +27,11 @@ g1: add XAI_API_KEY to <A>/personas/g1.env
 Day-to-day use, upgrades and troubleshooting: runbook.md
 --- stderr
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
-config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run config-tools after the build to check it
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
 ## run 3: config --yes --no-link --no-build --statusline --persona g1:grok:docker  [pipe]
 rc: 0
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 
 Personas:
   NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
@@ -43,7 +43,7 @@ g1: changed; `nexus g1 restart` applies it (that ends its tmux sessions)
 Day-to-day use, upgrades and troubleshooting: runbook.md
 --- stderr
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
-config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run config-tools after the build to check it
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
 ## run 4: grep ^# persona:  compose.personas.yml  [pipe, cwd a]
 rc: 0
 --- stdout
@@ -55,8 +55,8 @@ rc: 0
 rc: 0
 --- stdout
 # (grok settings for every grok persona here) and, with the statusline on, statusline/grok/settings.toml.
-# inside, with the statusline after it) and checks it first, so re-run config-tools after an edit: the next grok
-# statusline/grok/settings.toml: what config-tools adds to a grok persona's managed config
+# inside, with the statusline after it) and checks it first, so re-run nexus --config after an edit: the next grok
+# statusline/grok/settings.toml: what nexus --config adds to a grok persona's managed config
 # (personas/<name>.grok.toml, /etc/grok/managed_config.toml inside) when the persona has the statusline on.
 # grok then runs statusline/grok/statusline.sh, so `nexus top` shows its sessions' figures. A status line
 [ui.status_line]

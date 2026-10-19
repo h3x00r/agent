@@ -1,7 +1,7 @@
 ## run 1: config --no-link --no-build  (^D at the flavour choice)  [tty-in]
 rc: 1
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 
 == Personas
 No personas yet; the first one:
@@ -15,7 +15,7 @@ config: input ended; answer on a terminal or use --yes
 ## run 2: config --no-link --no-build  (^D at the name)  [tty-in]
 rc: 1
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 
 == Personas
 No personas yet; the first one:
@@ -35,7 +35,7 @@ config: input ended; answer on a terminal or use --yes
 ## run 3: config --no-link --no-build  (^D at the statusline yes/no)  [tty-in]
 rc: 1
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 
 == Personas
 No personas yet; the first one:
@@ -56,7 +56,7 @@ c1\r
 ## run 4: config --no-link --no-build  (^D at the hidden API key)  [tty-in]
 rc: 1
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 
 == Personas
 No personas yet; the first one:

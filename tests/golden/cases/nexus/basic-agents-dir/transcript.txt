@@ -3,7 +3,7 @@ rc: 1
 --- stdout
 (empty)
 --- stderr
-nexus: no personas set up yet: run <S>/empty/config-tools
+nexus: no personas set up yet: run <S>/empty/nexus --config
 ## run 2: AGENTS_DIR=<S>/nope nexus ls  [pipe]
 rc: 1
 --- stdout
@@ -15,19 +15,19 @@ rc: 1
 --- stdout
 (empty)
 --- stderr
-nexus: no persona 'nope' (set up: c1 g1); add it with <A>/config-tools
+nexus: no persona 'nope' (set up: c1 g1); add it with <A>/nexus --config
 ## run 4: AGENTS_DIR=<A>/ nexus nope  [pipe]
 rc: 1
 --- stdout
 (empty)
 --- stderr
-nexus: no persona 'nope' (set up: c1 g1); add it with <A>/config-tools
+nexus: no persona 'nope' (set up: c1 g1); add it with <A>/nexus --config
 ## run 5: AGENTS_DIR= nexus nope  [pipe]
 rc: 1
 --- stdout
 (empty)
 --- stderr
-nexus: no persona 'nope' (set up: c1 g1); add it with <A>/config-tools
+nexus: no persona 'nope' (set up: c1 g1); add it with <A>/nexus --config
 ## run 6: AGENTS_DIR=<S>/link-to-a nexus ls  [pipe]
 rc: 0
 --- stdout
@@ -43,13 +43,13 @@ rc: 1
 --- stdout
 (empty)
 --- stderr
-nexus: no persona 'nope' (set up: c1 g1); add it with <S>/link-to-a/config-tools
+nexus: no persona 'nope' (set up: c1 g1); add it with <S>/link-to-a/nexus --config
 ## run 8: <S>/other/nexus ls  [pipe]
 rc: 1
 --- stdout
 (empty)
 --- stderr
-nexus: no agentctl/ next to <S>/other/nexus: link it into your PATH (config-tools does) rather than copy it, or set AGENTS_DIR to the checkout
+nexus: no agentctl/ next to <S>/other/nexus: link it into your PATH (nexus --config does) rather than copy it, or set AGENTS_DIR to the checkout
 ## run 9: AGENTS_DIR=<A> <S>/other/nexus ls  [pipe]
 rc: 0
 --- stdout

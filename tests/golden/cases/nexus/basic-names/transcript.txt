@@ -9,7 +9,7 @@ rc: 1
 --- stdout
 (empty)
 --- stderr
-nexus: no persona 'nope' (set up: c1 g1); add it with <A>/config-tools
+nexus: no persona 'nope' (set up: c1 g1); add it with <A>/nexus --config
 ## run 3: nexus   [pipe]
 rc: 1
 --- stdout
@@ -45,22 +45,22 @@ rc: 1
 --- stdout
 (empty)
 --- stderr
-nexus: no persona 'c' (set up: c1 g1); add it with <A>/config-tools
+nexus: no persona 'c' (set up: c1 g1); add it with <A>/nexus --config
 ## run 9: nexus c1-  [pipe]
 rc: 1
 --- stdout
 (empty)
 --- stderr
-nexus: no persona 'c1-' (set up: c1 g1); add it with <A>/config-tools
+nexus: no persona 'c1-' (set up: c1 g1); add it with <A>/nexus --config
 ## run 10: nexus 1abc  [pipe]
 rc: 1
 --- stdout
 (empty)
 --- stderr
-nexus: no persona '1abc' (set up: c1 g1); add it with <A>/config-tools
+nexus: no persona '1abc' (set up: c1 g1); add it with <A>/nexus --config
 ## run 11: nexus all  [pipe]
 rc: 1
 --- stdout
 (empty)
 --- stderr
-nexus: no persona 'all' (set up: c1 g1); add it with <A>/config-tools
+nexus: no persona 'all' (set up: c1 g1); add it with <A>/nexus --config

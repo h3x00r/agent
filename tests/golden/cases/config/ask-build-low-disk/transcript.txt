@@ -1,7 +1,7 @@
 ## run 1: config --no-link  (low on disk: not built)  [tty-in]
 rc: 0
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 
 == Personas
 
@@ -38,7 +38,7 @@ choice [done]: Keep them? projects root <P>, image registry local, Claude Code l
 ## run 2: config --no-link  (no build)  [tty-in]
 rc: 0
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 
 == Personas
 

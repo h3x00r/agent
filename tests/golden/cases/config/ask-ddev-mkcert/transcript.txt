@@ -1,7 +1,7 @@
 ## run 1: config --no-link --no-build  (a first setup, the CA not trusted)  [tty-in]
 rc: 0
 --- stdout
-config-tools: setting up <A> (ddev 1.24.7 on this VM)
+nexus --config: setting up <A> (ddev 1.24.7 on this VM)
 
 == Personas
 No personas yet; the first one:
@@ -64,7 +64,7 @@ n\r
 ## run 2: config --no-link --no-build  (the CA trusted)  [tty-in]
 rc: 0
 --- stdout
-config-tools: setting up <A> (ddev 1.24.7 on this VM)
+nexus --config: setting up <A> (ddev 1.24.7 on this VM)
 
 == Personas
 

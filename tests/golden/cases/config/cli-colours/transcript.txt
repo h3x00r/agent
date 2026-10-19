@@ -14,7 +14,7 @@ rc: 0
 ## run 2: config --yes --no-link --no-build --persona c9:claude:docker --persona d1:grok:docker  [pipe]
 rc: 0
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 -- personas/c9.env
 -- personas/d1.env
 
@@ -36,7 +36,7 @@ d1: add XAI_API_KEY to <A>/personas/d1.env
 Day-to-day use, upgrades and troubleshooting: runbook.md
 --- stderr
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
-config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run config-tools after the build to check it
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
 ## run 3: grep ^# persona:  compose.personas.yml  [pipe, cwd a]
 rc: 0
 --- stdout
@@ -55,7 +55,7 @@ rc: 0
 ## run 4: config --yes --no-link --no-build --remove c3 --persona x1:claude:docker  [pipe]
 rc: 0
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 -- personas/x1.env
 
 Personas:
@@ -77,7 +77,7 @@ c3: removed. Its env file and home volume stay; to delete them:
 Day-to-day use, upgrades and troubleshooting: runbook.md
 --- stderr
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
-config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run config-tools after the build to check it
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
 ## run 5: grep ^# persona:  compose.personas.yml  [pipe, cwd a]
 rc: 0
 --- stdout

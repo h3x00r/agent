@@ -1,7 +1,7 @@
 ## run 1: config --no-link --no-build  [tty-in]
 rc: 0
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 
 == Personas
 
@@ -86,7 +86,7 @@ config: warning: your ssh-agent holds no keys: `ssh-add` before starting a perso
 choice [done]: choice [claude]: choice [docker]: Name [claude-docker-2]: Name [claude-docker-2]: Name [claude-docker-2]: Name [claude-docker-2]: Name [claude-docker-2]: Statusline (statusline/: model, context, cost; what nexus top shows) in claude-docker-2? [Y/n]: Projects root for claude-docker-2 (-: the VM's, now <P>) [-]: choice [agent]: choice [done]: choice [claude]: choice [docker]: Name [grok-docker]: Statusline (statusline/: model, context, cost; what nexus top shows) in g1? [Y/n]: Projects root for g1 (-: the VM's, now <P>) [-]: choice [agent]: choice [done]: Keep them? projects root <P>, image registry local, Claude Code latest [Y/n]: choice [login]: git author name for claude-docker-2 [Test User]: git author email for claude-docker-2 [test@example.invalid]: GH_TOKEN for the gh CLI in claude-docker-2 (hidden; empty to skip): 
 XAI_API_KEY (hidden; empty to skip): 
 git author name for g1 [Test User]: git author email for g1 [test@example.invalid]: GH_TOKEN for the gh CLI in g1 (hidden; empty to skip): 
-config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run config-tools after the build to check it
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
 --- echo
 add\r
 \r

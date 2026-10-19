@@ -1,7 +1,7 @@
 ## run 1: config --yes --no-build --link <S>/lbin/  [pipe]
 rc: 0
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 
 Personas:
   NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
@@ -15,7 +15,7 @@ config: warning: your ssh-agent holds no keys: `ssh-add` before starting a perso
 ## run 2: config --yes --no-build --link <S>/lbin  [pipe]
 rc: 0
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 
 Personas:
   NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
@@ -29,7 +29,7 @@ config: warning: your ssh-agent holds no keys: `ssh-add` before starting a perso
 ## run 3: config --yes --no-build --link <S>/lbin  [pipe]
 rc: 0
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 
 Personas:
   NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
@@ -42,7 +42,7 @@ config: warning: your ssh-agent holds no keys: `ssh-add` before starting a perso
 ## run 4: config --yes --no-build --link <S>/lbin  [pipe]
 rc: 0
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 -- removed <S>/lbin/agent, the launcher's old name (it is nexus now)
 
 Personas:
@@ -57,7 +57,7 @@ config: warning: your ssh-agent holds no keys: `ssh-add` before starting a perso
 ## run 5: config --yes --no-build --link ~/bin  [pipe]
 rc: 0
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 
 Personas:
   NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH

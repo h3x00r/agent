@@ -1,7 +1,7 @@
 """The golden scenarios, one module per area (config_cli, config_interactive, nexus_basic, …). Each
 scenario is a function of a Sandbox (golden.py): it sets the scenario up (setup runs aren't recorded), then
-makes the run(s) that are. Names are <tool>/<what>; the tool is "config" (the setup tool, whatever its
-file is called) or "nexus".
+makes the run(s) that are. Names are <tool>/<what>; the tool is "config" (the setup tool: `nexus --config`, or
+config-tools or config.sh in a tree from before it) or "nexus".
 
 The Sandbox, in short (golden.py has the rest):
   sb.personas(*specs, extra=())   config --yes --no-link --no-build --projects-root <P> … (a setup run)
@@ -13,7 +13,7 @@ The Sandbox, in short (golden.py has the rest):
   sb.load_world() / sb.world / sb.save_world()                           the world itself (fake.py)
   sb.write(rel, text, mode=)  sb.path(rel)  sb.symlink(rel, target)  sb.script(rel, body)  sb.agent_socket()
   sb.hold_lock()              a context manager: the tools' lock taken, as another run would hold it
-  sb.a, sb.home, sb.projects, sb.tmp, sb.cfg (the setup tool's file name in this tree)
+  sb.a, sb.home, sb.projects, sb.tmp, sb.cfg (the setup tool's file in this tree; None: nexus --config)
 """
 import json
 import os

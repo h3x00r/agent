@@ -166,8 +166,8 @@ def _(sb):
     os.unlink(sb.path("a/personas.json"))
     sb.run("nexus", "c1", label="nexus c1  (personas.json gone)")
     sb.run("nexus", "ls", label="nexus ls  (personas.json gone)")
-    sb.run("config", "--list", label="config-tools --list  (personas.json gone)")
-    sb.run("config", "--yes", "--no-link", "--no-build", label="config-tools --yes  (as nexus said)")
+    sb.run("config", "--list", label="nexus --config --list  (personas.json gone)")
+    sb.run("config", "--yes", "--no-link", "--no-build", label="nexus --config --yes  (as nexus said)")
     sb.run("nexus", "ls", label="nexus ls  (after)")
 
 

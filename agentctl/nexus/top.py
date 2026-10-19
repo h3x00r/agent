@@ -103,7 +103,7 @@ def frame(ctx, p, every="", head=True):
     now = int(time.time())
     utf8 = text_utf8()
     out = header(p, every) if head else []
-    personas = ctx.personas(fresh=True)     # each frame: config-tools may have changed them meanwhile
+    personas = ctx.personas(fresh=True)     # each frame: nexus --config may have changed them meanwhile
     errors = [] if head else None
     st = docker.States(ctx.agents_dir, errors)
     for e in errors or ():

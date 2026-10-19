@@ -1,0 +1,13 @@
+## run 1: nexus c1 start  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-c1  Started
+nexus: c1: Claude defaults from personas/claude.json: model, modelSettings.opus.effortLevel, outputStyle, teammateMode, theme, tui, worktree.baseRef
+## run 2: nexus g1 start  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-g1  Started

@@ -48,7 +48,8 @@ def _(sb):
     before_personas_json(sb)
     edit(sb, "a/compose.personas.yml", lambda t: t.replace("written by ./config-tools", "written by ./config.sh")
          .replace("# config-tools and the nexus", "# config.sh and the nexus")
-         .replace("written by config-tools: personas/grok.toml", "written by config.sh: personas/grok.toml"))
+         .replace("written by config-tools: personas/grok.toml", "written by config.sh: personas/grok.toml")
+         .replace("written by nexus --config: personas/grok.toml", "written by config.sh: personas/grok.toml"))
     sb.run("config", *YES)
     sb.run(tool(sb, "diff"), "compose.personas.yml.bak", "compose.personas.yml", cwd="a", label="diff .bak new")
 

@@ -2,7 +2,7 @@
 
 Every line is flushed as it is written, so it lands before anything a child prints next (Python 3.8
 buffers stderr when it isn't a terminal). Notes and warnings carry the tool's prefix: `nexus: …`,
-`nexus: warning: …` (config-tools uses `config`). A write to a closed pipe is dropped quietly.
+`nexus: warning: …` (`nexus --config` uses `config`). A write to a closed pipe is dropped quietly.
 
 Pitfalls (each pinned where named):
 - flushed (golden nexus/life-ddev-ca)

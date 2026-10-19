@@ -1,6 +1,6 @@
 """Whether a settings file is one its CLI can read: JSON for Claude Code, TOML for grok.
 
-A broken one stops the CLI short in every persona it reaches, so config-tools checks before it writes.
+A broken one stops the CLI short in every persona it reaches, so nexus --config checks before it writes.
 Each check is a short Python program run as the bash tool ran it (py_on): with this VM's python3 if that
 can import what the program needs (tomllib wants 3.11), else in a persona image already here
 (`docker run … --entrypoint python3`), else not at all. The programs are spelt exactly as before, as the
@@ -11,7 +11,7 @@ anything else the check itself failed (counts as unchecked).
 
 Pitfalls (each pinned where named):
 - the programs as spelt, in a persona image when this python3 has no tomllib (golden config/cli-images-build)
-- -1 makes config-tools warn, not refuse (run.sh "with nothing to check the TOML with: it says so")
+- -1 makes nexus --config warn, not refuse (run.sh "with nothing to check the TOML with: it says so")
 """
 import os
 import re
@@ -48,7 +48,7 @@ _GROK_SL = re.compile(r'%s*(\[%s*"?ui"?%s*\.%s*"?status_line|(ui%s*\.%s*)?"?stat
 
 
 def grok_sets_statusline(path):
-    """Whether grok settings at PATH have a status line of their own (then config-tools adds none): asked of
+    """Whether grok settings at PATH have a status line of their own (then nexus --config adds none): asked of
     tomllib, so any TOML spelling counts; without one here, its usual spellings (line by line, as grep)."""
     if not os.path.isfile(path):
         return False

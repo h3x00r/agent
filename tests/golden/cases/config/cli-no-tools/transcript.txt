@@ -13,7 +13,7 @@ config: --ssh c1:<S>/keys/ok: checking it needs ssh-keygen (openssh-client) on t
 ## run 3: config --yes --no-link --no-build --ssh c1:none  [pipe]
 rc: 0
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 
 Personas:
   NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH

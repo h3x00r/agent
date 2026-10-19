@@ -29,4 +29,4 @@ rc: 1
 --- stdout
 (empty)
 --- stderr
-nexus: no persona 'c2' (set up: c1 g1); add it with <A>/config-tools
+nexus: no persona 'c2' (set up: c1 g1); add it with <A>/nexus --config

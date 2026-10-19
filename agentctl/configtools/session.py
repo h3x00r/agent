@@ -1,4 +1,4 @@
-"""What config-tools holds for a run, and saving it. Nothing here asks a question (questions.py does).
+"""What `nexus --config` holds for a run, and saving it. Nothing here asks a question (questions.py does).
 
 A Session reads the checkout (open(): the root refusal, the lock, personas.json or the `# persona:` lines
 from before it), checks the VM (preflight()), applies the flags (--remove, --persona, --ssh), and saves:
@@ -27,6 +27,7 @@ Pitfalls (each pinned where named):
 - personas.json or its .bak not a file: refused before anything is written (golden config/m4-json-dir, golden
   config/m4-json-bak-dir-zero); a link to it is written through to its target (golden config/m4-json-symlink)
 - a service edited by hand, written again: that persona is told to restart (golden config/m4-hand-edit-rewritten)
+- a grok config whose comments alone changed (they named config-tools) brings no note (golden config/cfg-legacy-grok)
 """
 import os
 import pwd
@@ -51,6 +52,14 @@ JSON_FILE = personas_store.JSON
 
 def die(msg):
     raise NexusError(msg)
+
+
+def _same_settings(a, b):
+    """Whether two grok configs hold the same settings: their lines but the comments (which named config-tools,
+    in the header and in the tracked files copied in, before it was `nexus --config`)."""
+    def settings(path):
+        return [l for l in read_or_empty(path).split("\n") if not l.lstrip().startswith("#")]
+    return settings(a) == settings(b)
 
 
 class Session:
@@ -253,7 +262,7 @@ class Session:
         if os.geteuid() == 0:
             die("run this as the VM user who will use the personas, not as root (it asks for sudo only to link the launcher)")
         if not self.o.list and not lock.take(self.a):
-            die("another config-tools, or a `nexus <persona> upgrade`, is running in %s; let it finish first" % self.a)
+            die("another `nexus --config`, or a `nexus <persona> upgrade`, is running in %s; let it finish first" % self.a)
         # personas.json, or (to move them into it) the `# persona:` lines of a compose.personas.yml from before
         # it, which win over a personas.json beside them (personas_store.where); neither: a first setup.
         self.where = personas_store.where(".")
@@ -268,7 +277,7 @@ class Session:
                 self.personas = personas_store.load(PERSONAS_FILE)
         except personas_store.BadPersonasJson as e:
             hint = personas_store.restore_hint(os.path.join(self.a, JSON_FILE))
-            die("%s/%s %s: fix it%s, then run config-tools again" % (self.a, JSON_FILE, e, ", or " + hint if hint else ""))
+            die("%s/%s %s: fix it%s, then run nexus --config again" % (self.a, JSON_FILE, e, ", or " + hint if hint else ""))
         except personas_store.BadPersonasFile as e:
             die("%s: persona '%s' has a bad line (edited by hand?): '# persona: %s'; it takes flavour=claude|grok "
                 "context=ddev|docker colour=colourN statusline=yes|no [root=/dir] [ssh=none|/path|personas/NAME.key]"
@@ -354,9 +363,9 @@ class Session:
             if p.flavour != "grok":
                 continue
             tmp = staging.stage("personas/%s.grok.toml" % p.name)
-            text = ("# /etc/grok/managed_config.toml in grok persona %s, written by config-tools from personas/grok.toml\n"
+            text = ("# /etc/grok/managed_config.toml in grok persona %s, written by nexus --config from personas/grok.toml\n"
                     "# (grok settings for every grok persona here) and, with the statusline on, statusline/grok/settings.toml.\n"
-                    "# Edit those and re-run config-tools, not this file. A key in the persona's ~/.grok/config.toml wins.\n"
+                    "# Edit those and re-run nexus --config, not this file. A key in the persona's ~/.grok/config.toml wins.\n"
                     % p.name).encode()
             if os.path.isfile("personas/grok.toml"):
                 text += b"\n" + read_bytes("personas/grok.toml") + b"\n"
@@ -366,13 +375,13 @@ class Session:
                 fh.write(text)
             why = self.settings_problem(tmp, "toml", "personas/grok.toml")
             if why:
-                die("personas/grok.toml is TOML, but with the statusline config-tools adds for %s it isn't (does it set "
-                    "ui.status_line in a way config-tools missed?), so nothing was written; at personas/%s.grok.toml as it "
+                die("personas/grok.toml is TOML, but with the statusline nexus --config adds for %s it isn't (does it set "
+                    "ui.status_line in a way nexus --config missed?), so nothing was written; at personas/%s.grok.toml as it "
                     "would be: %s" % (p.name, p.name, why))
             self.gstaged[p.name] = tmp
         for f in sorted(set(self.unchecked)):
             self.warn("couldn't check %s (no python3 for it here, nor a persona image yet): a broken one stops the CLI; "
-                      "re-run config-tools after the build to check it" % f)
+                      "re-run nexus --config after the build to check it" % f)
 
         # compose.personas.yml, checked with the rest
         files = ["compose.yml"]
@@ -420,10 +429,10 @@ class Session:
                 if n in self.loaded and not os.path.exists(t):
                     what = "grok settings" + (" and statusline" if p.statusline else "")
                     self.later.append("%s: its %s come through %s now; `nexus %s restart` brings them in" % (n, what, t, n))
-                elif n in self.loaded and self.loaded[n] == self.state(p) and not staging.same(tmp, t):
+                elif n in self.loaded and self.loaded[n] == self.state(p) and not _same_settings(tmp, t):
                     self.later.append("%s: its grok settings changed; the next grok started in it reads them" % n)
                 staging.commit(tmp, t)
-            # A compose.personas.yml that isn't one config-tools generated (the `# persona:` lines from before
+            # A compose.personas.yml that isn't one nexus --config generated (the `# persona:` lines from before
             # personas.json, or one made by hand) is kept first, as .bak or .bak.N: before anything is written, so
             # a run cut short still has it. Then personas.json (the one before as personas.json.bak), then the
             # compose file generated from it.
@@ -449,7 +458,7 @@ class Session:
             elif self.where == "json" and self.personas:
                 self.rewritten_notes(before)
             elif kept:
-                self.later.append("personas: the %s that was here isn't one config-tools wrote; it is kept as %s"
+                self.later.append("personas: the %s that was here isn't one nexus --config wrote; it is kept as %s"
                                   % (PERSONAS_FILE, kept))
         finally:
             for s, h in handlers.items():

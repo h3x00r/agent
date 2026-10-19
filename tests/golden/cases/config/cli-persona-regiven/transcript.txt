@@ -8,7 +8,7 @@ rc: 0
 ## run 2: config --yes --no-link --no-build --persona c1:grok:docker:<S>/own --persona c1:claude:docker  [pipe]
 rc: 0
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 
 Personas:
   NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
@@ -19,7 +19,7 @@ Start one from a project directory:  cd <S>/own/<project> && nexus c1
 Day-to-day use, upgrades and troubleshooting: runbook.md
 --- stderr
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
-config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run config-tools after the build to check it
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
 ## run 3: grep ^# persona:  compose.personas.yml  [pipe, cwd a]
 rc: 0
 --- stdout
@@ -30,7 +30,7 @@ rc: 0
 ## run 4: config --yes --no-link --no-build --persona c1:claude:docker:<S>/own2/  [pipe]
 rc: 0
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 
 Personas:
   NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
@@ -42,7 +42,7 @@ c1: changed; `nexus c1 restart` applies it (that ends its tmux sessions)
 Day-to-day use, upgrades and troubleshooting: runbook.md
 --- stderr
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
-config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run config-tools after the build to check it
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
 ## run 5: grep ^# persona:  compose.personas.yml  [pipe, cwd a]
 rc: 0
 --- stdout
@@ -53,7 +53,7 @@ rc: 0
 ## run 6: config --yes --no-link --no-build --persona c1:claude:docker:  [pipe]
 rc: 0
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 
 Personas:
   NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
@@ -65,7 +65,7 @@ c1: changed; `nexus c1 restart` applies it (that ends its tmux sessions)
 Day-to-day use, upgrades and troubleshooting: runbook.md
 --- stderr
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
-config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run config-tools after the build to check it
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
 ## run 7: grep ^# persona:  compose.personas.yml  [pipe, cwd a]
 rc: 0
 --- stdout
@@ -76,7 +76,7 @@ rc: 0
 ## run 8: config --yes --no-link --no-build --persona c1:claude:docker:<S>/own3:  [pipe]
 rc: 0
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 
 Personas:
   NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
@@ -88,7 +88,7 @@ c1: changed; `nexus c1 restart` applies it (that ends its tmux sessions)
 Day-to-day use, upgrades and troubleshooting: runbook.md
 --- stderr
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
-config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run config-tools after the build to check it
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
 ## run 9: grep ^# persona:  compose.personas.yml  [pipe, cwd a]
 rc: 0
 --- stdout
@@ -99,7 +99,7 @@ rc: 0
 ## run 10: config --yes --no-link --no-build --persona c1:claude:docker::  [pipe]
 rc: 0
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 
 Personas:
   NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
@@ -111,7 +111,7 @@ c1: changed; `nexus c1 restart` applies it (that ends its tmux sessions)
 Day-to-day use, upgrades and troubleshooting: runbook.md
 --- stderr
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
-config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run config-tools after the build to check it
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
 ## run 11: grep ^# persona:  compose.personas.yml  [pipe, cwd a]
 rc: 0
 --- stdout
@@ -122,7 +122,7 @@ rc: 0
 ## run 12: config --yes --no-link --no-build --persona c1:claude:docker:~/own4 --ssh c1:agent  [pipe]
 rc: 0
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 
 Personas:
   NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
@@ -134,7 +134,7 @@ c1: changed; `nexus c1 restart` applies it (that ends its tmux sessions)
 Day-to-day use, upgrades and troubleshooting: runbook.md
 --- stderr
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
-config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run config-tools after the build to check it
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
 ## run 13: grep ^# persona:  compose.personas.yml  [pipe, cwd a]
 rc: 0
 --- stdout

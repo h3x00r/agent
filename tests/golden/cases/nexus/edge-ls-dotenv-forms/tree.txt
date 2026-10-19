@@ -1,12 +1,12 @@
 ~ a/.env  f 600 inode=same
-    | # /opt/agents/.env — per-VM settings. ./config-tools writes it from this template (re-run it to change
+    | # /opt/agents/.env — per-VM settings. nexus --config writes it from this template (re-run it to change
     | # them, or edit by hand); docker compose reads it automatically.
     | # Identity (AGENT_UID/AGENT_GID/DOCKER_GID/SSH_AUTH_SOCK) and AGENT_CA_CERTS are derived at launch by
     | # ./nexus; don't set them here.
     | # A variable exported in your shell takes precedence over this file (a persona's own projects root beats both).
     | # Keep comments on their own lines: compose's .env parser mis-reads a comment after an empty value.
     | # The VM's projects root: an absolute path, mounted at the identical path inside every persona that has no
-    | # root of its own (config-tools asks per persona; it is kept as root= in compose.personas.yml).
+    | # root of its own (nexus --config asks per persona; it is kept as root= in compose.personas.yml).
     | # Without it, ./nexus uses $HOME/projects of the VM user.
     | # Where images come from. "local" = build on this VM (nexus <persona> build);
     | # otherwise a registry you push the images to (e.g. registry.lan:5000) and `nexus <persona> pull`.
@@ -31,7 +31,7 @@
     | # As with Claude, a pin bump re-runs only the APM stage and latest is cached once built. Current version:
     | #   curl -fsSL https://pypi.org/pypi/apm-cli/json | jq -r .info.version
     | APM_VERSION=latest
-    | # ddev context only: pin ddev to `ddev version` on this VM (config-tools does; the leading v is optional),
+    | # ddev context only: pin ddev to `ddev version` on this VM (nexus --config does; the leading v is optional),
     | # or the router gets recreated on every switch.
     | DDEV_VERSION=
     | # Per-container ceiling. Six parallel Claude sessions sit comfortably in this.

@@ -1,3 +1,3 @@
 {
-  "provenance": "accepted: M4: new, from the review of M4: a read-only checkout ends in one line and exit 1, as config.sh's mktemp did, not a traceback (no bash to record it from)"
+  "provenance": "accepted: M4: new, from the review of M4: a read-only checkout ends in one line and exit 1, as config.sh's mktemp did, not a traceback (no bash to record it from); then accepted: cfg M2: the rename to nexus --config only"
 }

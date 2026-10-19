@@ -1,7 +1,7 @@
 ## run 1: config --no-link --no-build  [pipe]
 rc: 0
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 
 == Personas
 No personas yet; the first one:

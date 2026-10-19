@@ -3,10 +3,10 @@ rc: 1
 --- stdout
 (empty)
 --- stderr
-nexus: <A>/compose.personas.yml isn't there: <A>/config-tools --yes writes it from personas.json
+nexus: <A>/compose.personas.yml isn't there: <A>/nexus --config --yes writes it from personas.json
 ## run 2: nexus g1  (running, compose.personas.yml gone)  [pipe]
 rc: 0
 --- stdout
 [fake attach: new-session -A -s projects -c <P>]
 --- stderr
-nexus: warning: <A>/compose.personas.yml isn't there: <A>/config-tools --yes writes it from personas.json, then `nexus g1 restart`
+nexus: warning: <A>/compose.personas.yml isn't there: <A>/nexus --config --yes writes it from personas.json, then `nexus g1 restart`

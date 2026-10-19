@@ -45,14 +45,16 @@ def stdin_kind():
 
 
 def lock_fds():
-    """The fds this process got that point at the tools' lock file: a leaked lock shows up here."""
+    """The fds this process got that point at the tools' lock: the checkout's directory (the file config.sh
+    or config-tools, before `nexus --config`): a leaked lock shows up here."""
     held = []
+    checkout = os.path.realpath(os.path.join(SB, "a"))
     for fd in sorted(os.listdir("/proc/self/fd"), key=int):
         try:
             target = os.readlink("/proc/self/fd/" + fd)
         except OSError:
             continue
-        if os.path.basename(target) in ("config.sh", "config-tools") and int(fd) > 2:
+        if (target == checkout or os.path.basename(target) in ("config.sh", "config-tools")) and int(fd) > 2:
             held.append(int(fd))
     return held
 

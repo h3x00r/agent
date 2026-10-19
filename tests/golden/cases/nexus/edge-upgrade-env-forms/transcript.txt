@@ -8,7 +8,7 @@ nexus: the build for c1 failed (see above); CLAUDE_VERSION is back to 2.1.301
 ## run 2: cat <S>/a/.env  [pipe]
 rc: 0
 --- stdout
-# /opt/agents/.env — per-VM settings. ./config-tools writes it from this template (re-run it to change
+# /opt/agents/.env — per-VM settings. nexus --config writes it from this template (re-run it to change
 # them, or edit by hand); docker compose reads it automatically.
 # Identity (AGENT_UID/AGENT_GID/DOCKER_GID/SSH_AUTH_SOCK) and AGENT_CA_CERTS are derived at launch by
 # ./nexus; don't set them here.
@@ -16,7 +16,7 @@ rc: 0
 # Keep comments on their own lines: compose's .env parser mis-reads a comment after an empty value.
 
 # The VM's projects root: an absolute path, mounted at the identical path inside every persona that has no
-# root of its own (config-tools asks per persona; it is kept as root= in compose.personas.yml).
+# root of its own (nexus --config asks per persona; it is kept as root= in compose.personas.yml).
 # Without it, ./nexus uses $HOME/projects of the VM user.
 PROJECTS_ROOT=<P>
 
@@ -43,7 +43,7 @@ GROK_VERSION=latest
 # As with Claude, a pin bump re-runs only the APM stage and latest is cached once built. Current version:
 #   curl -fsSL https://pypi.org/pypi/apm-cli/json | jq -r .info.version
 APM_VERSION=latest
-# ddev context only: pin ddev to `ddev version` on this VM (config-tools does; the leading v is optional),
+# ddev context only: pin ddev to `ddev version` on this VM (nexus --config does; the leading v is optional),
 # or the router gets recreated on every switch.
 DDEV_VERSION=
 
@@ -64,7 +64,7 @@ nexus: the build for c1 failed (see above); CLAUDE_VERSION is back to 2.1.302
 ## run 4: cat <S>/a/.env  [pipe]
 rc: 0
 --- stdout
-# /opt/agents/.env — per-VM settings. ./config-tools writes it from this template (re-run it to change
+# /opt/agents/.env — per-VM settings. nexus --config writes it from this template (re-run it to change
 # them, or edit by hand); docker compose reads it automatically.
 # Identity (AGENT_UID/AGENT_GID/DOCKER_GID/SSH_AUTH_SOCK) and AGENT_CA_CERTS are derived at launch by
 # ./nexus; don't set them here.
@@ -72,7 +72,7 @@ rc: 0
 # Keep comments on their own lines: compose's .env parser mis-reads a comment after an empty value.
 
 # The VM's projects root: an absolute path, mounted at the identical path inside every persona that has no
-# root of its own (config-tools asks per persona; it is kept as root= in compose.personas.yml).
+# root of its own (nexus --config asks per persona; it is kept as root= in compose.personas.yml).
 # Without it, ./nexus uses $HOME/projects of the VM user.
 PROJECTS_ROOT=<P>
 
@@ -99,7 +99,7 @@ GROK_VERSION=latest
 # As with Claude, a pin bump re-runs only the APM stage and latest is cached once built. Current version:
 #   curl -fsSL https://pypi.org/pypi/apm-cli/json | jq -r .info.version
 APM_VERSION=latest
-# ddev context only: pin ddev to `ddev version` on this VM (config-tools does; the leading v is optional),
+# ddev context only: pin ddev to `ddev version` on this VM (nexus --config does; the leading v is optional),
 # or the router gets recreated on every switch.
 DDEV_VERSION=
 
@@ -120,7 +120,7 @@ nexus: the build for c1 failed (see above); CLAUDE_VERSION is back to 2.1.303
 ## run 6: cat <S>/a/.env  [pipe]
 rc: 0
 --- stdout
-# /opt/agents/.env — per-VM settings. ./config-tools writes it from this template (re-run it to change
+# /opt/agents/.env — per-VM settings. nexus --config writes it from this template (re-run it to change
 # them, or edit by hand); docker compose reads it automatically.
 # Identity (AGENT_UID/AGENT_GID/DOCKER_GID/SSH_AUTH_SOCK) and AGENT_CA_CERTS are derived at launch by
 # ./nexus; don't set them here.
@@ -128,7 +128,7 @@ rc: 0
 # Keep comments on their own lines: compose's .env parser mis-reads a comment after an empty value.
 
 # The VM's projects root: an absolute path, mounted at the identical path inside every persona that has no
-# root of its own (config-tools asks per persona; it is kept as root= in compose.personas.yml).
+# root of its own (nexus --config asks per persona; it is kept as root= in compose.personas.yml).
 # Without it, ./nexus uses $HOME/projects of the VM user.
 PROJECTS_ROOT=<P>
 
@@ -155,7 +155,7 @@ GROK_VERSION=latest
 # As with Claude, a pin bump re-runs only the APM stage and latest is cached once built. Current version:
 #   curl -fsSL https://pypi.org/pypi/apm-cli/json | jq -r .info.version
 APM_VERSION=latest
-# ddev context only: pin ddev to `ddev version` on this VM (config-tools does; the leading v is optional),
+# ddev context only: pin ddev to `ddev version` on this VM (nexus --config does; the leading v is optional),
 # or the router gets recreated on every switch.
 DDEV_VERSION=
 
@@ -176,7 +176,7 @@ nexus: the build for c1 failed (see above); CLAUDE_VERSION is back to 2.1.304
 ## run 8: cat <S>/a/.env  [pipe]
 rc: 0
 --- stdout
-# /opt/agents/.env — per-VM settings. ./config-tools writes it from this template (re-run it to change
+# /opt/agents/.env — per-VM settings. nexus --config writes it from this template (re-run it to change
 # them, or edit by hand); docker compose reads it automatically.
 # Identity (AGENT_UID/AGENT_GID/DOCKER_GID/SSH_AUTH_SOCK) and AGENT_CA_CERTS are derived at launch by
 # ./nexus; don't set them here.
@@ -184,7 +184,7 @@ rc: 0
 # Keep comments on their own lines: compose's .env parser mis-reads a comment after an empty value.
 
 # The VM's projects root: an absolute path, mounted at the identical path inside every persona that has no
-# root of its own (config-tools asks per persona; it is kept as root= in compose.personas.yml).
+# root of its own (nexus --config asks per persona; it is kept as root= in compose.personas.yml).
 # Without it, ./nexus uses $HOME/projects of the VM user.
 PROJECTS_ROOT=<P>
 
@@ -211,7 +211,7 @@ GROK_VERSION=latest
 # As with Claude, a pin bump re-runs only the APM stage and latest is cached once built. Current version:
 #   curl -fsSL https://pypi.org/pypi/apm-cli/json | jq -r .info.version
 APM_VERSION=latest
-# ddev context only: pin ddev to `ddev version` on this VM (config-tools does; the leading v is optional),
+# ddev context only: pin ddev to `ddev version` on this VM (nexus --config does; the leading v is optional),
 # or the router gets recreated on every switch.
 DDEV_VERSION=
 
@@ -232,7 +232,7 @@ nexus: the build for c1 failed (see above); CLAUDE_VERSION is back to latest
 ## run 10: cat <S>/a/.env  [pipe]
 rc: 0
 --- stdout
-# /opt/agents/.env — per-VM settings. ./config-tools writes it from this template (re-run it to change
+# /opt/agents/.env — per-VM settings. nexus --config writes it from this template (re-run it to change
 # them, or edit by hand); docker compose reads it automatically.
 # Identity (AGENT_UID/AGENT_GID/DOCKER_GID/SSH_AUTH_SOCK) and AGENT_CA_CERTS are derived at launch by
 # ./nexus; don't set them here.
@@ -240,7 +240,7 @@ rc: 0
 # Keep comments on their own lines: compose's .env parser mis-reads a comment after an empty value.
 
 # The VM's projects root: an absolute path, mounted at the identical path inside every persona that has no
-# root of its own (config-tools asks per persona; it is kept as root= in compose.personas.yml).
+# root of its own (nexus --config asks per persona; it is kept as root= in compose.personas.yml).
 # Without it, ./nexus uses $HOME/projects of the VM user.
 PROJECTS_ROOT=<P>
 
@@ -267,7 +267,7 @@ GROK_VERSION=latest
 # As with Claude, a pin bump re-runs only the APM stage and latest is cached once built. Current version:
 #   curl -fsSL https://pypi.org/pypi/apm-cli/json | jq -r .info.version
 APM_VERSION=latest
-# ddev context only: pin ddev to `ddev version` on this VM (config-tools does; the leading v is optional),
+# ddev context only: pin ddev to `ddev version` on this VM (nexus --config does; the leading v is optional),
 # or the router gets recreated on every switch.
 DDEV_VERSION=
 
@@ -289,7 +289,7 @@ nexus: the build for c1 failed (see above); CLAUDE_VERSION is back to 2.1.306
 ## run 12: cat <S>/a/.env  [pipe]
 rc: 0
 --- stdout
-# /opt/agents/.env — per-VM settings. ./config-tools writes it from this template (re-run it to change
+# /opt/agents/.env — per-VM settings. nexus --config writes it from this template (re-run it to change
 # them, or edit by hand); docker compose reads it automatically.
 # Identity (AGENT_UID/AGENT_GID/DOCKER_GID/SSH_AUTH_SOCK) and AGENT_CA_CERTS are derived at launch by
 # ./nexus; don't set them here.
@@ -297,7 +297,7 @@ rc: 0
 # Keep comments on their own lines: compose's .env parser mis-reads a comment after an empty value.
 
 # The VM's projects root: an absolute path, mounted at the identical path inside every persona that has no
-# root of its own (config-tools asks per persona; it is kept as root= in compose.personas.yml).
+# root of its own (nexus --config asks per persona; it is kept as root= in compose.personas.yml).
 # Without it, ./nexus uses $HOME/projects of the VM user.
 PROJECTS_ROOT=<P>
 
@@ -324,7 +324,7 @@ GROK_VERSION=latest
 # As with Claude, a pin bump re-runs only the APM stage and latest is cached once built. Current version:
 #   curl -fsSL https://pypi.org/pypi/apm-cli/json | jq -r .info.version
 APM_VERSION=latest
-# ddev context only: pin ddev to `ddev version` on this VM (config-tools does; the leading v is optional),
+# ddev context only: pin ddev to `ddev version` on this VM (nexus --config does; the leading v is optional),
 # or the router gets recreated on every switch.
 DDEV_VERSION=
 
@@ -347,7 +347,7 @@ nexus: the build for c1 failed (see above); CLAUDE_VERSION is back to latest
 ## run 14: cat <S>/a/.env  [pipe]
 rc: 0
 --- stdout
-# /opt/agents/.env — per-VM settings. ./config-tools writes it from this template (re-run it to change
+# /opt/agents/.env — per-VM settings. nexus --config writes it from this template (re-run it to change
 # them, or edit by hand); docker compose reads it automatically.
 # Identity (AGENT_UID/AGENT_GID/DOCKER_GID/SSH_AUTH_SOCK) and AGENT_CA_CERTS are derived at launch by
 # ./nexus; don't set them here.
@@ -355,7 +355,7 @@ rc: 0
 # Keep comments on their own lines: compose's .env parser mis-reads a comment after an empty value.
 
 # The VM's projects root: an absolute path, mounted at the identical path inside every persona that has no
-# root of its own (config-tools asks per persona; it is kept as root= in compose.personas.yml).
+# root of its own (nexus --config asks per persona; it is kept as root= in compose.personas.yml).
 # Without it, ./nexus uses $HOME/projects of the VM user.
 PROJECTS_ROOT=<P>
 
@@ -382,7 +382,7 @@ GROK_VERSION=latest
 # As with Claude, a pin bump re-runs only the APM stage and latest is cached once built. Current version:
 #   curl -fsSL https://pypi.org/pypi/apm-cli/json | jq -r .info.version
 APM_VERSION=latest
-# ddev context only: pin ddev to `ddev version` on this VM (config-tools does; the leading v is optional),
+# ddev context only: pin ddev to `ddev version` on this VM (nexus --config does; the leading v is optional),
 # or the router gets recreated on every switch.
 DDEV_VERSION=
 
@@ -404,7 +404,7 @@ nexus: the build for c1 failed (see above); CLAUDE_VERSION is back to 2.1.307
 ## run 16: cat <S>/a/.env  [pipe]
 rc: 0
 --- stdout
-# /opt/agents/.env — per-VM settings. ./config-tools writes it from this template (re-run it to change
+# /opt/agents/.env — per-VM settings. nexus --config writes it from this template (re-run it to change
 # them, or edit by hand); docker compose reads it automatically.
 # Identity (AGENT_UID/AGENT_GID/DOCKER_GID/SSH_AUTH_SOCK) and AGENT_CA_CERTS are derived at launch by
 # ./nexus; don't set them here.
@@ -412,7 +412,7 @@ rc: 0
 # Keep comments on their own lines: compose's .env parser mis-reads a comment after an empty value.
 
 # The VM's projects root: an absolute path, mounted at the identical path inside every persona that has no
-# root of its own (config-tools asks per persona; it is kept as root= in compose.personas.yml).
+# root of its own (nexus --config asks per persona; it is kept as root= in compose.personas.yml).
 # Without it, ./nexus uses $HOME/projects of the VM user.
 PROJECTS_ROOT=<P>
 
@@ -439,7 +439,7 @@ GROK_VERSION=latest
 # As with Claude, a pin bump re-runs only the APM stage and latest is cached once built. Current version:
 #   curl -fsSL https://pypi.org/pypi/apm-cli/json | jq -r .info.version
 APM_VERSION=latest
-# ddev context only: pin ddev to `ddev version` on this VM (config-tools does; the leading v is optional),
+# ddev context only: pin ddev to `ddev version` on this VM (nexus --config does; the leading v is optional),
 # or the router gets recreated on every switch.
 DDEV_VERSION=
 
@@ -461,7 +461,7 @@ nexus: the build for c1 failed (see above); CLAUDE_VERSION is back to 2.1.307
 ## run 18: cat <S>/a/.env  [pipe]
 rc: 0
 --- stdout
-# /opt/agents/.env — per-VM settings. ./config-tools writes it from this template (re-run it to change\r
+# /opt/agents/.env — per-VM settings. nexus --config writes it from this template (re-run it to change\r
 # them, or edit by hand); docker compose reads it automatically.\r
 # Identity (AGENT_UID/AGENT_GID/DOCKER_GID/SSH_AUTH_SOCK) and AGENT_CA_CERTS are derived at launch by\r
 # ./nexus; don't set them here.\r
@@ -469,7 +469,7 @@ rc: 0
 # Keep comments on their own lines: compose's .env parser mis-reads a comment after an empty value.\r
 \r
 # The VM's projects root: an absolute path, mounted at the identical path inside every persona that has no\r
-# root of its own (config-tools asks per persona; it is kept as root= in compose.personas.yml).\r
+# root of its own (nexus --config asks per persona; it is kept as root= in compose.personas.yml).\r
 # Without it, ./nexus uses $HOME/projects of the VM user.\r
 PROJECTS_ROOT=<P>\r
 \r
@@ -496,7 +496,7 @@ GROK_VERSION=latest\r
 # As with Claude, a pin bump re-runs only the APM stage and latest is cached once built. Current version:\r
 #   curl -fsSL https://pypi.org/pypi/apm-cli/json | jq -r .info.version\r
 APM_VERSION=latest\r
-# ddev context only: pin ddev to `ddev version` on this VM (config-tools does; the leading v is optional),\r
+# ddev context only: pin ddev to `ddev version` on this VM (nexus --config does; the leading v is optional),\r
 # or the router gets recreated on every switch.\r
 DDEV_VERSION=\r
 \r

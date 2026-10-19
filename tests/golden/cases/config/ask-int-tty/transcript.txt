@@ -1,7 +1,7 @@
 ## run 1: config --no-link --no-build  (^C at the flavour choice)  [tty-in]
 rc: 130
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 
 == Personas
 No personas yet; the first one:
@@ -16,7 +16,7 @@ choice [claude]:
 ## run 2: config --no-link --no-build  (^C at the git email, its env file staged)  [tty-in]
 rc: 130
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 
 == Personas
 No personas yet; the first one:
@@ -67,7 +67,7 @@ c1\r
 ## run 3: config --no-link --no-build  (^C at the hidden XAI key)  [tty-in]
 rc: 130
 --- stdout
-config-tools: setting up <A>
+nexus --config: setting up <A>
 
 == Personas
 No personas yet; the first one:
