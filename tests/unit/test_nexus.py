@@ -96,3 +96,25 @@ class TopFigures(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TakeMode(unittest.TestCase):
+    def test_where_the_words_are_taken(self):
+        from agentctl.nexus.persona_cmds import take_mode
+        skip, bypass = "--skip-bypass-permissions", "--bypass-permissions"
+        self.assertEqual(take_mode([]), ("", "", []))
+        self.assertEqual(take_mode([skip]), ("ask", skip, []))
+        self.assertEqual(take_mode(["s1", bypass, "--", "claude"]), ("bypass", bypass, ["s1", "--", "claude"]))
+        self.assertEqual(take_mode([skip, skip, "s1"]), ("ask", skip, ["s1"]))
+        # After a --, the command's; in a headless run's arguments, anywhere.
+        self.assertEqual(take_mode(["s1", "--", "claude", skip]), ("", "", ["s1", "--", "claude", skip]))
+        self.assertEqual(take_mode(["headless", "--", "hi", skip]), ("ask", skip, ["headless", "--", "hi"]))
+        self.assertEqual(take_mode([bypass, "headless", "hi"]), ("bypass", bypass, ["headless", "hi"]))
+        # Any other -x stays.
+        self.assertEqual(take_mode(["-s", "--skip"]), ("", "", ["-s", "--skip"]))
+
+    def test_both_refused(self):
+        from agentctl.core.errors import NexusError
+        from agentctl.nexus.persona_cmds import take_mode
+        with self.assertRaises(NexusError):
+            take_mode(["--skip-bypass-permissions", "s1", "--bypass-permissions"])

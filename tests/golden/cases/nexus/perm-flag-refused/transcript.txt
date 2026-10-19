@@ -1,0 +1,84 @@
+## run 1: nexus c1 --skip-bypass-permissions --bypass-permissions  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: pick one of --skip-bypass-permissions and --bypass-permissions
+## run 2: nexus c1 --bypass-permissions s1 --skip-bypass-permissions -- claude  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: pick one of --skip-bypass-permissions and --bypass-permissions
+## run 3: nexus c1 --skip-bypass-permissions ls  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: --skip-bypass-permissions is for a session or a headless run, not for ls
+## run 4: nexus c1 --skip-bypass-permissions stop  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: --skip-bypass-permissions is for a session or a headless run, not for stop
+## run 5: nexus c1 --skip-bypass-permissions logs  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: --skip-bypass-permissions is for a session or a headless run, not for logs
+## run 6: nexus c1 --skip-bypass-permissions build  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: --skip-bypass-permissions is for a session or a headless run, not for build
+## run 7: nexus c1 --skip-bypass-permissions pull  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: --skip-bypass-permissions is for a session or a headless run, not for pull
+## run 8: nexus c1 --skip-bypass-permissions start  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: --skip-bypass-permissions is for a session or a headless run, not for start
+## run 9: nexus c1 --skip-bypass-permissions restart  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: --skip-bypass-permissions is for a session or a headless run, not for restart
+## run 10: nexus c1 --skip-bypass-permissions upgrade  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: --skip-bypass-permissions is for a session or a headless run, not for upgrade
+## run 11: nexus c1 start --bypass-permissions  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: --bypass-permissions is for a session or a headless run, not for start
+## run 12: nexus g1 --skip-bypass-permissions  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: --skip-bypass-permissions is for claude personas: g1 is a grok one, which takes its approval mode from personas/grok.toml
+## run 13: nexus g1 --bypass-permissions headless nxt hi  [pipe, cwd projects/app]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: --bypass-permissions is for claude personas: g1 is a grok one, which takes its approval mode from personas/grok.toml
+## run 14: nexus c1 --skip-bypass-permissions twice s5  (the same word: fine)  [pipe]
+rc: 0
+--- stdout
+[fake attach: new-session -s s5 -c <P> -e NEXUS_PERMISSIONS=ask]
+--- stderr
+(empty)

@@ -172,6 +172,7 @@ class Headless:
         if not prompt and not piped:
             die('headless: give the prompt first, e.g. nexus %s headless "list the TODOs" --output-format json; or pipe it in'
                 % self.p.name)
+        perm = self.r.mode_env("")
         first = b""
         if piped and prompt and not stat.S_ISREG(os.fstat(0).st_mode):
             rc, first = _first_char(3)
@@ -207,7 +208,8 @@ class Headless:
                 die("headless: no prompt, and the input piped in was empty")
         self._give_back_stdin()
         self.run_id = "nexus-%d-%d%d" % (os.getpid(), random.randint(0, 32767), random.randint(0, 32767))
-        dx = ["docker", "exec", "-e", "NEXUS_RUN=" + self.run_id, "-w", self.dir]
+        dx = ["docker", "exec", "-e", "NEXUS_RUN=" + self.run_id] + (["-e", "NEXUS_PERMISSIONS=" + perm] if perm else []) \
+            + ["-w", self.dir]
         if piped:
             dx.append("-i")
         dx += [self.p.container] + argv

@@ -173,3 +173,15 @@ it, accepted@cfg M3 after reading each transcript:
 - **Renamed:** config/ask-adopt-first, ask-adopt-later → config/menu-leftover-first, menu-leftover-later;
   config/ask-keep-vm-no, ask-keep-vm-yes → config/menu-shared, menu-shared-kept. New: config/menu-* (some from
   the review of cfg M3) and config/ask-tty-first-link.
+## Changed on purpose: permissions (perm M1, M2)
+A claude persona asks before running tools, or doesn't (bypassPermissions, as committed in
+personas/claude.managed.json), per persona and per session:
+- **nexus --config** asks it after the ssh question in add and change (claude personas only), so the
+  interactive cases answer one more question; it takes --permissions NAME:ask|bypass, and the persona table is
+  followed by "asks before running tools (not bypassPermissions): …" when one does (accepted@perm M1, with the
+  menu's change line, which names permissions now, and --help).
+- **`--skip-bypass-permissions` and `--bypass-permissions`** after a persona are no session names any more:
+  wherever they are before a `--` (and anywhere in a headless run's arguments), nexus takes them as the mode of
+  the session it starts, or of that headless run. Every other `-x` still is one (nexus/perm-dash-session-unchanged).
+- **Four cases that list the checkout** (config/m4-menu-unmigrated, m4-migrate-check-fails, m4-migrate-readonly,
+  m4-zero-not-migrating-note) show EXAMPLES.md, which came after they were recorded.

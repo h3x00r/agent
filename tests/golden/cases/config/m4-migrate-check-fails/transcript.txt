@@ -23,6 +23,7 @@ EXAMPLES.md
 LICENSE
 README.md
 agentctl
+claude-mode.sh
 compose.personas.yml
 compose.yml
 entrypoint.sh

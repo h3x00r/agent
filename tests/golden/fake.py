@@ -284,6 +284,19 @@ def docker_exec(world, args):
                 world.close()
                 time.sleep(ctr["panes_hang"])
             return 0
+        if "NEXUS_PERMISSIONS" in script and "managed-settings.d" in script:
+            # The permissions probe: no_wrapper (an image from before claude-mode.sh), the mode the mounts give
+            # (16-ask.json: ask), and the session asked about, if it is there, with its "permissions" (? as the
+            # probe says when it can't read it); perm_probe_rc: a probe that fails, saying nothing.
+            if ctr.get("perm_probe_rc"):
+                return ctr["perm_probe_rc"]
+            out("wrapper=%s\n" % ("no" if ctr.get("no_wrapper") else "yes"))
+            out("config=%s\n" % ("ask" if ASK_TARGET in ctr.get("mounts", []) else "bypass"))
+            want = cmd[4] if len(cmd) > 4 else ""
+            for s in ctr.get("sessions", []):
+                if want and s["name"] == want:
+                    out("session=%s\n" % s.get("permissions", ""))
+            return 0
         if "NEXUS_RUN" in script:
             if "kill" not in ctr:
                 return 0

@@ -44,6 +44,7 @@ EXAMPLES.md
 LICENSE
 README.md
 agentctl
+claude-mode.sh
 compose.personas.yml
 compose.personas.yml.bak
 compose.yml

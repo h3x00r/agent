@@ -1,0 +1,72 @@
+## run 1
+{"argv": ["inspect", "-f", "{{.State.Running}}", "agent-c1"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+{"argv": ["inspect", "-f", "{{.Name}}{{range .Config.Env}}{{if eq (index (split . \"=\") 0) \"PROJECTS_ROOT\"}}{{\"\\t\"}}{{.}}{{end}}{{end}}", "agent-c1"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+{"argv": ["exec", "agent-c1", "sh", "-c", "sha256:08ebbc3c39e4f74c", "sh", "new"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+{"argv": ["exec", "agent-c1", "infocmp", "xterm-256color"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+{"argv": ["exec", "-it", "-e", "TERM=xterm-256color", "-w", "<P>/new", "agent-c1", "tmux", "new-session", "-s", "new", "-c", "<P>/new", "-e", "NEXUS_PERMISSIONS=ask", "claude"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+## run 2
+{"argv": ["inspect", "-f", "{{.State.Running}}", "agent-c1"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+{"argv": ["inspect", "-f", "{{.Name}}{{range .Config.Env}}{{if eq (index (split . \"=\") 0) \"PROJECTS_ROOT\"}}{{\"\\t\"}}{{.}}{{end}}{{end}}", "agent-c1"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+{"argv": ["exec", "agent-c1", "sh", "-c", "sha256:08ebbc3c39e4f74c", "sh", "s2"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+{"argv": ["exec", "agent-c1", "infocmp", "xterm-256color"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+{"argv": ["exec", "-it", "-e", "TERM=xterm-256color", "-w", "<P>", "agent-c1", "tmux", "new-session", "-s", "s2", "-c", "<P>", "-e", "NEXUS_PERMISSIONS=ask", "claude", "--resume"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+## run 3
+{"argv": ["inspect", "-f", "{{.State.Running}}", "agent-c2"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+{"argv": ["inspect", "-f", "{{.Name}}{{range .Config.Env}}{{if eq (index (split . \"=\") 0) \"PROJECTS_ROOT\"}}{{\"\\t\"}}{{.}}{{end}}{{end}}", "agent-c2"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+{"argv": ["inspect", "-f", "{{range .Mounts}}{{println .Destination}}{{end}}", "agent-c2"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+{"argv": ["exec", "agent-c2", "sh", "-c", "sha256:08ebbc3c39e4f74c", "sh", "new"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+{"argv": ["exec", "agent-c2", "infocmp", "xterm-256color"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+{"argv": ["exec", "-it", "-e", "TERM=xterm-256color", "-w", "<P>/new", "agent-c2", "tmux", "new-session", "-s", "new", "-c", "<P>/new", "-e", "NEXUS_PERMISSIONS=bypass"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+## run 4
+{"argv": ["inspect", "-f", "{{.State.Running}}", "agent-c1"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+{"argv": ["inspect", "-f", "{{.Name}}{{range .Config.Env}}{{if eq (index (split . \"=\") 0) \"PROJECTS_ROOT\"}}{{\"\\t\"}}{{.}}{{end}}{{end}}", "agent-c1"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+{"argv": ["exec", "agent-c1", "sh", "-c", "sha256:08ebbc3c39e4f74c", "sh", "s3"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+{"argv": ["exec", "agent-c1", "infocmp", "xterm-256color"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+{"argv": ["exec", "-it", "-e", "TERM=xterm-256color", "-w", "<P>", "agent-c1", "tmux", "new-session", "-s", "s3", "-c", "<P>", "-e", "NEXUS_PERMISSIONS=bypass"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+## run 5
+{"argv": ["inspect", "-f", "{{.State.Running}}", "agent-c2"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+{"argv": ["inspect", "-f", "{{.Name}}{{range .Config.Env}}{{if eq (index (split . \"=\") 0) \"PROJECTS_ROOT\"}}{{\"\\t\"}}{{.}}{{end}}{{end}}", "agent-c2"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+{"argv": ["inspect", "-f", "{{range .Mounts}}{{println .Destination}}{{end}}", "agent-c2"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+{"argv": ["exec", "agent-c2", "sh", "-c", "sha256:08ebbc3c39e4f74c", "sh", "s4"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+{"argv": ["exec", "agent-c2", "infocmp", "xterm-256color"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+{"argv": ["exec", "-it", "-e", "TERM=xterm-256color", "-w", "<P>", "agent-c2", "tmux", "new-session", "-s", "s4", "-c", "<P>", "-e", "NEXUS_PERMISSIONS=ask", "claude"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+## run 6
+{"argv": ["inspect", "-f", "{{.State.Running}}", "agent-c1"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+{"argv": ["inspect", "-f", "{{.Name}}{{range .Config.Env}}{{if eq (index (split . \"=\") 0) \"PROJECTS_ROOT\"}}{{\"\\t\"}}{{.}}{{end}}{{end}}", "agent-c1"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+{"argv": ["exec", "agent-c1", "sh", "-c", "sha256:08ebbc3c39e4f74c", "sh", "asks"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+{"argv": ["exec", "agent-c1", "infocmp", "xterm-256color"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+{"argv": ["exec", "-it", "-e", "TERM=xterm-256color", "-w", "<P>", "agent-c1", "tmux", "new-session", "-A", "-s", "asks", "-c", "<P>"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+## run 7
+{"argv": ["inspect", "-f", "{{.State.Running}}", "agent-c2"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+{"argv": ["inspect", "-f", "{{.Name}}{{range .Config.Env}}{{if eq (index (split . \"=\") 0) \"PROJECTS_ROOT\"}}{{\"\\t\"}}{{.}}{{end}}{{end}}", "agent-c2"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+{"argv": ["inspect", "-f", "{{range .Mounts}}{{println .Destination}}{{end}}", "agent-c2"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+{"argv": ["exec", "agent-c2", "sh", "-c", "sha256:08ebbc3c39e4f74c", "sh", "bypasses"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+{"argv": ["exec", "agent-c2", "infocmp", "xterm-256color"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+{"argv": ["exec", "-it", "-e", "TERM=xterm-256color", "-w", "<P>", "agent-c2", "tmux", "new-session", "-A", "-s", "bypasses", "-c", "<P>"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+## run 8
+{"argv": ["inspect", "-f", "{{.State.Running}}", "agent-c1"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+{"argv": ["inspect", "-f", "{{.Name}}{{range .Config.Env}}{{if eq (index (split . \"=\") 0) \"PROJECTS_ROOT\"}}{{\"\\t\"}}{{.}}{{end}}{{end}}", "agent-c1"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+{"argv": ["exec", "agent-c1", "sh", "-c", "sha256:08ebbc3c39e4f74c", "sh", "app"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+## run 9
+{"argv": ["inspect", "-f", "{{.State.Running}}", "agent-c1"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+{"argv": ["inspect", "-f", "{{.Name}}{{range .Config.Env}}{{if eq (index (split . \"=\") 0) \"PROJECTS_ROOT\"}}{{\"\\t\"}}{{.}}{{end}}{{end}}", "agent-c1"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+{"argv": ["exec", "agent-c1", "sh", "-c", "sha256:08ebbc3c39e4f74c", "sh", "asks"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+## run 10
+{"argv": ["inspect", "-f", "{{.State.Running}}", "agent-c2"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+{"argv": ["inspect", "-f", "{{.Name}}{{range .Config.Env}}{{if eq (index (split . \"=\") 0) \"PROJECTS_ROOT\"}}{{\"\\t\"}}{{.}}{{end}}{{end}}", "agent-c2"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+{"argv": ["inspect", "-f", "{{range .Mounts}}{{println .Destination}}{{end}}", "agent-c2"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+{"argv": ["exec", "agent-c2", "sh", "-c", "sha256:08ebbc3c39e4f74c", "sh", "app"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+## run 11
+{"argv": ["inspect", "-f", "{{.State.Running}}", "agent-c2"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+{"argv": ["inspect", "-f", "{{.Name}}{{range .Config.Env}}{{if eq (index (split . \"=\") 0) \"PROJECTS_ROOT\"}}{{\"\\t\"}}{{.}}{{end}}{{end}}", "agent-c2"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+{"argv": ["inspect", "-f", "{{range .Mounts}}{{println .Destination}}{{end}}", "agent-c2"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+{"argv": ["exec", "agent-c2", "sh", "-c", "sha256:08ebbc3c39e4f74c", "sh", "bypasses"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+## run 12
+{"argv": ["inspect", "-f", "{{.State.Running}}", "agent-c1"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+{"argv": ["inspect", "-f", "{{.Name}}{{range .Config.Env}}{{if eq (index (split . \"=\") 0) \"PROJECTS_ROOT\"}}{{\"\\t\"}}{{.}}{{end}}{{end}}", "agent-c1"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+{"argv": ["exec", "agent-c1", "sh", "-c", "sha256:08ebbc3c39e4f74c", "sh", "unread"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+## run 13
+{"argv": ["inspect", "-f", "{{.State.Running}}", "agent-c1"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+{"argv": ["inspect", "-f", "{{.Name}}{{range .Config.Env}}{{if eq (index (split . \"=\") 0) \"PROJECTS_ROOT\"}}{{\"\\t\"}}{{.}}{{end}}{{end}}", "agent-c1"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+{"argv": ["exec", "agent-c1", "infocmp", "xterm-256color"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
+{"argv": ["exec", "-it", "-e", "TERM=xterm-256color", "-w", "<P>", "agent-c1", "tmux", "new-session", "-A", "-s", "asks", "-c", "<P>"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444", "SSH_AUTH_SOCK": ""}, "stdin": "chr"}
