@@ -134,8 +134,8 @@ Start one from a project directory:  cd <P>/<project> && nexus c1
 Day-to-day use, upgrades and troubleshooting: runbook.md
 --- stderr (no newline at the end)
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
-choice [quit]: choice [-]: choice [claude]: choice [docker]: Statusline (statusline/: model, context, cost; what nexus top shows) in c2? [Y/n]: Projects root for c2 (-: the VM's, now <P>) [-]: choice [agent]: c2 changed flavour: write a new personas/c2.env (the old one is kept as a .bak)? [Y/n]: config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
-choice [quit]: 
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
+choice [quit]: choice [-]: choice [claude]: choice [docker]: Statusline (statusline/: model, context, cost; what nexus top shows) in c2? [Y/n]: Projects root for c2 (-: the VM's, now <P>) [-]: choice [agent]: c2 changed flavour: write a new personas/c2.env (the old one is kept as a .bak)? [Y/n]: choice [quit]: 
 --- echo
 change\r
 c2\r
@@ -211,8 +211,8 @@ Start one from a project directory:  cd <P>/<project> && nexus c1
 Day-to-day use, upgrades and troubleshooting: runbook.md
 --- stderr (no newline at the end)
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
-choice [quit]: choice [-]: choice [grok]: choice [docker]: Statusline (statusline/: model, context, cost; what nexus top shows) in c1? [Y/n]: Projects root for c1 (-: the VM's, now <P>) [-]: choice [agent]: c1 changed flavour: write a new personas/c1.env (the old one is kept as a .bak)? [Y/n]: choice [login]: git author name for c1 [Test User]: git author email for c1 [test@example.invalid]: GH_TOKEN for the gh CLI in c1 (hidden; empty to skip): 
 config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
+choice [quit]: choice [-]: choice [grok]: choice [docker]: Statusline (statusline/: model, context, cost; what nexus top shows) in c1? [Y/n]: Projects root for c1 (-: the VM's, now <P>) [-]: choice [agent]: c1 changed flavour: write a new personas/c1.env (the old one is kept as a .bak)? [Y/n]: choice [login]: git author name for c1 [Test User]: git author email for c1 [test@example.invalid]: GH_TOKEN for the gh CLI in c1 (hidden; empty to skip): 
 choice [quit]: 
 --- echo
 change\r

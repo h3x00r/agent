@@ -2,6 +2,7 @@
 rc: 0
 --- stdout
 nexus --config: <A>
+-- brought up to date: .env
 
 Shared by every persona
   projects root   <P>

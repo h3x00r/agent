@@ -1,7 +1,8 @@
 """nexus --config without --yes: the configuration, by section.
 
 A first run (no .env yet) asks the settings every persona shares, then where to link the launcher, then the
-first persona. Every run then shows what is set up, and a menu: list, add, change or remove a persona, the
+first persona; any other run first brings what it generates up to date (as a re-run of the setup always did),
+saying which files it wrote, if any. Every run then shows what is set up, and a menu: list, add, change or remove a persona, the
 shared settings, the launcher, the images. Each action is saved as soon as it is done (the Session's stage,
 check and commit, as one --yes run saves), so a run stopped in the middle of one loses that one only; one the
 check refuses is said, nothing of it written, and the menu comes back. Options given with it (--persona,
@@ -17,6 +18,9 @@ Pitfalls (each pinned where named):
   none of its notes (golden config/menu-refused)
 - the options' shared settings saved first, then .env's are the defaults (golden config/menu-flags-shared)
 - a first persona refused: the menu all the same (golden config/menu-first-refused)
+- a run brings the generated files up to date first, saying which it wrote; one the check refuses, the menu all
+  the same (golden config/menu-refresh, golden config/menu-refused)
+- a save that writes nothing says so (golden config/menu-shared-kept)
 - a new persona's ssh key told as a new one's, not a restart (golden config/menu-add-key)
 - a build that failed makes the exit code 1, at quit too (golden config/menu-images)
 """
@@ -68,16 +72,32 @@ class Menu:
             s.say("nexus --config: %s%s" % (s.a, ddev))
         flags = bool(o.add or o.ssh or o.remove or o.root or o.registry or o.claude)
         before = set(p.name for p in s.personas)
+        read = copy.deepcopy(s.personas)
         s.apply_flags()
         if first:
             s.stage_env()
             self.q.shared(SHARED_FIRST, claude=True)
             self.save("the shared settings, in .env" + (", and what the options said" if flags else ""), env_staged=True)
-        elif s.migrating or flags:
-            s.stage_env()
-            s.env_flags()
-            self.save("the personas, moved into personas.json" if s.migrating and not flags else "what the options said",
-                      env_staged=True)
+        else:
+            # Every run brings what it generates up to date first, as a re-run of the setup always did (the
+            # grok configs, compose.personas.yml, .env's DDEV_VERSION, …), and moves the `# persona:` lines and
+            # saves the options given; it says so only if it changed a file. One the check refuses is said, and
+            # the menu comes all the same, on the personas as they were read.
+            try:
+                s.stage_env()
+                s.env_flags()
+                self.save("the personas, moved into personas.json" if s.migrating and not flags else
+                          "what the options said" if flags else "", env_staged=True)
+            except NexusError as e:
+                if e.message == EOF_MESSAGE:
+                    raise
+                s.out.note(e.message)
+                s.personas = read
+                s.read_shared()
+                staging.cleanup()
+                s.unstage()
+                self.failed = 1
+                del s.later[:]
         o.root = o.registry = o.claude = ""    # saved: from now on, .env has them (the defaults of `shared`)
         self.notes()
         for p in s.personas:                   # added by --persona: its image and CA offered, as an add's are
@@ -151,7 +171,12 @@ class Menu:
         s.prepare()
         s.commit()
         self.committed = True
-        s.say("-- saved: " + what)
+        if what and s.wrote:
+            s.say("-- saved: " + what)
+        elif what:
+            s.say("-- %s: as it was already, nothing to write" % what)
+        elif s.wrote:
+            s.say("-- brought up to date: " + ", ".join(s.wrote))
         after.ssh_keys(s)
         s.saved()
 

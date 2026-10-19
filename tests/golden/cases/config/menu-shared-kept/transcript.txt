@@ -23,7 +23,7 @@ What next?
   8) quit
 
 == Shared by every persona
--- saved: the shared settings, in .env
+-- the shared settings, in .env: as it was already, nothing to write
 
 What next?
   1) list      the shared settings and the personas, again
@@ -39,8 +39,8 @@ Start one from a project directory:  cd <P>/<project> && nexus g1
 Day-to-day use, upgrades and troubleshooting: runbook.md
 --- stderr (no newline at the end)
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
-choice [quit]: The VM's projects root, for personas without their own (mounted at the same path inside) [<P>]: Image registry (local = build on this VM) [registry.lan:5000]: Claude Code version, for the claude personas: latest | stable | X.Y.Z [latest]: config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
-choice [quit]: 
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
+choice [quit]: The VM's projects root, for personas without their own (mounted at the same path inside) [<P>]: Image registry (local = build on this VM) [registry.lan:5000]: Claude Code version, for the claude personas: latest | stable | X.Y.Z [latest]: choice [quit]: 
 --- echo
 shared\r
 \r

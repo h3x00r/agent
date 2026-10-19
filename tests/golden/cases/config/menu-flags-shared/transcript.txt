@@ -37,7 +37,7 @@ What next?
   8) quit
 
 == Shared by every persona
--- saved: the shared settings, in .env
+-- the shared settings, in .env: as it was already, nothing to write
 
 What next?
   1) list      the shared settings and the personas, again

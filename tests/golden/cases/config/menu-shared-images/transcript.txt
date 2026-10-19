@@ -40,8 +40,8 @@ Start one from a project directory:  cd <P>/<project> && nexus c1
 Day-to-day use, upgrades and troubleshooting: runbook.md
 --- stderr (no newline at the end)
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
-choice [quit]: The VM's projects root, for personas without their own (mounted at the same path inside) [<P>]: Image registry (local = build on this VM) [local]: Claude Code version, for the claude personas: latest | stable | X.Y.Z [latest]: config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
-Pull the images again, for the new registry? (seconds for one that is up to date) [Y/n]: choice [quit]: 
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
+choice [quit]: The VM's projects root, for personas without their own (mounted at the same path inside) [<P>]: Image registry (local = build on this VM) [local]: Claude Code version, for the claude personas: latest | stable | X.Y.Z [latest]: Pull the images again, for the new registry? (seconds for one that is up to date) [Y/n]: choice [quit]: 
 --- echo
 shared\r
 \r
@@ -93,8 +93,8 @@ Start one from a project directory:  cd <P>/<project> && nexus c1
 Day-to-day use, upgrades and troubleshooting: runbook.md
 --- stderr (no newline at the end)
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
-choice [quit]: The VM's projects root, for personas without their own (mounted at the same path inside) [<P>]: Image registry (local = build on this VM) [registry.lan:5000]: Claude Code version, for the claude personas: latest | stable | X.Y.Z [latest]: config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
-Pull the Claude images again, for Claude Code stable? (seconds for one that is up to date) [Y/n]:  c1 Pulled  done
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
+choice [quit]: The VM's projects root, for personas without their own (mounted at the same path inside) [<P>]: Image registry (local = build on this VM) [registry.lan:5000]: Claude Code version, for the claude personas: latest | stable | X.Y.Z [latest]: Pull the Claude images again, for Claude Code stable? (seconds for one that is up to date) [Y/n]:  c1 Pulled  done
 choice [quit]: 
 --- echo
 shared\r

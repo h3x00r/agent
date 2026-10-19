@@ -509,6 +509,21 @@ def _(sb):
            label="config --no-link --no-build  (linked, <S>/lbin on PATH)")
 
 
+@case("config/menu-refresh")
+def _(sb):
+    # A run brings what it generates up to date first, as a re-run of the setup did, and says which files it
+    # wrote: a setting added to personas/grok.toml, a key deleted (made again), GROK_TAG=latest; then nothing.
+    two_personas(sb)
+    with open(sb.path("a/personas/grok.toml"), "a") as f:
+        f.write('\n[ui]\ntheme = "nxt-golden"\n')
+    for k in ("a/personas/g1.key", "a/personas/g1.key.pub"):
+        os.unlink(sb.path(k))
+    with open(sb.path("a/.env"), "a") as f:
+        f.write("GROK_TAG=latest\n")
+    tty(sb, [(MENU, "")], label="config --no-link --no-build  (out of date)")
+    tty(sb, [(MENU, "")], label="config --no-link --no-build  (up to date)")
+
+
 @case("config/menu-env-no-personas")
 def _(sb):
     # .env there but no persona (a first run cut short, say): no first-run questions; the menu offers add.

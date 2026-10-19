@@ -82,6 +82,7 @@ class Session:
         self.json_new = self.personas_new = None
         self.root = self.registry = self.claude_version = ""
         self.warned = set()       # the warnings said once a run, however often it saves
+        self.wrote = []           # the files the last commit changed
 
     # --- small helpers ---
     def say(self, line=""):
@@ -445,15 +446,20 @@ class Session:
             if os.path.lexists(t) and not os.path.isfile(t):
                 die("%s/%s isn't a file (a directory, or a dangling link?), so nothing was written" % (self.a, t))
         handlers = {s: signal.signal(s, signal.SIG_IGN) for s in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP)}
+        wrote = self.wrote = []     # the files it changed
+
+        def put(tmp, target, backup=None, how=staging.commit):
+            if how(tmp, target, backup):
+                wrote.append(target)
         try:
             for n, tmp in self.staged.items():
-                staging.commit(tmp, "personas/%s.env" % n, staging.bakname("personas/%s.env" % n) if n in self.backup else None)
+                put(tmp, "personas/%s.env" % n, staging.bakname("personas/%s.env" % n) if n in self.backup else None)
             if os.path.isfile("personas/claude.managed.json") and "./personas/claude.managed.json," not in read_or_empty(PERSONAS_FILE):
                 for p in self.personas:
                     if p.flavour == "claude" and p.name in self.loaded:
                         self.later.append("%s: it gets personas/claude.managed.json as managed settings now; `nexus %s restart` "
                                           "brings them in" % (p.name, p.name))
-            staging.commit(self.env_new, ".env")
+            put(self.env_new, ".env")
             for n, tmp in self.gstaged.items():
                 t = "personas/%s.grok.toml" % n
                 p = self.personas[self.idx(n)]
@@ -462,7 +468,7 @@ class Session:
                     self.later.append("%s: its %s come through %s now; `nexus %s restart` brings them in" % (n, what, t, n))
                 elif n in self.loaded and self.loaded[n] == self.state(p) and not _same_settings(tmp, t):
                     self.later.append("%s: its grok settings changed; the next grok started in it reads them" % n)
-                staging.commit(tmp, t)
+                put(tmp, t)
             # A compose.personas.yml that isn't one nexus --config generated (the `# persona:` lines from before
             # personas.json, or one made by hand) is kept first, as .bak or .bak.N: before anything is written, so
             # a run cut short still has it. Then personas.json (the one before as personas.json.bak), then the
@@ -474,16 +480,19 @@ class Session:
             old_compose = read_or_empty(kept) if kept else ""
             before = read_or_empty(PERSONAS_FILE) if self.where == "json" else ""
             if self.personas:
-                staging.replace(self.json_new, os.path.realpath(JSON_FILE), JSON_FILE + ".bak")
-                staging.commit(self.personas_new, PERSONAS_FILE)
+                if staging.replace(self.json_new, os.path.realpath(JSON_FILE), JSON_FILE + ".bak"):
+                    wrote.append(JSON_FILE)
+                put(self.personas_new, PERSONAS_FILE)
             else:
                 if os.path.isfile(JSON_FILE):
                     shutil.copy2(JSON_FILE, JSON_FILE + ".bak")
                     os.unlink(os.path.realpath(JSON_FILE))
                     if os.path.lexists(JSON_FILE):     # it was a link: that goes too, not left dangling
                         os.unlink(JSON_FILE)
+                    wrote.append(JSON_FILE)
                 if os.path.isfile(PERSONAS_FILE):
                     os.unlink(PERSONAS_FILE)
+                    wrote.append(PERSONAS_FILE)
             if self.migrating:
                 self.moved_notes(old_compose, kept)
             elif self.where == "json" and self.personas:

@@ -84,10 +84,11 @@ def same(a, b):
 
 
 def commit(staged, target, backup=None):
+    """True if TARGET changed."""
     if os.path.lexists(target):
         if same(staged, target):
             os.unlink(staged)
-            return
+            return False
         if backup and os.path.exists(target):
             shutil.copy2(target, backup)
         old = os.umask(0o077)
@@ -99,13 +100,16 @@ def commit(staged, target, backup=None):
         os.unlink(staged)
     else:
         os.rename(staged, target)
+    return True
 
 
 def replace(staged, target, backup=None):
+    """True if TARGET changed."""
     if os.path.lexists(target):
         if same(staged, target):
             os.unlink(staged)
-            return
+            return False
         if backup and os.path.exists(target):
             shutil.copy2(target, backup)
     os.rename(staged, target)
+    return True

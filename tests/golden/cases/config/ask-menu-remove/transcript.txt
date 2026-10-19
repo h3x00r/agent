@@ -124,8 +124,8 @@ What next?
 Day-to-day use, upgrades and troubleshooting: runbook.md
 --- stderr (no newline at the end)
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
-choice [quit]: choice [-]: choice [quit]: choice [-]: choice [quit]: choice [-]: Remove c1? Its env file and home volume stay [y/N]: choice [quit]: choice [-]: Remove c1? Its env file and home volume stay [y/N]: config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
-choice [quit]: choice [-]: Remove g1? Its env file and home volume stay [y/N]: choice [add]: choice [add]: choice [add]: 
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
+choice [quit]: choice [-]: choice [quit]: choice [-]: choice [quit]: choice [-]: Remove c1? Its env file and home volume stay [y/N]: choice [quit]: choice [-]: Remove c1? Its env file and home volume stay [y/N]: choice [quit]: choice [-]: Remove g1? Its env file and home volume stay [y/N]: choice [add]: choice [add]: choice [add]: 
 --- echo
 remove\r
 -\r

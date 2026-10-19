@@ -165,6 +165,10 @@ it, accepted@cfg M3 after reading each transcript:
   it written (the personas and the shared settings as saved, none of its notes), and the menu comes back; the
   run then ends with rc 1, as one whose build failed. A first persona refused on a first run gets the menu too.
 - **Options without --yes** set the shared settings once: saved first, then .env's are the defaults.
+- **Every run but a first** brings what it generates up to date before the menu, as a re-run of config-tools
+  did (the grok configs, compose.personas.yml, a deleted key of its own, .env's DDEV_VERSION), and says which
+  files it wrote, if any (config/menu-refresh); one the check refuses is said, and the menu comes all the
+  same. A save that writes nothing says so.
 - **Warnings** a save gives (no ddev on the VM, a TOML it couldn't check) are said once a run.
 - **Renamed:** config/ask-adopt-first, ask-adopt-later → config/menu-leftover-first, menu-leftover-later;
   config/ask-keep-vm-no, ask-keep-vm-yes → config/menu-shared, menu-shared-kept. New: config/menu-* (some from
