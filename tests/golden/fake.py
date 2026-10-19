@@ -591,6 +591,9 @@ def maybe_signal(world):
 
 
 def main():
+    # A write to a reader that has gone (nexus ended by a signal) ends the fake quietly, as it ends the docker
+    # CLI; Python's own default (an ignored SIGPIPE, then a BrokenPipeError traceback) put a race in the cases.
+    signal.signal(signal.SIGPIPE, signal.SIG_DFL)
     kind = stdin_kind()   # before the world's lock file can take a closed fd 0
     world = World()
     entry = {"cmd": NAME, "argv": [short(a) for a in ARGS], "cwd": os.getcwd(),

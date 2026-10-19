@@ -2,6 +2,7 @@
 import os
 
 from scen import before_personas_json, case, move_lines, two_personas  # noqa: F401
+from scen.nexus_lifecycle import unix_socket
 
 
 def edit_line(sb, name, fn):
@@ -316,7 +317,10 @@ def _(sb):
     sb.container("g1", root=sb.projects + "\t")
     sb.container("x1", root="rel/../p")
     sb.personas("x1:claude:docker")
-    sb.run("nexus", "ls", env={"AGENT_UID": None, "AGENT_GID": None, "DOCKER_GID": None},
+    # An agent socket of the sandbox's own: with AGENT_UID unset, the search would look under the real
+    # /run/user/<uid>, which differs from host to host.
+    sock = unix_socket(sb, "run/agent.sock")
+    sb.run("nexus", "ls", env={"AGENT_UID": None, "AGENT_GID": None, "DOCKER_GID": None, "SSH_AUTH_SOCK": sock},
            label="(no AGENT_UID, AGENT_GID, DOCKER_GID) nexus ls")
     sb.run("nexus", "ls", env={"DOCKER_HOST": "tcp://127.0.0.1:9"}, label="DOCKER_HOST=tcp://127.0.0.1:9 nexus ls")
 

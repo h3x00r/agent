@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2317  # check() runs each test through eval: the helpers it calls look unreachable
 # tests/run.sh — end-to-end tests for nexus and config-tools on this VM, in a scratch copy of this
 # checkout: the real setup (.env, the personas, their containers and logins) is never read or changed.
 #
@@ -216,6 +217,7 @@ if ! command -v ssh-keygen >/dev/null; then skip "config-tools, nexus, personas:
 # --- goldens ---------------------------------------------------------------------------------------
 stage "goldens"
 for tool in config nexus; do
+  echo "      the $tool scenarios, in parallel (a minute or two)…"
   if out="$(python3 -I -B "$A/tests/golden/golden.py" verify --tree "$A" --tool "$tool" 2>&1)"
   then ok "goldens: $tool, as recorded ($(tail -n 1 <<< "$out"))"; else fail "goldens: $tool, as recorded" "$(grep -v '^ok ' <<< "$out")"; fi
 done

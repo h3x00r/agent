@@ -460,7 +460,9 @@ def selected(cases, only, tool):
 
 
 def parallel(cases, fn):
-    workers = min(8, os.cpu_count() or 2)
+    # Eight at once whatever the CPUs: the scenarios mostly wait (time-outs, signals, a pty). With one per CPU a
+    # 2-vCPU CI runner took about four minutes for the nexus ones, in silence.
+    workers = 8
     with concurrent.futures.ThreadPoolExecutor(workers) as ex:
         futs = {c.name: ex.submit(fn, c) for c in cases}
         return {n: f for n, f in futs.items()}
