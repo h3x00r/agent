@@ -1,0 +1,19 @@
+## run 1: nexus c1 headless $'-\xff'  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+FAKE-REPLY
+--- stderr
+(empty)
+## run 2: nexus c1 headless $'--x=\xff'  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+FAKE-REPLY
+--- stderr
+(empty)
+## run 3: echo 'nxt in' | nexus c1 headless $'-a\xc3'  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+stdin: nxt in|
+FAKE-REPLY
+--- stderr
+(empty)

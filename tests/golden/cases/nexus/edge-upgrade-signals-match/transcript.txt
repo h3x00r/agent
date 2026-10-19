@@ -1,0 +1,97 @@
+## run 1: nexus c1 upgrade 2.1.400 -y  (TERM before the pin (the peers' image id))  [pipe]
+rc: 143
+--- stdout
+(empty)
+--- stderr
+(empty)
+## run 2: grep ^CLAUDE_VERSION= <A>/.env  [pipe]
+rc: 0
+--- stdout
+CLAUDE_VERSION=latest
+--- stderr
+(empty)
+## run 3: nexus c1 upgrade 2.1.401 -y  (TERM in the build)  [pipe]
+rc: 130
+--- stdout
+nexus: claude for c1 c2: 2.1.300 (Claude Code) -> 2.1.401
+--- stderr
+ c1 Built  done
+## run 4: grep ^CLAUDE_VERSION= <A>/.env  [pipe]
+rc: 0
+--- stdout
+CLAUDE_VERSION=latest
+--- stderr
+(empty)
+## run 5: nexus c1 upgrade 2.1.402 -y  (HUP in the build)  [pipe]
+rc: 130
+--- stdout
+nexus: claude for c1 c2: 2.1.300 (Claude Code) -> 2.1.402
+--- stderr
+ c1 Built  done
+## run 6: grep ^CLAUDE_VERSION= <A>/.env  [pipe]
+rc: 0
+--- stdout
+CLAUDE_VERSION=latest
+--- stderr
+(empty)
+## run 7: nexus c1 upgrade 2.1.403 -y  (Ctrl-C in the build)  [pipe]
+rc: 130
+--- stdout
+nexus: claude for c1 c2: 2.1.300 (Claude Code) -> 2.1.403
+--- stderr
+(empty)
+## run 8: grep ^CLAUDE_VERSION= <A>/.env  [pipe]
+rc: 0
+--- stdout
+CLAUDE_VERSION=latest
+--- stderr
+(empty)
+## run 9: nexus c1 upgrade 2.1.404 -y  (Ctrl-C at the version check)  [pipe]
+rc: 130
+--- stdout
+nexus: claude for c1 c2: 2.1.300 (Claude Code) -> 2.1.404
+--- stderr
+ c1 Built  done
+## run 10: grep ^CLAUDE_VERSION= <A>/.env  [pipe]
+rc: 0
+--- stdout
+CLAUDE_VERSION=latest
+--- stderr
+(empty)
+## run 11: nexus c1 upgrade 2.1.405 -y  (Ctrl-C before the pin (the version now))  [pipe]
+rc: 130
+--- stdout
+(empty)
+--- stderr
+(empty)
+## run 12: grep ^CLAUDE_VERSION= <A>/.env  [pipe]
+rc: 0
+--- stdout
+CLAUDE_VERSION=latest
+--- stderr
+(empty)
+## run 13: nexus c1 upgrade 2.1.406 -y  (Ctrl-C at the pre-build image ref)  [pipe]
+rc: 130
+--- stdout
+nexus: claude for c1 c2: 2.1.300 (Claude Code) -> 2.1.406
+--- stderr
+(empty)
+## run 14: grep ^CLAUDE_VERSION= <A>/.env  [pipe]
+rc: 0
+--- stdout
+CLAUDE_VERSION=latest
+--- stderr
+(empty)
+## run 15: nexus c1 upgrade 2.1.407 -y  (TERM at removing the stopped c2)  [pipe]
+rc: 143
+--- stdout
+nexus: claude for c1 c2: 2.1.300 (Claude Code) -> 2.1.407
+nexus: CLAUDE_VERSION=2.1.407 in <A>/.env; 2.1.407 (Claude Code) in: local/agent-claude-docker:2.1.407 
+--- stderr
+ c1 Built  done
+## run 16: grep ^CLAUDE_VERSION= <A>/.env  [pipe]
+rc: 0
+--- stdout
+CLAUDE_VERSION=2.1.407
+--- stderr
+(empty)

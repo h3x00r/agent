@@ -1,0 +1,23 @@
+## run 1: nexus c1  (in <P>/gone, deleted)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+shell-init: error retrieving current directory: getcwd: cannot access parent directories: No such file or directory
+nexus: warning: this shell sits in a deleted directory; leave it, e.g. cd <P>/gone
+nexus: <P>/gone no longer exists; cd to a project dir
+## run 2: nexus c1 headless 'nxt say hi'  (the same)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+shell-init: error retrieving current directory: getcwd: cannot access parent directories: No such file or directory
+nexus: warning: this shell sits in a deleted directory; leave it, e.g. cd <P>/gone
+nexus: <P>/gone no longer exists; cd to a project dir
+## run 3: nexus c1 start  (the same: a start needs no dir)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+shell-init: error retrieving current directory: getcwd: cannot access parent directories: No such file or directory
+nexus: warning: this shell sits in a deleted directory; leave it, e.g. cd <P>/gone

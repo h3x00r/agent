@@ -1,0 +1,13 @@
+## run 1: nexus c2 start  (compose.personas.yml a symlink)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-c2  Started
+nexus: c2: Claude defaults from personas/claude.json: model, modelSettings.opus.effortLevel, outputStyle, teammateMode, theme, tui, worktree.baseRef
+## run 2: nexus c1  (running, symlinked file)  [pipe]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s projects -c <P>]
+--- stderr
+(empty)

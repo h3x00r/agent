@@ -1,0 +1,66 @@
+## run 1: config --yes --no-link --no-build --persona ls:claude:docker  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --persona ls:claude:docker: 'ls' is not a usable name (a lowercase letter, then lowercase letters, digits or -; at most 31, not ending in -; not ls, top, all or start)
+## run 2: config --yes --no-link --no-build --persona top:claude:docker  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --persona top:claude:docker: 'top' is not a usable name (a lowercase letter, then lowercase letters, digits or -; at most 31, not ending in -; not ls, top, all or start)
+## run 3: config --yes --no-link --no-build --persona all:claude:docker  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --persona all:claude:docker: 'all' is not a usable name (a lowercase letter, then lowercase letters, digits or -; at most 31, not ending in -; not ls, top, all or start)
+## run 4: config --yes --no-link --no-build --persona start:claude:docker  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --persona start:claude:docker: 'start' is not a usable name (a lowercase letter, then lowercase letters, digits or -; at most 31, not ending in -; not ls, top, all or start)
+## run 5: config --yes --no-link --no-build --persona Nxt:claude:docker  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --persona Nxt:claude:docker: 'Nxt' is not a usable name (a lowercase letter, then lowercase letters, digits or -; at most 31, not ending in -; not ls, top, all or start)
+## run 6: config --yes --no-link --no-build --persona c1-:claude:docker  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --persona c1-:claude:docker: 'c1-' is not a usable name (a lowercase letter, then lowercase letters, digits or -; at most 31, not ending in -; not ls, top, all or start)
+## run 7: config --yes --no-link --no-build --persona 1c:claude:docker  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --persona 1c:claude:docker: '1c' is not a usable name (a lowercase letter, then lowercase letters, digits or -; at most 31, not ending in -; not ls, top, all or start)
+## run 8: config --yes --no-link --no-build --persona c_1:claude:docker  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --persona c_1:claude:docker: 'c_1' is not a usable name (a lowercase letter, then lowercase letters, digits or -; at most 31, not ending in -; not ls, top, all or start)
+## run 9: config --yes --no-link --no-build --persona :claude:docker  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --persona :claude:docker: '' is not a usable name (a lowercase letter, then lowercase letters, digits or -; at most 31, not ending in -; not ls, top, all or start)
+## run 10: config --yes --no-link --no-build --persona c1111111111111111111111111111111:claude:docker  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --persona c1111111111111111111111111111111:claude:docker: 'c1111111111111111111111111111111' is not a usable name (a lowercase letter, then lowercase letters, digits or -; at most 31, not ending in -; not ls, top, all or start)
+## run 11: config -y --no-link --persona c1:claude:docker --persona top:grok:docker  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --persona top:grok:docker: 'top' is not a usable name (a lowercase letter, then lowercase letters, digits or -; at most 31, not ending in -; not ls, top, all or start)

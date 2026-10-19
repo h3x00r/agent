@@ -1,0 +1,115 @@
+## run 1: config --yes --no-link --no-build --persona c1:claude:docker --ssh c1  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --ssh c1: it takes NAME:agent, NAME:none, NAME:new or NAME:/path/to/key
+## run 2: config --yes --no-link --no-build --persona c1:claude:docker --ssh c1:  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --ssh c1:: it takes NAME:agent, NAME:none, NAME:new or NAME:/path/to/key
+## run 3: config --yes --no-link --no-build --persona c1:claude:docker --ssh :new  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --ssh :new: it takes NAME:agent, NAME:none, NAME:new or NAME:/path/to/key
+## run 4: config --yes --no-link --no-build --persona c1:claude:docker --ssh Bad:new  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --ssh Bad:new: it takes NAME:agent, NAME:none, NAME:new or NAME:/path/to/key
+## run 5: config --yes --no-link --no-build --persona c1:claude:docker --ssh c1:new:  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --ssh c1:new:: the key's path must be an absolute path (or ~/…) without spaces, ':', quotes or $
+## run 6: config --yes --no-link --no-build --persona c1:claude:docker --ssh c1:rel/key  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --ssh c1:rel/key: the key's path must be an absolute path (or ~/…) without spaces, ':', quotes or $
+## run 7: config --yes --no-link --no-build --persona c1:claude:docker --ssh c1:personas/c1.key  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --ssh c1:personas/c1.key: no readable file there
+## run 8: config --yes --no-link --no-build --persona c1:claude:docker --ssh c1:personas/g1.key  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --ssh c1:personas/g1.key: the key's path must be an absolute path (or ~/…) without spaces, ':', quotes or $
+## run 9: config --yes --no-link --no-build --persona c1:claude:docker --ssh c1:<S>/keys/my key  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --ssh c1:<S>/keys/my key: the key's path must be an absolute path (or ~/…) without spaces, ':', quotes or $
+## run 10: config --yes --no-link --no-build --persona c1:claude:docker --ssh c1:<S>/keys/k$x  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --ssh c1:<S>/keys/k$x: the key's path must be an absolute path (or ~/…) without spaces, ':', quotes or $
+## run 11: config --yes --no-link --no-build --persona c1:claude:docker --ssh c1:<S>/keys/k'x  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --ssh c1:<S>/keys/k'x: the key's path must be an absolute path (or ~/…) without spaces, ':', quotes or $
+## run 12: config --yes --no-link --no-build --persona c1:claude:docker --ssh c1:<S>/keys/open  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --ssh c1:<S>/keys/open: others can read it (mode 644), so ssh won't use it: chmod 600 it
+## run 13: config --yes --no-link --no-build --persona c1:claude:docker --ssh c1:<S>/keys/pass  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --ssh c1:<S>/keys/pass: it has a passphrase, or isn't a private key: nothing inside could type a passphrase
+## run 14: config --yes --no-link --no-build --persona c1:claude:docker --ssh c1:<S>/keys/junk  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --ssh c1:<S>/keys/junk: it has a passphrase, or isn't a private key: nothing inside could type a passphrase
+## run 15: config --yes --no-link --no-build --persona c1:claude:docker --ssh c1:<S>/keys/none  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --ssh c1:<S>/keys/none: no readable file there
+## run 16: config --yes --no-link --no-build --persona c1:claude:docker --ssh c1:<S>/keys/dir  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --ssh c1:<S>/keys/dir: no readable file there
+## run 17: config --yes --no-link --no-build --persona c1:claude:docker --ssh c1:~/none  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --ssh c1:~/none: no readable file there
+## run 18: config --yes --no-link --no-build --persona c1:claude:docker --ssh c1:/etc/passwd  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --ssh c1:/etc/passwd: it isn't yours, and the persona runs as you (uid <UID>)
+## run 19: config --yes --no-link --no-build --persona c1:claude:docker --ssh x1:agent  [pipe]
+rc: 1
+--- stdout
+config-tools: setting up <A>
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: --ssh x1:agent: no persona x1 (add it with --persona)

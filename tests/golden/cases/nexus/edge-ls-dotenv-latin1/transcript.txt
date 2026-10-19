@@ -1,0 +1,30 @@
+## run 1: (.env PROJECTS_ROOT="<S>/caf\xe9") nexus ls  [pipe]
+rc: 0
+--- stdout
+PERSONA  FLAVOUR  CONTEXT  SSH      STATE        PROJECTS ROOT
+c1       claude   docker   agent    not started  <S>/caf\xe9
+g1       grok     docker   own key  not started  <S>/caf\xe9
+
+nexus <persona> starts one that isn't running
+--- stderr
+(empty)
+## run 2: (.env PROJECTS_ROOT='<S>/caf\xe9') nexus ls  [pipe]
+rc: 0
+--- stdout
+PERSONA  FLAVOUR  CONTEXT  SSH      STATE        PROJECTS ROOT
+c1       claude   docker   agent    not started  <S>/caf\xe9
+g1       grok     docker   own key  not started  <S>/caf\xe9
+
+nexus <persona> starts one that isn't running
+--- stderr
+(empty)
+## run 3: (.env PROJECTS_ROOT=<S>/x # caf\xe9 comment) nexus ls  [pipe]
+rc: 0
+--- stdout
+PERSONA  FLAVOUR  CONTEXT  SSH      STATE        PROJECTS ROOT
+c1       claude   docker   agent    not started  <S>/x
+g1       grok     docker   own key  not started  <S>/x
+
+nexus <persona> starts one that isn't running
+--- stderr
+(empty)

@@ -1,0 +1,50 @@
+## run 1: nexus c1 headless 'nxt long'  (INT to the group mid-run)  [pipe, cwd projects/app]
+rc: 130
+--- stdout
+cli: running
+cli: got INT
+--- stderr
+nexus: INT: stopping the run in c1
+## run 2: nexus c1 headless 'nxt long'  (INT to nexus alone)  [pipe, cwd projects/app]
+rc: 130
+--- stdout
+cli: running
+cli: got INT
+--- stderr
+nexus: INT: stopping the run in c1
+## run 3: nexus c1 headless 'nxt long'  (TERM)  [pipe, cwd projects/app]
+rc: 143
+--- stdout
+cli: running
+cli: got TERM
+--- stderr
+nexus: TERM: stopping the run in c1
+## run 4: nexus c1 headless 'nxt long'  (HUP)  [pipe, cwd projects/app]
+rc: 143
+--- stdout
+cli: running
+cli: got TERM
+--- stderr
+nexus: TERM: stopping the run in c1
+## run 5: nexus c1 headless 'nxt long'  (TERM to the group)  [pipe, cwd projects/app]
+rc: 143
+--- stdout
+cli: running
+cli: got TERM
+--- stderr
+nexus: TERM: stopping the run in c1
+## run 6: echo x | nexus c1 headless 'nxt long'  (TERM, input piped)  [pipe, cwd projects/app]
+rc: 143
+--- stdout
+stdin: x|
+cli: running
+cli: got TERM
+--- stderr
+nexus: TERM: stopping the run in c1
+## run 7: nexus c1 headless 'nxt long'  (HUP, the CLI exits 1)  [pipe, cwd projects/app]
+rc: 143
+--- stdout
+cli: running
+cli: got TERM
+--- stderr
+nexus: TERM: stopping the run in c1

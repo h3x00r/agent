@@ -1,0 +1,32 @@
+## run 1: config --yes --no-link --no-build --ssh c1:new  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --ssh c1:new: making a key needs ssh-keygen (openssh-client) on this VM
+## run 2: config --yes --no-link --no-build --ssh c1:<S>/keys/ok  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --ssh c1:<S>/keys/ok: checking it needs ssh-keygen (openssh-client) on this VM
+## run 3: config --yes --no-link --no-build --ssh c1:none  [pipe]
+rc: 0
+--- stdout
+config-tools: setting up <A>
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             none
+
+Start one from a project directory:  cd <P>/<project> && nexus c1
+c1: changed; `nexus c1 restart` applies it (that ends its tmux sessions)
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+## run 4: config --yes --no-link --no-build  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: Docker isn't installed: Docker Engine + compose plugin, https://docs.docker.com/engine/install/

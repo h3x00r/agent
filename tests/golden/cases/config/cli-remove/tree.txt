@@ -1,0 +1,14 @@
+- a/compose.personas.yml
+- a/personas.json
++ a/personas.json.bak  f 644
+    | {
+    |   "version": 1,
+    |   "personas": {
+    |     "c1": {
+    |       "flavour": "claude",
+    |       "context": "docker",
+    |       "colour": "colour25",
+    |       "statusline": true
+    |     }
+    |   }
+    | }

@@ -1,0 +1,19 @@
+## run 1: nexus top --once  [pipe]
+rc: 0
+--- stdout
+nexus top  <HOST>  <HH:MM:SS>
+
+PERSONA  STATE      CPU     MEM  PANES
+c1       healthy  0.50%  120MiB  no claude running
+g1       healthy  0.50%  120MiB  3 grok
+
+PERSONA  SESSION  MODEL       CONTEXT  5H  7D   COST  SEEN
+g1       gtop     Grok 4.6    1k/500k   -   -      -    2h
+g1       gnew     Grok 4.6          -   -   -      -    2h
+g1       gpaid    Grok 4.6  250k/500k   -   -  $0.43    2h
+
+CONTEXT used/size; 5H, 7D: the plan's limits used; COST: the session's, at API prices
+SEEN: since the CLI last drew its statusline, which it does as the session works
+grok sends no plan limits (5H, 7D), and a cost only once the session has a price
+--- stderr
+(empty)

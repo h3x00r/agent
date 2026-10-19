@@ -1,0 +1,48 @@
+## run 1: nexus g1 start  (personas/g1.grok.toml gone)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: <A>/personas/g1.grok.toml isn't there: re-run <A>/config-tools, which writes it
+## run 2: nexus g1 start  (its key gone too: checked first)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: g1's ssh key <A>/personas/g1.key isn't there; config-tools makes one (SSH: new), or points it at another, none or your agent
+## run 3: nexus g1 restart  (the same)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: g1's ssh key <A>/personas/g1.key isn't there; config-tools makes one (SSH: new), or points it at another, none or your agent
+## run 4: nexus c1 start  (personas/claude.managed.json gone)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: <A>/personas/claude.managed.json isn't there: restore it (git checkout personas/claude.managed.json), or re-run <A>/config-tools without it
+## run 5: nexus c1 headless 'nxt say hi'  (the same)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: <A>/personas/claude.managed.json isn't there: restore it (git checkout personas/claude.managed.json), or re-run <A>/config-tools without it
+## run 6: nexus g1 start  (running, its key and grok.toml gone)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+(empty)
+## run 7: nexus c1 start  (running, claude.managed.json gone)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+(empty)
+## run 8: nexus c1 headless 'nxt say hi'  (the same)  [pipe]
+rc: 0
+--- stdout
+FAKE-REPLY
+--- stderr
+(empty)

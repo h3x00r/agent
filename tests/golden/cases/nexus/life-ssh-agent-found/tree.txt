@@ -1,0 +1,37 @@
++ ctr  d 755
++ ctr/c1  d 755
++ ctr/c1/home  d 755
++ ctr/c1/home/.claude  d 755
++ ctr/c1/home/.claude/.nexus-defaults.json  f 644
+    | {
+    |   "model": "opus",
+    |   "modelSettings": {
+    |     "opus": {
+    |       "effortLevel": "xhigh"
+    |     }
+    |   },
+    |   "outputStyle": "Concise",
+    |   "teammateMode": "tmux",
+    |   "theme": "auto",
+    |   "tui": "fullscreen",
+    |   "worktree": {
+    |     "baseRef": "head"
+    |   }
+    | }
++ ctr/c1/home/.claude/settings.json  f 644
+    | {
+    |   "model": "opus",
+    |   "modelSettings": {
+    |     "opus": {
+    |       "effortLevel": "xhigh"
+    |     }
+    |   },
+    |   "outputStyle": "Concise",
+    |   "teammateMode": "tmux",
+    |   "theme": "auto",
+    |   "tui": "fullscreen",
+    |   "worktree": {
+    |     "baseRef": "head"
+    |   }
+    | }
++ run/openssh_agent  s 

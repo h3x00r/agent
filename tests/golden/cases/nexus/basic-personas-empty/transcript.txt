@@ -1,0 +1,18 @@
+## run 1: nexus ls  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: no personas set up yet: run <A>/config-tools
+## run 2: nexus c1  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: no personas set up yet: run <A>/config-tools
+## run 3: nexus top --once  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: no personas set up yet: run <A>/config-tools

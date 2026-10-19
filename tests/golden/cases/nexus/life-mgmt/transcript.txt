@@ -1,0 +1,66 @@
+## run 1: nexus c1 stop  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-c1  Stopped
+## run 2: nexus c1 logs  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+(empty)
+## run 3: nexus c1 logs --tail 5 --no-color  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+(empty)
+## run 4: nexus c1 build  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ c1 Built  done
+## run 5: nexus c1 build --no-cache --pull  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ c1 Built  done
+## run 6: nexus g1 pull  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ g1 Pulled  done
+## run 7: nexus g1 pull --quiet  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ g1 Pulled  done
+## run 8: nexus g1 stop  (with an ssh-agent socket)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-g1  Stopped
+## run 9: nexus c1 build  (the same)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ c1 Built  done
+## run 10: nexus c1 build  (the build fails)  [pipe]
+rc: 4
+--- stdout
+(empty)
+--- stderr
+fake compose: the build of c1 failed
+## run 11: nexus g1 pull  (the pull fails)  [pipe]
+rc: 5
+--- stdout
+(empty)
+--- stderr
+fake compose: the pull of g1 failed

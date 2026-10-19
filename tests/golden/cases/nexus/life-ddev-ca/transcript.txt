@@ -1,0 +1,33 @@
+## run 1: nexus d1 start  (no mkcert CA)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+nexus: warning: no mkcert CA on this VM yet — run 'mkcert -install' here, then `nexus d1 restart`, or https://*.ddev.site stays untrusted inside
+ Container agent-d1  Started
+nexus: d1: Claude defaults from personas/claude.json: model, modelSettings.opus.effortLevel, outputStyle, teammateMode, theme, tui, worktree.baseRef
+## run 2: nexus d1 start  (running: nothing checked)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+(empty)
+## run 3: nexus c1 start  (a docker persona: no CA wanted)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-c1  Started
+nexus: c1: Claude defaults from personas/claude.json: model, modelSettings.opus.effortLevel, outputStyle, teammateMode, theme, tui, worktree.baseRef
+## run 4: nexus d1 restart  (the CA there now)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-d1  Recreated
+## run 5: nexus d1 build  (the CA isn't looked for)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ d1 Built  done

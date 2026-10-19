@@ -1,0 +1,24 @@
+## run 1: nexus ls  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: <A>/personas.json is missing, and <A>/compose.personas.yml was generated from it: remove that, and set the personas up again with config-tools
+## run 2: config --list  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: <A>/personas.json is missing, and <A>/compose.personas.yml was generated from it: remove that, and set the personas up again with config-tools
+## run 3: config --yes --no-link --no-build  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: <A>/personas.json is missing, and <A>/compose.personas.yml was generated from it: remove that, and set the personas up again with config-tools
+## run 4: nexus ls  (after --yes)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: <A>/personas.json is missing, and <A>/compose.personas.yml was generated from it: remove that, and set the personas up again with config-tools

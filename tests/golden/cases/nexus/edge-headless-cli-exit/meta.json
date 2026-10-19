@@ -1,0 +1,3 @@
+{
+  "provenance": "accepted: M3: same outcome and exit code (137); bash also printed its job notice for the killed docker exec ('line N: PID Killed \u2026'), which nexus doesn't (ODDITIES: messages)"
+}

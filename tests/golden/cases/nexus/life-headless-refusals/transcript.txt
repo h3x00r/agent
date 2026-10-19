@@ -1,0 +1,42 @@
+## run 1: nexus c1 headless  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: headless: give the prompt first, e.g. nexus c1 headless "list the TODOs" --output-format json; or pipe it in
+## run 2: nexus c1 headless --output-format json  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: headless: give the prompt first, e.g. nexus c1 headless "list the TODOs" --output-format json; or pipe it in
+## run 3: nexus c1 headless  (stdin a terminal)  [tty-in]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: headless: give the prompt first, e.g. nexus c1 headless "list the TODOs" --output-format json; or pipe it in
+## run 4: printf '' | nexus c1 headless  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: headless: no prompt, and the input piped in was empty
+## run 5: nexus c1 headless nxt out  [pipe, cwd outside]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: headless: <S>/outside is outside c1's projects root (<P>); cd to a project in it
+## run 6: echo x | nexus c1 headless 'nxt out'  [pipe, cwd outside]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: headless: <S>/outside is outside c1's projects root (<P>); cd to a project in it
+## run 7: nexus c1 headless 'nxt say hi'  (flavour=other, by hand)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: <A>/personas.json persona 'c1' has flavour 'other', not claude or grok: fix it

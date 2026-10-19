@@ -1,0 +1,56 @@
+## run 1: nexus c1 ('--', '-x', '--y', '')  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s app -c <P>/app -x --y ]
+--- stderr
+(empty)
+## run 2: nexus c1 ('', '--', 'a')  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s app -c <P>/app a]
+--- stderr
+(empty)
+## run 3: nexus c1 ('--', '--', 'x')  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s app -c <P>/app -- x]
+--- stderr
+(empty)
+## run 4: nexus c1 ('-s', '--', 'a b', 'a\nb', "'q'", '"dq"', '$HOME', '*')  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s -s -c <P>/app a b a
+b 'q' "dq" $HOME *]
+--- stderr
+(empty)
+## run 5: nexus c1 ('--',)  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s app -c <P>/app]
+--- stderr
+(empty)
+## run 6: nexus c1 ('.:',)  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s __ -c <P>/app]
+--- stderr
+(empty)
+## run 7: nexus c1 ('a\nb',)  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s a
+b -c <P>/app]
+--- stderr
+(empty)
+## run 8: nexus c1 ('--x', '--')  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s --x -c <P>/app]
+--- stderr
+(empty)
+## run 9: nexus c1 ('x', 'y', '--', 'z')  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s x -c <P>/app]
+--- stderr
+(empty)

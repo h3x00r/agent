@@ -1,0 +1,18 @@
+## run 1: nexus c1 upgrade 2.1.400 -y  (the image is always :latest)  [pipe]
+rc: 0
+--- stdout
+nexus: claude for c1: latest -> 2.1.400
+nexus: CLAUDE_VERSION=2.1.400 in <A>/.env; 2.1.400 (Claude Code) in: local/agent-claude-docker:latest 
+nexus: done; c1 run 2.1.400 (Claude Code)
+--- stderr
+ c1 Built  done
+nexus: warning: local/agent-claude-docker:latest is still tagged latest: re-run <A>/config-tools once, and the tags follow CLAUDE_VERSION from then on
+## run 2: nexus g1 upgrade 0.9.1 -y  (GROK_TAG=latest in .env)  [pipe]
+rc: 0
+--- stdout
+nexus: grok for g1: latest -> 0.9.1
+nexus: GROK_VERSION=0.9.1 in <A>/.env; grok 0.9.1 in: local/agent-grok-docker:latest 
+nexus: done; g1 run grok 0.9.1
+--- stderr
+ g1 Built  done
+nexus: warning: local/agent-grok-docker:latest is still tagged latest: re-run <A>/config-tools once, and the tags follow GROK_VERSION from then on

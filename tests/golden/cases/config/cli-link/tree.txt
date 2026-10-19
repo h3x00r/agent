@@ -1,0 +1,4 @@
++ home/bin  d 755
++ home/bin/nexus  l <A>/nexus
++ lbin  d 755
++ lbin/nexus  l <A>/nexus

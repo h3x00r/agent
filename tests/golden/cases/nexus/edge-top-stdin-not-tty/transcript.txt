@@ -1,0 +1,18 @@
+## run 1: nexus top -n 1 </dev/null  [tty-all]
+rc: 0
+--- stdout (no newline at the end)
+\e[?1049h\e[?25l\e[?7l\e[H\e[1mnexus top\e[0m  <HOST>  <HH:MM:SS>  \e[90mevery 1s, q quits, any other key redraws\e[0m\e[K
+\e[K
+\e[90mPERSONA  STATE        CPU  MEM  PANES\e[0m\e[K
+\e[1mc1\e[0m       \e[90mnot started\e[0m    -    -  -\e[K
+\e[1mg1\e[0m       \e[90mnot started\e[0m    -    -  -\e[K
+\e[K
+\e[90mno Claude Code or grok pane in a running persona\e[0m\e[K\e[J\e[H\e[1mnexus top\e[0m  <HOST>  <HH:MM:SS>  \e[90mevery 1s, q quits, any other key redraws\e[0m\e[K
+\e[K
+\e[90mPERSONA  STATE        CPU  MEM  PANES\e[0m\e[K
+\e[1mc1\e[0m       \e[90mnot started\e[0m    -    -  -\e[K
+\e[1mg1\e[0m       \e[90mnot started\e[0m    -    -  -\e[K
+\e[K
+\e[90mno Claude Code or grok pane in a running persona\e[0m\e[K\e[J^C\e[?7h\e[?25h\e[?1049l
+--- stderr
+(empty)

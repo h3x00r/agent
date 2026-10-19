@@ -1,0 +1,56 @@
+## run 1: nexus c1 restart  (merge: exit 125)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-c1  Recreated
+nexus: warning: c1: the defaults in personas/claude.json couldn't be merged (exit 125): Error response from daemon: oops
+## run 2: nexus c1 restart  (merge: exit 126)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-c1  Recreated
+nexus: warning: c1: the defaults in personas/claude.json couldn't be merged (exit 126): OCI runtime exec failed
+## run 3: nexus c1 restart  (merge: exit 127)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-c1  Recreated
+nexus: warning: c1: the defaults in personas/claude.json couldn't be merged (exit 127): exec: python3: not found
+## run 4: nexus c1 restart  (merge: exit 3)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-c1  Recreated
+nexus: warning: c1: custom three
+## run 5: nexus c1 restart  (merge: exit 0, blanks)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-c1  Recreated
+nexus: c1:   
+## run 6: nexus c1 restart  (merge: exit 0, CR)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-c1  Recreated
+nexus: c1: \r
+## run 7: nexus c1 restart  (merge: exit 1, silent)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-c1  Recreated
+nexus: warning: c1: the defaults in personas/claude.json couldn't be merged (exit 1): 
+## run 8: nexus c1 restart  (merge: killed)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-c1  Recreated
+nexus: warning: c1: the defaults in personas/claude.json couldn't be merged (exit 137): before kill

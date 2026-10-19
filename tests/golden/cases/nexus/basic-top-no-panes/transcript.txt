@@ -1,0 +1,36 @@
+## run 1: nexus top --once  [pipe]
+rc: 0
+--- stdout
+nexus top  <HOST>  <HH:MM:SS>
+
+PERSONA  STATE        CPU  MEM  PANES
+c1       not started    -    -  -
+g1       not started    -    -  -
+
+no Claude Code or grok pane in a running persona
+--- stderr
+(empty)
+## run 2: nexus top --once  [pipe]
+rc: 0
+--- stdout
+nexus top  <HOST>  <HH:MM:SS>
+
+PERSONA  STATE          CPU     MEM  PANES
+c1       healthy      0.50%  120MiB  no claude running
+g1       not started      -       -  -
+
+no Claude Code or grok pane in a running persona
+--- stderr
+(empty)
+## run 3: nexus top --once  [pipe]
+rc: 0
+--- stdout
+nexus top  <HOST>  <HH:MM:SS>
+
+PERSONA  STATE        CPU     MEM  PANES
+c1       healthy    0.50%  120MiB  no claude running
+g1       unhealthy      -       -  no grok running
+
+no Claude Code or grok pane in a running persona
+--- stderr
+(empty)

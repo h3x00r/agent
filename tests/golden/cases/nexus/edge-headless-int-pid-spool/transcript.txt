@@ -1,0 +1,6 @@
+## run 1: (printf 'nxt part'; sleep 1) | nexus c1 headless  (kill -INT nexus while spooling)  [pipe, cwd projects/app]
+rc: 130
+--- stdout
+(empty)
+--- stderr
+(empty)

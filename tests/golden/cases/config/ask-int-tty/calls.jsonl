@@ -1,0 +1,12 @@
+## run 1
+{"argv": ["info"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444"}, "stdin": "tty"}
+{"argv": ["compose", "version"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444"}, "stdin": "tty"}
+{"argv": ["-l"], "cmd": "ssh-add", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444"}, "stdin": "tty"}
+## run 2
+{"argv": ["info"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444"}, "stdin": "tty"}
+{"argv": ["compose", "version"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444"}, "stdin": "tty"}
+{"argv": ["-l"], "cmd": "ssh-add", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444"}, "stdin": "tty"}
+## run 3
+{"argv": ["info"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444"}, "stdin": "tty"}
+{"argv": ["compose", "version"], "cmd": "docker", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444"}, "stdin": "tty"}
+{"argv": ["-l"], "cmd": "ssh-add", "cwd": "<A>", "env": {"AGENT_GID": "4343", "AGENT_UID": "4242", "DOCKER_GID": "4444"}, "stdin": "tty"}

@@ -1,0 +1,18 @@
+## run 1: nexus top --once  [pipe]
+rc: 0
+--- stdout
+nexus top  <HOST>  <HH:MM:SS>
+
+PERSONA  STATE          CPU     MEM  PANES
+c1       healthy      0.50%  120MiB  3 claude
+g1       not started      -       -  -
+
+PERSONA  SESSION   MODEL      CONTEXT   5H   7D  COST  SEEN
+c1       main:0.0  claude           -    -    -     -     -
+c1       main:0.0  Opus 5.5  38k/200k  12%  40%     -    3d
+c1       x         claude           -    -    -     -     -
+
+CONTEXT used/size; 5H, 7D: the plan's limits used; COST: the session's, at API prices
+SEEN: since the CLI last drew its statusline, which it does as the session works
+--- stderr
+(empty)

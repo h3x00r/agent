@@ -1,0 +1,39 @@
+## run 1: nexus c1 start  (the agent holds no keys: ssh-add -l exits 1)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+nexus: warning: the ssh-agent at <S>/ssh-agent/sock holds no keys (ssh-add -l); git over ssh will fail inside
+ Container agent-c1  Started
+nexus: c1: Claude defaults from personas/claude.json: model, modelSettings.opus.effortLevel, outputStyle, teammateMode, theme, tui, worktree.baseRef
+## run 2: nexus c1 restart  (nothing answers: ssh-add -l exits 2)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+nexus: warning: nothing answers at <S>/ssh-agent/sock (stale ssh-agent socket); git over ssh will fail inside
+ Container agent-c1  Recreated
+## run 3: nexus c1 restart  (a key in it: ssh-add -l exits 0)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-c1  Recreated
+## run 4: nexus c1 start  (running: the agent isn't asked)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+(empty)
+## run 5: nexus g1 start  (its own key: the agent isn't asked)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-g1  Started
+## run 6: nexus c1 stop  (the socket, not the placeholder)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-c1  Stopped

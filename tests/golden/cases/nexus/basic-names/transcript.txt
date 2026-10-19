@@ -1,0 +1,66 @@
+## run 1: nexus Bad!  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: not a persona name: 'Bad!'
+## run 2: nexus nope  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: no persona 'nope' (set up: c1 g1); add it with <A>/config-tools
+## run 3: nexus   [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: not a persona name: ''
+## run 4: nexus -x  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: not a persona name: '-x'
+## run 5: nexus UPPER  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: not a persona name: 'UPPER'
+## run 6: nexus c_1  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: not a persona name: 'c_1'
+## run 7: nexus c1 x  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: not a persona name: 'c1 x'
+## run 8: nexus c  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: no persona 'c' (set up: c1 g1); add it with <A>/config-tools
+## run 9: nexus c1-  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: no persona 'c1-' (set up: c1 g1); add it with <A>/config-tools
+## run 10: nexus 1abc  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: no persona '1abc' (set up: c1 g1); add it with <A>/config-tools
+## run 11: nexus all  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: no persona 'all' (set up: c1 g1); add it with <A>/config-tools

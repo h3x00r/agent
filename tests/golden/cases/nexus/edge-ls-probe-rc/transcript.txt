@@ -1,0 +1,39 @@
+## run 1: (probe exits 125) nexus ls  [pipe]
+rc: 0
+--- stdout
+PERSONA  FLAVOUR  CONTEXT  SSH      STATE        PROJECTS ROOT
+c1       claude   docker   agent    healthy      <P>
+g1       grok     docker   own key  not started  <P>
+
+PERSONA  SESSION  WINDOWS  ATTACHED  DIR
+c1       -              -  -         tmux isn't answering
+
+nexus <persona> starts one that isn't running
+--- stderr
+(empty)
+## run 2: (probe exits 126) nexus ls  [pipe]
+rc: 0
+--- stdout
+PERSONA  FLAVOUR  CONTEXT  SSH      STATE        PROJECTS ROOT
+c1       claude   docker   agent    healthy      <P>
+g1       grok     docker   own key  not started  <P>
+
+PERSONA  SESSION  WINDOWS  ATTACHED  DIR
+c1       -              -  -         tmux isn't answering
+
+nexus <persona> starts one that isn't running
+--- stderr
+(empty)
+## run 3: (probe exits 127) nexus ls  [pipe]
+rc: 0
+--- stdout
+PERSONA  FLAVOUR  CONTEXT  SSH      STATE        PROJECTS ROOT
+c1       claude   docker   agent    healthy      <P>
+g1       grok     docker   own key  not started  <P>
+
+PERSONA  SESSION  WINDOWS  ATTACHED  DIR
+c1       -              -  -         tmux isn't answering
+
+nexus <persona> starts one that isn't running
+--- stderr
+(empty)

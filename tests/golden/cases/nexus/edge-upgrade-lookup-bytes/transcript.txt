@@ -1,0 +1,6 @@
+## run 1: nexus c1 upgrade -y  (the body: 2.1.400\xff)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: https://downloads.claude.ai/claude-code-releases/latest gave '2.1.400\xff', not a version

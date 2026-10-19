@@ -1,0 +1,106 @@
+## run 1: config --no-link --no-build  [tty-in]
+rc: 0
+--- stdout
+config-tools: setting up <A>
+
+== Personas
+
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  g1                              grok     docker   yes        the VM's             personas/g1.key
+What next?
+  1) add      a new persona
+  2) change   one persona's flavour, context, statusline, projects root or ssh
+  3) remove   one persona (its env file and home volume stay)
+  4) done     go on with the rest of the setup
+Which persona to remove?
+  1) c1                              claude, docker
+  2) g1                              grok, docker
+  3) -        none: back to the menu
+
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  g1                              grok     docker   yes        the VM's             personas/g1.key
+What next?
+  1) add      a new persona
+  2) change   one persona's flavour, context, statusline, projects root or ssh
+  3) remove   one persona (its env file and home volume stay)
+  4) done     go on with the rest of the setup
+Which persona to change?
+  1) c1                              claude, docker
+  2) g1                              grok, docker
+  3) -        none: back to the menu
+
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  g1                              grok     docker   yes        the VM's             personas/g1.key
+What next?
+  1) add      a new persona
+  2) change   one persona's flavour, context, statusline, projects root or ssh
+  3) remove   one persona (its env file and home volume stay)
+  4) done     go on with the rest of the setup
+Which persona to remove?
+  1) c1                              claude, docker
+  2) g1                              grok, docker
+  3) -        none: back to the menu
+
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+What next?
+  1) add      a new persona
+  2) change   one persona's flavour, context, statusline, projects root or ssh
+  3) remove   one persona (its env file and home volume stay)
+  4) done     go on with the rest of the setup
+Which persona to remove?
+  1) c1                              claude, docker
+  2) -        none: back to the menu
+
+  (none yet)
+What next?
+  1) add      a new persona
+  2) change   one persona's flavour, context, statusline, projects root or ssh
+  3) remove   one persona (its env file and home volume stay)
+  4) done     go on with the rest of the setup
+  no persona to change
+
+  (none yet)
+What next?
+  1) add      a new persona
+  2) change   one persona's flavour, context, statusline, projects root or ssh
+  3) remove   one persona (its env file and home volume stay)
+  4) done     go on with the rest of the setup
+  no persona to remove
+
+  (none yet)
+What next?
+  1) add      a new persona
+  2) change   one persona's flavour, context, statusline, projects root or ssh
+  3) remove   one persona (its env file and home volume stay)
+  4) done     go on with the rest of the setup
+
+== VM settings, shared by every persona
+
+Personas:
+  (none yet)
+c1: removed. Its env file and home volume stay; to delete them:
+    docker rm -f agent-c1; docker volume rm agents_c1-home; rm -f <A>/personas/c1.env <A>/personas/c1.key <A>/personas/c1.key.pub <A>/personas/c1.grok.toml 
+g1: removed. Its env file, ssh key and home volume stay; to delete them:
+    docker rm -f agent-g1; docker volume rm agents_g1-home; rm -f <A>/personas/g1.env <A>/personas/g1.key <A>/personas/g1.key.pub <A>/personas/g1.grok.toml 
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr (no newline at the end)
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+choice [done]: choice [-]: choice [done]: choice [-]: choice [done]: choice [-]: choice [done]: choice [-]: choice [done]: choice [done]: choice [done]: config: warning: no personas configured; add some with ./config-tools (or --persona NAME:FLAVOUR:CONTEXT)
+Keep them? projects root <P>, image registry local [Y/n]: 
+--- echo
+remove\r
+-\r
+change\r
+3\r
+remove\r
+g1\r
+remove\r
+1\r
+change\r
+remove\r
+done\r
+y\r

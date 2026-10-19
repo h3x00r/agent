@@ -1,0 +1,42 @@
+## run 1: nexus c1 upgrade 2.1.400 -y  (the image has 2.1.399)  [pipe]
+rc: 1
+--- stdout
+nexus: claude for c1: 2.1.300 (Claude Code) -> 2.1.400
+--- stderr
+ c1 Built  done
+nexus: local/agent-claude-docker:2.1.400 has 2.1.399 (Claude Code), not 2.1.400; CLAUDE_VERSION is back to latest
+## run 2: nexus c1 upgrade 2.1.400 -y  (claude --version prints nothing)  [pipe]
+rc: 1
+--- stdout
+nexus: claude for c1: 2.1.300 (Claude Code) -> 2.1.400
+--- stderr
+ c1 Built  done
+nexus: `claude --version` prints nothing in local/agent-claude-docker:2.1.400 (try: docker run --rm local/agent-claude-docker:2.1.400 claude --version); CLAUDE_VERSION is back to latest
+## run 3: grep ^CLAUDE_VERSION= <A>/.env  [pipe]
+rc: 0
+--- stdout
+CLAUDE_VERSION=latest
+--- stderr
+(empty)
+## run 4: nexus c1 upgrade 2.1.400 -y  (2.1.399 again; :2.1.400 there before)  [pipe]
+rc: 1
+--- stdout
+nexus: claude for c1: 2.1.300 (Claude Code) -> 2.1.400
+--- stderr
+ c1 Built  done
+nexus: local/agent-claude-docker:2.1.400 has 2.1.399 (Claude Code), not 2.1.400; CLAUDE_VERSION is back to latest
+## run 5: nexus c1 upgrade 2.1.400 -y  (the same; the old image's only tag)  [pipe]
+rc: 1
+--- stdout
+nexus: claude for c1: 2.1.300 (Claude Code) -> 2.1.400
+--- stderr
+ c1 Built  done
+Error response from daemon: No such image: sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+nexus: warning: couldn't point local/agent-claude-docker:2.1.400 back at its old image eeeeeeeeeeee
+nexus: local/agent-claude-docker:2.1.400 has 2.1.399 (Claude Code), not 2.1.400; CLAUDE_VERSION is back to latest
+## run 6: grep ^CLAUDE_VERSION= <A>/.env  [pipe]
+rc: 0
+--- stdout
+CLAUDE_VERSION=latest
+--- stderr
+(empty)

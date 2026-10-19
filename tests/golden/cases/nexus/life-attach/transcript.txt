@@ -1,0 +1,18 @@
+## run 1: nexus c1  [pipe, cwd projects/my.app]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s my_app -c <P>/my.app]
+--- stderr
+(empty)
+## run 2: nexus c1 review -- claude --resume  [pipe, cwd projects/my.app]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s review -c <P>/my.app claude --resume]
+--- stderr
+(empty)
+## run 3: nexus c1  [pipe]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s projects -c <P>]
+--- stderr
+(empty)

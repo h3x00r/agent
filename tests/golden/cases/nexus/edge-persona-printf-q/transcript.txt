@@ -1,0 +1,35 @@
+## run 1: (in a deleted <P>/x<U+2028>y) nexus c1 start  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+shell-init: error retrieving current directory: getcwd: cannot access parent directories: No such file or directory
+nexus: warning: this shell sits in a deleted directory; leave it, e.g. cd $'<P>/x\342\200\250y'
+## run 2: (in a deleted <P>/a b'c) nexus c1 start  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+shell-init: error retrieving current directory: getcwd: cannot access parent directories: No such file or directory
+nexus: warning: this shell sits in a deleted directory; leave it, e.g. cd <P>/a\ b\'c
+## run 3: (in a deleted <P>/<U+0378>z) nexus c1 start  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+shell-init: error retrieving current directory: getcwd: cannot access parent directories: No such file or directory
+nexus: warning: this shell sits in a deleted directory; leave it, e.g. cd $'<P>/\315\270z'
+## run 4: (in a deleted <P>/tab<TAB>here) nexus c1 start  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+shell-init: error retrieving current directory: getcwd: cannot access parent directories: No such file or directory
+nexus: warning: this shell sits in a deleted directory; leave it, e.g. cd $'<P>/tab\there'
+## run 5: (in a deleted <P>/cafe-acute) nexus c1 start  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+shell-init: error retrieving current directory: getcwd: cannot access parent directories: No such file or directory
+nexus: warning: this shell sits in a deleted directory; leave it, e.g. cd <P>/café

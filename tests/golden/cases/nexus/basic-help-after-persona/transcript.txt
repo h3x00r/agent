@@ -1,0 +1,56 @@
+## run 1: nexus c1 --help  [pipe]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s --help -c <P>]
+--- stderr
+(empty)
+## run 2: nexus c1 -h  [pipe]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s -h -c <P>]
+--- stderr
+(empty)
+## run 3: nexus Bad! --help  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: not a persona name: 'Bad!'
+## run 4: nexus nope --help  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: no persona 'nope' (set up: c1 g1); add it with <A>/config-tools
+## run 5: nexus top --help  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: top: unknown argument '--help'; it takes [-n SECONDS] [--once]
+## run 6: nexus ls --help  [pipe]
+rc: 0
+--- stdout
+PERSONA  FLAVOUR  CONTEXT  SSH      STATE        PROJECTS ROOT
+c1       claude   docker   agent    healthy      <P>
+g1       grok     docker   own key  not started  <P>
+
+PERSONA  SESSION  WINDOWS  ATTACHED  DIR
+c1       main           1  no        <P>
+
+nexus <persona> starts one that isn't running
+--- stderr
+(empty)
+## run 7: nexus ls junk  [pipe]
+rc: 0
+--- stdout
+PERSONA  FLAVOUR  CONTEXT  SSH      STATE        PROJECTS ROOT
+c1       claude   docker   agent    healthy      <P>
+g1       grok     docker   own key  not started  <P>
+
+PERSONA  SESSION  WINDOWS  ATTACHED  DIR
+c1       main           1  no        <P>
+
+nexus <persona> starts one that isn't running
+--- stderr
+(empty)

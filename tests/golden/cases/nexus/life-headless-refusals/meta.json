@@ -1,0 +1,3 @@
+{
+  "provenance": "accepted: M4: a hand edit of personas.json its rules refuse (a relative root, an unknown flavour) is refused when it is read, naming the file and the persona (and its .bak, when there is one); a root of its own is said to be in personas.json (ODDITIES: M4)"
+}

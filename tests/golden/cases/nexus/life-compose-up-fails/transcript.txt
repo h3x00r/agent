@@ -1,0 +1,24 @@
+## run 1: nexus c1 start  [pipe]
+rc: 17
+--- stdout
+(empty)
+--- stderr
+ Container agent-c1  Error
+## run 2: nexus c1 restart  [pipe]
+rc: 17
+--- stdout
+(empty)
+--- stderr
+ Container agent-c1  Error
+## run 3: nexus c1 headless nxt say hi  [pipe]
+rc: 17
+--- stdout
+(empty)
+--- stderr
+ Container agent-c1  Error
+## run 4: nexus c1  [pipe]
+rc: 17
+--- stdout
+(empty)
+--- stderr
+ Container agent-c1  Error

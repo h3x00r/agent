@@ -1,0 +1,30 @@
+## run 1: nexus c1 upgrade 2.1.400 -y  (the lock held)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: config-tools or another upgrade is running in <A>; let it finish first
+## run 2: nexus c1 upgrade 1.2  (the lock held: checked before the version)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: config-tools or another upgrade is running in <A>; let it finish first
+## run 3: nexus g1 upgrade  (the lock held: no channel looked up)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: config-tools or another upgrade is running in <A>; let it finish first
+## run 4: nexus c1 upgrade 2.1.400  (the lock held, the pin exported: the pin first)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: CLAUDE_VERSION is exported in this shell and beats <A>/.env: unset it, then upgrade
+## run 5: nexus c1 upgrade 1.2  (the lock free again)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: upgrade: '1.2' is neither a version (X.Y.Z) nor a channel of claude (latest stable)

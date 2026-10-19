@@ -1,0 +1,18 @@
+## run 1: config --list  (version: true)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: <A>/personas.json is version true; this checkout reads version 1: fix it, then run config-tools again
+## run 2: nexus ls  (version: true)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: <A>/personas.json is version true; this checkout reads version 1: fix it
+## run 3: config --list  (version: 1.0)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: <A>/personas.json is version 1.0; this checkout reads version 1: fix it, then run config-tools again

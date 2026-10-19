@@ -1,0 +1,18 @@
+## run 1: (printf 'nxt part'; sleep) | nexus c1 headless  (INT to the group while spooling)  [pipe, cwd projects/app]
+rc: 130
+--- stdout
+(empty)
+--- stderr
+(empty)
+## run 2: (printf 'nxt part'; sleep) | nexus c1 headless  (TERM while spooling)  [pipe, cwd projects/app]
+rc: 143
+--- stdout
+(empty)
+--- stderr
+(empty)
+## run 3: (printf 'nxt part'; sleep) | nexus c1 headless  (HUP while spooling)  [pipe, cwd projects/app]
+rc: 129
+--- stdout
+(empty)
+--- stderr
+(empty)

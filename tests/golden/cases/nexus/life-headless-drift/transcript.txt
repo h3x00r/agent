@@ -1,0 +1,24 @@
+## run 1: nexus c1 headless 'nxt say hi'  (in the old root)  [pipe, cwd old/app]
+rc: 0
+--- stdout
+FAKE-REPLY
+--- stderr
+nexus: warning: c1 still runs with the projects root it was created with, <S>/old: nexus c1 restart applies <P> (PROJECTS_ROOT in <A>/.env), and ends its sessions
+## run 2: nexus c1 headless 'nxt say hi'  (by a symlink into the old root)  [pipe, cwd links/old-app]
+rc: 0
+--- stdout
+FAKE-REPLY
+--- stderr
+nexus: warning: c1 still runs with the projects root it was created with, <S>/old: nexus c1 restart applies <P> (PROJECTS_ROOT in <A>/.env), and ends its sessions
+## run 3: nexus c1 headless 'nxt say hi'  (in the new root)  [pipe, cwd projects/proj]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: c1 still runs with the projects root it was created with, <S>/old, which <P>/proj isn't in: nexus c1 restart applies <P> (PROJECTS_ROOT in <A>/.env), and ends its sessions
+## run 4: nexus c1 headless 'nxt say hi'  (outside both)  [pipe, cwd elsewhere]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: c1 still runs with the projects root it was created with, <S>/old, which <S>/elsewhere isn't in: nexus c1 restart applies <P> (PROJECTS_ROOT in <A>/.env), and ends its sessions

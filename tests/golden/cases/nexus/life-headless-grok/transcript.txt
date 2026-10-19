@@ -1,0 +1,45 @@
+## run 1: nexus g1 headless nxt hello  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+FAKE-REPLY
+--- stderr
+(empty)
+## run 2: nexus g1 headless nxt hello --output-format json  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+FAKE-REPLY
+--- stderr
+(empty)
+## run 3: printf 'in 1\nin 2\n' | nexus g1 headless 'nxt review'  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+stdin: nxt review|in 1|in 2|
+FAKE-REPLY
+--- stderr
+(empty)
+## run 4: printf 'nxt only' | nexus g1 headless  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+stdin: nxt only
+FAKE-REPLY
+--- stderr
+(empty)
+## run 5: printf 'nxt p' | nexus g1 headless '--note=a b' -v  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+stdin: nxt p
+FAKE-REPLY
+--- stderr
+(empty)
+## run 6: nexus g1 headless $'---\nname: nxt-fm\n---\nthe task'  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+FAKE-REPLY
+--- stderr
+(empty)
+## run 7: printf '' | nexus g1 headless 'nxt empty pipe'  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+FAKE-REPLY
+--- stderr
+(empty)

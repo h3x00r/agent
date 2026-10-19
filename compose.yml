@@ -1,6 +1,6 @@
 # /opt/agents/compose.yml — templates for the persona containers, one long-lived container per
-# persona per VM. No personas here: ./config.sh writes them to compose.personas.yml, and the nexus
-# launcher always loads both files.
+# persona per VM. No personas here: ./config-tools generates them from personas.json into
+# compose.personas.yml, and the nexus launcher always loads both files.
 #
 # Each persona container holds a tmux server; every project you work on gets a tmux
 # session inside it (six projects → six sessions in one container, not six containers).
@@ -9,7 +9,7 @@
 #   nexus <persona> review -- claude --resume
 #   nexus ls                          running personas + their sessions
 #
-# Without the launcher (PROJECTS_ROOT exported as here: the persona's own root= from its "# persona:" line,
+# Without the launcher (PROJECTS_ROOT exported as here: the persona's own "root" from ./personas.json,
 # else the VM's from ./.env; for a ddev persona on a VM without a mkcert CA also AGENT_CA_CERTS= , empty,
 # and mkdir -p ~/.ddev ~/.local/share/mkcert first):
 #   AGENT_UID=$(id -u) AGENT_GID=$(id -g) DOCKER_GID=$(stat -c %g /var/run/docker.sock) \
@@ -90,11 +90,11 @@ services:
       # SSH via agent forwarding: your keys never enter the container. The socket path is
       # fixed when the container is created; if it is gone at a later start, the start fails
       # instead of Docker creating a root-owned directory there.
-      # Or a persona has an ssh key of its own (config.sh: SSH, new or a key's path, e.g. a deploy
+      # Or a persona has an ssh key of its own (config-tools: SSH, new or a key's path, e.g. a deploy
       # key), or no ssh at all (none): its service then puts /dev/null here, so its ssh doesn't use your
       # agent. Not a wall: the Docker socket above is root on the VM (README, rules).
       - type: bind
-        source: ${SSH_AUTH_SOCK:?run an ssh-agent on the VM, or set the persona up with a key of its own or no ssh (config.sh)}
+        source: ${SSH_AUTH_SOCK:?run an ssh-agent on the VM, or set the persona up with a key of its own or no ssh (config-tools)}
         target: /ssh-agent
         bind:
           create_host_path: false
@@ -133,5 +133,5 @@ services:
       # ddev global state (config, router, ssh-agent container, downloaded binaries) shared
       # with the VM user, so both sides agree on which global containers exist.
       - ${HOME}/.ddev:/home/dev/.ddev
-      # mkcert CA (see CAROOT above): `mkcert -install` once on the VM (config.sh offers it).
+      # mkcert CA (see CAROOT above): `mkcert -install` once on the VM (config-tools offers it).
       - ${HOME}/.local/share/mkcert:${HOME}/.local/share/mkcert:ro

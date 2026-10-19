@@ -1,0 +1,13 @@
+## run 1: nexus c1  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s app -c <P>/app]
+--- stderr
+ Container agent-c1  Started
+nexus: c1: Claude defaults from personas/claude.json: model, modelSettings.opus.effortLevel, outputStyle, teammateMode, theme, tui, worktree.baseRef
+## run 2: nexus g1 notes  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s notes -c <P>/app]
+--- stderr
+ Container agent-g1  Started

@@ -1,0 +1,95 @@
+## run 1: grep ^# persona:  compose.personas.yml  [pipe, cwd a]
+rc: 0
+--- stdout
+# persona: c1 flavour=claude context=docker colour=colour25 statusline=yes
+# persona: c2 flavour=claude context=docker colour=colour28 statusline=yes
+# persona: c3 flavour=claude context=docker colour=colour90 statusline=yes
+# persona: c4 flavour=claude context=docker colour=colour130 statusline=yes
+# persona: c5 flavour=claude context=docker colour=colour31 statusline=yes
+# persona: c6 flavour=claude context=docker colour=colour124 statusline=yes
+# persona: c7 flavour=claude context=docker colour=colour166 statusline=yes
+# persona: c8 flavour=claude context=docker colour=colour61 statusline=yes
+--- stderr
+(empty)
+## run 2: config --yes --no-link --no-build --persona c9:claude:docker --persona d1:grok:docker  [pipe]
+rc: 0
+--- stdout
+config-tools: setting up <A>
+-- personas/c9.env
+-- personas/d1.env
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  c2                              claude   docker   yes        the VM's             your agent
+  c3                              claude   docker   yes        the VM's             your agent
+  c4                              claude   docker   yes        the VM's             your agent
+  c5                              claude   docker   yes        the VM's             your agent
+  c6                              claude   docker   yes        the VM's             your agent
+  c7                              claude   docker   yes        the VM's             your agent
+  c8                              claude   docker   yes        the VM's             your agent
+  c9                              claude   docker   yes        the VM's             your agent
+  d1                              grok     docker   yes        the VM's             your agent
+
+Start one from a project directory:  cd <P>/<project> && nexus c1
+d1: add XAI_API_KEY to <A>/personas/d1.env
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run config-tools after the build to check it
+## run 3: grep ^# persona:  compose.personas.yml  [pipe, cwd a]
+rc: 0
+--- stdout
+# persona: c1 flavour=claude context=docker colour=colour25 statusline=yes
+# persona: c2 flavour=claude context=docker colour=colour28 statusline=yes
+# persona: c3 flavour=claude context=docker colour=colour90 statusline=yes
+# persona: c4 flavour=claude context=docker colour=colour130 statusline=yes
+# persona: c5 flavour=claude context=docker colour=colour31 statusline=yes
+# persona: c6 flavour=claude context=docker colour=colour124 statusline=yes
+# persona: c7 flavour=claude context=docker colour=colour166 statusline=yes
+# persona: c8 flavour=claude context=docker colour=colour61 statusline=yes
+# persona: c9 flavour=claude context=docker colour=colour25 statusline=yes
+# persona: d1 flavour=grok context=docker colour=colour28 statusline=yes
+--- stderr
+(empty)
+## run 4: config --yes --no-link --no-build --remove c3 --persona x1:claude:docker  [pipe]
+rc: 0
+--- stdout
+config-tools: setting up <A>
+-- personas/x1.env
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  c2                              claude   docker   yes        the VM's             your agent
+  c4                              claude   docker   yes        the VM's             your agent
+  c5                              claude   docker   yes        the VM's             your agent
+  c6                              claude   docker   yes        the VM's             your agent
+  c7                              claude   docker   yes        the VM's             your agent
+  c8                              claude   docker   yes        the VM's             your agent
+  c9                              claude   docker   yes        the VM's             your agent
+  d1                              grok     docker   yes        the VM's             your agent
+  x1                              claude   docker   yes        the VM's             your agent
+
+Start one from a project directory:  cd <P>/<project> && nexus c1
+c3: removed. Its env file and home volume stay; to delete them:
+    docker rm -f agent-c3; docker volume rm agents_c3-home; rm -f <A>/personas/c3.env <A>/personas/c3.key <A>/personas/c3.key.pub <A>/personas/c3.grok.toml 
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run config-tools after the build to check it
+## run 5: grep ^# persona:  compose.personas.yml  [pipe, cwd a]
+rc: 0
+--- stdout
+# persona: c1 flavour=claude context=docker colour=colour25 statusline=yes
+# persona: c2 flavour=claude context=docker colour=colour28 statusline=yes
+# persona: c4 flavour=claude context=docker colour=colour130 statusline=yes
+# persona: c5 flavour=claude context=docker colour=colour31 statusline=yes
+# persona: c6 flavour=claude context=docker colour=colour124 statusline=yes
+# persona: c7 flavour=claude context=docker colour=colour166 statusline=yes
+# persona: c8 flavour=claude context=docker colour=colour61 statusline=yes
+# persona: c9 flavour=claude context=docker colour=colour25 statusline=yes
+# persona: d1 flavour=grok context=docker colour=colour28 statusline=yes
+# persona: x1 flavour=claude context=docker colour=colour90 statusline=yes
+--- stderr
+(empty)

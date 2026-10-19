@@ -1,0 +1,12 @@
+## run 1: nexus c1 upgrade 'latest stable'  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: upgrade: 'latest stable' is neither a version (X.Y.Z) nor a channel of claude (latest stable)
+## run 2: nexus g1 upgrade 'stable alpha' -y  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: upgrade: 'stable alpha' is neither a version (X.Y.Z) nor a channel of grok (stable alpha)

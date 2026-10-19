@@ -1,0 +1,54 @@
+## run 1: nexus c1 headless 'nxt rc'  (the CLI exits 125)  [pipe, cwd projects/app]
+rc: 125
+--- stdout
+nxt rc 125
+--- stderr
+(empty)
+## run 2: nexus c1 headless 'nxt rc'  (the CLI exits 126)  [pipe, cwd projects/app]
+rc: 126
+--- stdout
+nxt rc 126
+--- stderr
+(empty)
+## run 3: nexus c1 headless 'nxt rc'  (the CLI exits 127)  [pipe, cwd projects/app]
+rc: 127
+--- stdout
+nxt rc 127
+--- stderr
+(empty)
+## run 4: nexus c1 headless 'nxt rc'  (the CLI exits 255)  [pipe, cwd projects/app]
+rc: 255
+--- stdout
+nxt rc 255
+--- stderr
+(empty)
+## run 5: nexus c1 headless 'nxt rc'  (the CLI exits 130)  [pipe, cwd projects/app]
+rc: 130
+--- stdout
+nxt rc 130
+--- stderr
+(empty)
+## run 6: nexus c1 headless 'nxt die'  (docker exec dies of KILL)  [pipe, cwd projects/app]
+rc: 137
+--- stdout
+cli: running
+--- stderr
+(empty)
+## run 7: nexus c1 headless 'nxt die'  (docker exec dies of TERM)  [pipe, cwd projects/app]
+rc: 143
+--- stdout
+cli: running
+--- stderr
+(empty)
+## run 8: nexus c1 headless 'nxt die'  (docker exec dies of INT)  [pipe, cwd projects/app]
+rc: 130
+--- stdout
+cli: running
+--- stderr
+(empty)
+## run 9: nexus c1 headless 'nxt die'  (docker exec dies of HUP)  [pipe, cwd projects/app]
+rc: 129
+--- stdout
+cli: running
+--- stderr
+(empty)

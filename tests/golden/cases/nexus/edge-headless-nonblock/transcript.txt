@@ -1,0 +1,21 @@
+## run 1: nexus c1 headless < nonblocking-pipe  ('nxt one', then ' two' 0.5 s later)  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+stdin: nxt one two
+FAKE-REPLY
+--- stderr
+(empty)
+## run 2: nexus c1 headless 'nxt p' < nonblocking-pipe  ('x', then 'y' 0.5 s later)  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+stdin: xy
+FAKE-REPLY
+--- stderr
+(empty)
+## run 3: nexus c1 headless 'nxt p' < nonblocking-pipe  (empty, 'y' 0.5 s later)  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+stdin: y
+FAKE-REPLY
+--- stderr
+(empty)

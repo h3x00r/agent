@@ -1,0 +1,82 @@
+## run 1: nexus top -n 1  [tty-all]
+rc: 0
+--- stdout (no newline at the end)
+\e[?1049h\e[?25l\e[?7l\e[H\e[1mnexus top\e[0m  <HOST>  <HH:MM:SS>  \e[90mevery 1s, q quits, any other key redraws\e[0m\e[K
+\e[K
+\e[90mPERSONA  STATE          CPU     MEM  PANES\e[0m\e[K
+\e[1mc1\e[0m       \e[32mhealthy\e[0m      0.50%  120MiB  1 claude\e[K
+\e[1mg1\e[0m       \e[90mnot started\e[0m      -       -  -\e[K
+\e[K
+\e[90mPERSONA  SESSION  MODEL      CONTEXT   5H   7D   COST  SEEN\e[0m\e[K
+c1       billing  Opus 5.5  \e[31m38k/200k\e[0m  \e[33m55%\e[0m  \e[32m10%\e[0m  $1.23    3d\e[K
+\e[K
+\e[90mCONTEXT used/size; 5H, 7D: the plan's limits used; COST: the session's, at API prices\e[0m\e[K
+\e[90mSEEN: since the CLI last drew its statusline, which it does as the session works\e[0m\e[K\e[J\e[H\e[1mnexus top\e[0m  <HOST>  <HH:MM:SS>  \e[90mevery 1s, q quits, any other key redraws\e[0m\e[K
+\e[K
+\e[90mPERSONA  STATE          CPU     MEM  PANES\e[0m\e[K
+\e[1mc1\e[0m       \e[32mhealthy\e[0m      0.50%  120MiB  1 claude\e[K
+\e[1mg1\e[0m       \e[90mnot started\e[0m      -       -  -\e[K
+\e[K
+\e[90mPERSONA  SESSION  MODEL      CONTEXT   5H   7D   COST  SEEN\e[0m\e[K
+c1       billing  Opus 5.5  \e[31m38k/200k\e[0m  \e[33m55%\e[0m  \e[32m10%\e[0m  $1.23    3d\e[K
+\e[K
+\e[90mCONTEXT used/size; 5H, 7D: the plan's limits used; COST: the session's, at API prices\e[0m\e[K
+\e[90mSEEN: since the CLI last drew its statusline, which it does as the session works\e[0m\e[K\e[J\e[H\e[1mnexus top\e[0m  <HOST>  <HH:MM:SS>  \e[90mevery 1s, q quits, any other key redraws\e[0m\e[K
+\e[K
+\e[90mPERSONA  STATE          CPU     MEM  PANES\e[0m\e[K
+\e[1mc1\e[0m       \e[32mhealthy\e[0m      0.50%  120MiB  1 claude\e[K
+\e[1mg1\e[0m       \e[90mnot started\e[0m      -       -  -\e[K
+\e[K
+\e[90mPERSONA  SESSION  MODEL      CONTEXT   5H   7D   COST  SEEN\e[0m\e[K
+c1       billing  Opus 5.5  \e[31m38k/200k\e[0m  \e[33m55%\e[0m  \e[32m10%\e[0m  $1.23    3d\e[K
+\e[K
+\e[90mCONTEXT used/size; 5H, 7D: the plan's limits used; COST: the session's, at API prices\e[0m\e[K
+\e[90mSEEN: since the CLI last drew its statusline, which it does as the session works\e[0m\e[K\e[J\e[H\e[1mnexus top\e[0m  <HOST>  <HH:MM:SS>  \e[90mevery 1s, q quits, any other key redraws\e[0m\e[K
+\e[K
+\e[90mPERSONA  STATE          CPU     MEM  PANES\e[0m\e[K
+\e[1mc1\e[0m       \e[32mhealthy\e[0m      0.50%  120MiB  1 claude\e[K
+\e[1mg1\e[0m       \e[90mnot started\e[0m      -       -  -\e[K
+\e[K
+\e[90mPERSONA  SESSION  MODEL      CONTEXT   5H   7D   COST  SEEN\e[0m\e[K
+c1       billing  Opus 5.5  \e[31m38k/200k\e[0m  \e[33m55%\e[0m  \e[32m10%\e[0m  $1.23    3d\e[K
+\e[K
+\e[90mCONTEXT used/size; 5H, 7D: the plan's limits used; COST: the session's, at API prices\e[0m\e[K
+\e[90mSEEN: since the CLI last drew its statusline, which it does as the session works\e[0m\e[K\e[J\e[H\e[1mnexus top\e[0m  <HOST>  <HH:MM:SS>  \e[90mevery 1s, q quits, any other key redraws\e[0m\e[K
+\e[K
+\e[90mPERSONA  STATE          CPU     MEM  PANES\e[0m\e[K
+\e[1mc1\e[0m       \e[32mhealthy\e[0m      0.50%  120MiB  1 claude\e[K
+\e[1mg1\e[0m       \e[90mnot started\e[0m      -       -  -\e[K
+\e[K
+\e[90mPERSONA  SESSION  MODEL      CONTEXT   5H   7D   COST  SEEN\e[0m\e[K
+c1       billing  Opus 5.5  \e[31m38k/200k\e[0m  \e[33m55%\e[0m  \e[32m10%\e[0m  $1.23    3d\e[K
+\e[K
+\e[90mCONTEXT used/size; 5H, 7D: the plan's limits used; COST: the session's, at API prices\e[0m\e[K
+\e[90mSEEN: since the CLI last drew its statusline, which it does as the session works\e[0m\e[K\e[J\e[?7h\e[?25h\e[?1049l
+--- stderr
+(empty)
+## run 2: nexus top -n 30  [tty-all]
+rc: 0
+--- stdout (no newline at the end)
+\e[?1049h\e[?25l\e[?7l\e[H\e[1mnexus top\e[0m  <HOST>  <HH:MM:SS>  \e[90mevery 30s, q quits, any other key redraws\e[0m\e[K
+\e[K
+\e[90mPERSONA  STATE          CPU     MEM  PANES\e[0m\e[K
+\e[1mc1\e[0m       \e[32mhealthy\e[0m      0.50%  120MiB  1 claude\e[K
+\e[1mg1\e[0m       \e[90mnot started\e[0m      -       -  -\e[K
+\e[K
+\e[90mPERSONA  SESSION  MODEL      CONTEXT   5H   7D   COST  SEEN\e[0m\e[K
+c1       billing  Opus 5.5  \e[31m38k/200k\e[0m  \e[33m55%\e[0m  \e[32m10%\e[0m  $1.23    3d\e[K
+\e[K
+\e[90mCONTEXT used/size; 5H, 7D: the plan's limits used; COST: the session's, at API prices\e[0m\e[K
+\e[90mSEEN: since the CLI last drew its statusline, which it does as the session works\e[0m\e[K\e[J\e[H\e[1mnexus top\e[0m  <HOST>  <HH:MM:SS>  \e[90mevery 30s, q quits, any other key redraws\e[0m\e[K
+\e[K
+\e[90mPERSONA  STATE          CPU     MEM  PANES\e[0m\e[K
+\e[1mc1\e[0m       \e[32mhealthy\e[0m      0.50%  120MiB  1 claude\e[K
+\e[1mg1\e[0m       \e[90mnot started\e[0m      -       -  -\e[K
+\e[K
+\e[90mPERSONA  SESSION  MODEL      CONTEXT   5H   7D   COST  SEEN\e[0m\e[K
+c1       billing  Opus 5.5  \e[31m38k/200k\e[0m  \e[33m55%\e[0m  \e[32m10%\e[0m  $1.23    3d\e[K
+\e[K
+\e[90mCONTEXT used/size; 5H, 7D: the plan's limits used; COST: the session's, at API prices\e[0m\e[K
+\e[90mSEEN: since the CLI last drew its statusline, which it does as the session works\e[0m\e[K\e[J\e[?7h\e[?25h\e[?1049l
+--- stderr
+(empty)

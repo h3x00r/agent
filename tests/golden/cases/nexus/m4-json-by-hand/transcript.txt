@@ -1,0 +1,49 @@
+## run 1: nexus c1 start  (hand-written, valid)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-c1  Started
+nexus: c1: Claude defaults from personas/claude.json: model, modelSettings.opus.effortLevel, outputStyle, teammateMode, theme, tui, worktree.baseRef
+## run 2: nexus g1 start  (hand-written, valid)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-g1  Started
+## run 3: nexus c1 start  (ssh ~/.ssh/id_c1 by hand)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: <A>/personas.json persona 'c1' has ssh '~/.ssh/id_c1': it takes none, personas/c1.key, or an absolute path without spaces, ':', quotes or $: fix it
+## run 4: nexus c1 start  (root with a NUL by hand)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: <A>/personas.json persona 'c1' has a root with a NUL or a \u escape no file name can hold: fix it
+## run 5: nexus ls  (root with a NUL by hand)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: <A>/personas.json persona 'c1' has a root with a NUL or a \u escape no file name can hold: fix it
+## run 6: nexus c1  (running; ssh with a lone surrogate escape)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: <A>/personas.json persona 'c1' has a ssh with a NUL or a \u escape no file name can hold: fix it
+## run 7: nexus c1 restart  (ssh with a lone surrogate escape)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: <A>/personas.json persona 'c1' has a ssh with a NUL or a \u escape no file name can hold: fix it
+## run 8: nexus c1 start  (root with a lone surrogate escape)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: <A>/personas.json persona 'c1' has a root with a NUL or a \u escape no file name can hold: fix it

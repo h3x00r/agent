@@ -1,0 +1,7 @@
+## run 1: nexus c1 start  (merge hangs 25 s)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-c1  Started
+nexus: warning: c1: the defaults in personas/claude.json couldn't be merged (exit 124): slow

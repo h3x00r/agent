@@ -1,0 +1,63 @@
+## run 1: AGENTS_DIR=<S>/empty nexus ls  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: no personas set up yet: run <S>/empty/config-tools
+## run 2: AGENTS_DIR=<S>/nope nexus ls  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: can't cd to <S>/nope
+## run 3: AGENTS_DIR=../a nexus nope  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: no persona 'nope' (set up: c1 g1); add it with <A>/config-tools
+## run 4: AGENTS_DIR=<A>/ nexus nope  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: no persona 'nope' (set up: c1 g1); add it with <A>/config-tools
+## run 5: AGENTS_DIR= nexus nope  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: no persona 'nope' (set up: c1 g1); add it with <A>/config-tools
+## run 6: AGENTS_DIR=<S>/link-to-a nexus ls  [pipe]
+rc: 0
+--- stdout
+PERSONA  FLAVOUR  CONTEXT  SSH      STATE        PROJECTS ROOT
+c1       claude   docker   agent    not started  <P>
+g1       grok     docker   own key  not started  <P>
+
+nexus <persona> starts one that isn't running
+--- stderr
+(empty)
+## run 7: AGENTS_DIR=<S>/link-to-a nexus nope  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: no persona 'nope' (set up: c1 g1); add it with <S>/link-to-a/config-tools
+## run 8: <S>/other/nexus ls  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: no agentctl/ next to <S>/other/nexus: link it into your PATH (config-tools does) rather than copy it, or set AGENTS_DIR to the checkout
+## run 9: AGENTS_DIR=<A> <S>/other/nexus ls  [pipe]
+rc: 0
+--- stdout
+PERSONA  FLAVOUR  CONTEXT  SSH      STATE        PROJECTS ROOT
+c1       claude   docker   agent    not started  <P>
+g1       grok     docker   own key  not started  <P>
+
+nexus <persona> starts one that isn't running
+agent-old is stopped, and no persona has it any more: docker rm -f agent-old removes it
+--- stderr
+(empty)

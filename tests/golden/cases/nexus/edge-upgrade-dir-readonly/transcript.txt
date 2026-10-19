@@ -1,0 +1,6 @@
+## run 1: nexus c1 upgrade 2.1.400 -y  (<A> mode 555)  [pipe]
+rc: 1
+--- stdout
+nexus: claude for c1: latest -> 2.1.400
+--- stderr
+nexus: can't write <A>/.env

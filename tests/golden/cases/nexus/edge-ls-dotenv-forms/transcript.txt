@@ -1,0 +1,140 @@
+## run 1: (.env form 0) nexus ls  [pipe]
+rc: 0
+--- stdout
+PERSONA  FLAVOUR  CONTEXT  SSH      STATE        PROJECTS ROOT
+c1       claude   docker   agent    not started  <HOME>/projects
+g1       grok     docker   own key  not started  <HOME>/projects
+
+nexus <persona> starts one that isn't running
+--- stderr
+(empty)
+## run 2: (.env form 1) nexus ls  [pipe]
+rc: 0
+--- stdout
+PERSONA  FLAVOUR  CONTEXT  SSH      STATE        PROJECTS ROOT
+c1       claude   docker   agent    not started  <S>/a1
+g1       grok     docker   own key  not started  <S>/a1
+
+nexus <persona> starts one that isn't running
+--- stderr
+(empty)
+## run 3: (.env form 2) nexus ls  [pipe]
+rc: 0
+--- stdout
+PERSONA  FLAVOUR  CONTEXT  SSH      STATE        PROJECTS ROOT
+c1       claude   docker   agent    not started  <A> 2
+g1       grok     docker   own key  not started  <A> 2
+
+nexus <persona> starts one that isn't running
+--- stderr
+(empty)
+## run 4: (.env form 3) nexus ls  [pipe]
+rc: 0
+--- stdout
+PERSONA  FLAVOUR  CONTEXT  SSH      STATE        PROJECTS ROOT
+c1       claude   docker   agent    not started  <A>\3"$xz
+g1       grok     docker   own key  not started  <A>\3"$xz
+
+nexus <persona> starts one that isn't running
+--- stderr
+(empty)
+## run 5: (.env form 4) nexus ls  [pipe]
+rc: 0
+--- stdout
+PERSONA  FLAVOUR  CONTEXT  SSH      STATE        PROJECTS ROOT
+c1       claude   docker   agent    not started  <S>/a5
+g1       grok     docker   own key  not started  <S>/a5
+
+nexus <persona> starts one that isn't running
+--- stderr
+(empty)
+## run 6: (.env form 5) nexus ls  [pipe]
+rc: 0
+--- stdout
+PERSONA  FLAVOUR  CONTEXT  SSH      STATE        PROJECTS ROOT
+c1       claude   docker   agent    not started  <S>/a6#no-space
+g1       grok     docker   own key  not started  <S>/a6#no-space
+
+nexus <persona> starts one that isn't running
+--- stderr
+(empty)
+## run 7: (.env form 6) nexus ls  [pipe]
+rc: 0
+--- stdout
+PERSONA  FLAVOUR  CONTEXT  SSH      STATE        PROJECTS ROOT
+c1       claude   docker   agent    not started  <HOME>/projects
+g1       grok     docker   own key  not started  <HOME>/projects
+
+nexus <persona> starts one that isn't running
+--- stderr
+(empty)
+## run 8: (.env form 7) nexus ls  [pipe]
+rc: 0
+--- stdout
+PERSONA  FLAVOUR  CONTEXT  SSH      STATE        PROJECTS ROOT
+c1       claude   docker   agent    not started  "<S>/a7
+g1       grok     docker   own key  not started  "<S>/a7
+
+nexus <persona> starts one that isn't running
+--- stderr
+(empty)
+## run 9: (.env form 8) nexus ls  [pipe]
+rc: 0
+--- stdout
+PERSONA  FLAVOUR  CONTEXT  SSH      STATE        PROJECTS ROOT
+c1       claude   docker   agent    not started  <HOME>/projects
+g1       grok     docker   own key  not started  <HOME>/projects
+
+nexus <persona> starts one that isn't running
+--- stderr
+(empty)
+## run 10: (.env form 9) nexus ls  [pipe]
+rc: 0
+--- stdout
+PERSONA  FLAVOUR  CONTEXT  SSH      STATE        PROJECTS ROOT
+c1       claude   docker   agent    not started  <HOME>/projects
+g1       grok     docker   own key  not started  <HOME>/projects
+
+nexus <persona> starts one that isn't running
+--- stderr
+(empty)
+## run 11: (.env form 10) nexus ls  [pipe]
+rc: 0
+--- stdout
+PERSONA  FLAVOUR  CONTEXT  SSH      STATE        PROJECTS ROOT
+c1       claude   docker   agent    not started  <S>/it's
+g1       grok     docker   own key  not started  <S>/it's
+
+nexus <persona> starts one that isn't running
+--- stderr
+(empty)
+## run 12: PROJECTS_ROOT= nexus ls  [pipe]
+rc: 0
+--- stdout
+PERSONA  FLAVOUR  CONTEXT  SSH      STATE        PROJECTS ROOT
+c1       claude   docker   agent    not started  <S>/env
+g1       grok     docker   own key  not started  <S>/env
+
+nexus <persona> starts one that isn't running
+--- stderr
+(empty)
+## run 13: PROJECTS_ROOT=<S>/sh nexus ls  [pipe]
+rc: 0
+--- stdout
+PERSONA  FLAVOUR  CONTEXT  SSH      STATE        PROJECTS ROOT
+c1       claude   docker   agent    not started  <S>/sh
+g1       grok     docker   own key  not started  <S>/sh
+
+nexus <persona> starts one that isn't running
+--- stderr
+(empty)
+## run 14: PROJECTS_ROOT=rel/x nexus ls  [pipe]
+rc: 0
+--- stdout
+PERSONA  FLAVOUR  CONTEXT  SSH      STATE        PROJECTS ROOT
+c1       claude   docker   agent    not started  rel/x
+g1       grok     docker   own key  not started  rel/x
+
+nexus <persona> starts one that isn't running
+--- stderr
+(empty)

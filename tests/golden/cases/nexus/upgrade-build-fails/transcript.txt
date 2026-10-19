@@ -1,0 +1,27 @@
+## run 1: nexus c1 upgrade 2.1.400 -y  (the build fails)  [pipe]
+rc: 1
+--- stdout
+nexus: claude for c1: 2.1.300 (Claude Code) -> 2.1.400
+--- stderr
+fake compose: the build of c1 failed
+nexus: the build for c1 failed (see above); CLAUDE_VERSION is back to latest
+## run 2: nexus c1 upgrade 2.1.400 -y  (pinned to 2.1.300 before)  [pipe]
+rc: 1
+--- stdout
+nexus: claude for c1: 2.1.300 -> 2.1.400
+--- stderr
+fake compose: the build of c1 failed
+nexus: the build for c1 failed (see above); CLAUDE_VERSION is back to 2.1.300
+## run 3: nexus c1 upgrade 2.1.400 -y  (no CLAUDE_VERSION line)  [pipe]
+rc: 1
+--- stdout
+nexus: claude for c1: 2.1.300 (Claude Code) -> 2.1.400
+--- stderr
+fake compose: the build of c1 failed
+nexus: the build for c1 failed (see above); CLAUDE_VERSION is back to latest
+## run 4: grep ^CLAUDE_VERSION= <A>/.env  [pipe]
+rc: 0
+--- stdout
+CLAUDE_VERSION=latest
+--- stderr
+(empty)

@@ -1,0 +1,12 @@
+## run 1: nexus g1 start  (claude.managed.json gone)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-g1  Started
+## run 2: nexus c1 start  (claude.managed.json gone)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: <A>/personas/claude.managed.json isn't there: restore it (git checkout personas/claude.managed.json), or re-run <A>/config-tools without it

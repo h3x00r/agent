@@ -1,0 +1,12 @@
+~ a/personas.json  f 644 inode=same
+    | {
+    |   "version": 1.0,
+    |   "personas": {
+    |     "c1": {
+    |       "flavour": "claude",
+    |       "context": "docker",
+    |       "colour": "colour25",
+    |       "statusline": true
+    |     }
+    |   }
+    | }

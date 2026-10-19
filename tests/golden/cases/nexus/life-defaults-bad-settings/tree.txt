@@ -1,0 +1,4 @@
+~ a/personas/claude.json  f 644 inode=same
+    | {broken
++ ctr/c4  d 755
++ ctr/c4/home  d 755

@@ -1,0 +1,54 @@
+## run 1: config --yes --persona  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --persona needs NAME:FLAVOUR:CONTEXT[:ROOT] (see --help)
+## run 2: config --yes --ssh  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --ssh needs NAME:agent, NAME:none, NAME:new or NAME:KEY (see --help)
+## run 3: config --yes --remove  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --remove needs a NAME (see --help)
+## run 4: config --yes --projects-root  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --projects-root needs a DIR (see --help)
+## run 5: config --yes --registry  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --registry needs local or a HOST (see --help)
+## run 6: config --yes --claude-version  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --claude-version needs latest, stable or X.Y.Z (see --help)
+## run 7: config --yes --link  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --link needs a DIR (see --help)
+## run 8: config --yes --registry  --no-link  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --registry needs local or a HOST (see --help)
+## run 9: config --yes --persona --no-link  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --persona --no-link: '--no-link' is not a usable name (a lowercase letter, then lowercase letters, digits or -; at most 31, not ending in -; not ls, top, all or start)

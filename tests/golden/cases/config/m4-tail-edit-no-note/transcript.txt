@@ -1,0 +1,34 @@
+## run 1: grep before  [pipe, cwd a]
+rc: 0
+--- stdout
+  "c1":
+      - /srv/data:/data
+  "c2":
+      - /srv/data:/data
+  "c1-home":
+  "c2-home":
+--- stderr
+(empty)
+## run 2: config --yes --no-link --no-build  [pipe]
+rc: 0
+--- stdout
+config-tools: setting up <A>
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  c2                              claude   docker   yes        the VM's             your agent
+
+Start one from a project directory:  cd <P>/<project> && nexus c1
+personas: moved from compose.personas.yml's `# persona:` lines into <A>/personas.json; the old file is kept as compose.personas.yml.bak
+c1: its service is written from personas.json now, a little differently; `nexus c1 restart` applies it (that ends its tmux sessions)
+c2: its service is written from personas.json now, a little differently; `nexus c2 restart` applies it (that ends its tmux sessions)
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+## run 3: grep after (rc 1: gone)  [pipe, cwd a]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+(empty)

@@ -1,0 +1,42 @@
+~ a/personas/claude.json  f 644 inode=same
+    | {
+    |   "model": "opus",
+    |   "modelSettings": {
+    |     "opus": {
+    |       "effortLevel": "high"
+    |     }
+    |   },
+    |   "theme": "light",
+    |   "outputStyle": "Explanatory",
+    |   "teammateMode": "tmux",
+    |   "worktree": {
+    |     "baseRef": "main"
+    |   }
+    | }
+~ ctr/c1/home/.claude/.nexus-defaults.json  f 644 inode=new
+    | {
+    |   "modelSettings": {
+    |     "opus": {
+    |       "effortLevel": "high"
+    |     }
+    |   },
+    |   "outputStyle": "Concise",
+    |   "teammateMode": "tmux",
+    |   "worktree": {
+    |     "baseRef": "main"
+    |   }
+    | }
+~ ctr/c1/home/.claude/settings.json  f 644 inode=new
+    | {
+    |   "model": "haiku",
+    |   "modelSettings": {
+    |     "opus": {
+    |       "effortLevel": "high"
+    |     }
+    |   },
+    |   "teammateMode": "tmux",
+    |   "theme": "dark",
+    |   "worktree": {
+    |     "baseRef": "main"
+    |   }
+    | }

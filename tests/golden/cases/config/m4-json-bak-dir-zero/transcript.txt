@@ -1,0 +1,22 @@
+## run 1: config --yes --no-link --no-build --remove c1 --persona g1:grok:docker  [pipe]
+rc: 1
+--- stdout
+config-tools: setting up <A>
+-- personas/g1.env
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run config-tools after the build to check it
+config: <A>/personas.json.bak isn't a file (a directory, or a dangling link?), so nothing was written
+## run 2: config --yes --no-link --no-build --remove g1  [pipe]
+rc: 1
+--- stdout
+config-tools: setting up <A>
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: --remove g1: no such persona
+## run 3: ls -A personas.json.bak  (still a directory: empty)  [pipe, cwd .]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+(empty)

@@ -1,0 +1,10 @@
+## run 1: (.env a fifo) nexus ls  [pipe]
+rc: 0
+--- stdout
+PERSONA  FLAVOUR  CONTEXT  SSH      STATE        PROJECTS ROOT
+c1       claude   docker   agent    not started  <HOME>/projects
+g1       grok     docker   own key  not started  <HOME>/projects
+
+nexus <persona> starts one that isn't running
+--- stderr
+(empty)

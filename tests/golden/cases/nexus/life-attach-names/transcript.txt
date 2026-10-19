@@ -1,0 +1,36 @@
+## run 1: nexus c1  [pipe, cwd projects/a:b.c]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s a_b_c -c <P>/a:b.c]
+--- stderr
+(empty)
+## run 2: nexus c1 v1.2:fix  [pipe, cwd projects/a:b.c]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s v1_2_fix -c <P>/a:b.c]
+--- stderr
+(empty)
+## run 3: nexus c1 -- claude  [pipe, cwd projects/app/sub dir]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s sub dir -c <P>/app/sub dir claude]
+--- stderr
+(empty)
+## run 4: nexus c1 --  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s app -c <P>/app]
+--- stderr
+(empty)
+## run 5: nexus c1 work -- sh -c echo 'a b'; exec bash  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s work -c <P>/app sh -c echo 'a b'; exec bash]
+--- stderr
+(empty)
+## run 6: nexus c1 work extra  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s work -c <P>/app]
+--- stderr
+(empty)

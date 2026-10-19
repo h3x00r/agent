@@ -1,0 +1,18 @@
+## run 1: nexus g1 start  (a grok persona: the same file)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: <A>/compose.personas.yml is out of step with personas.json (edited by hand, or written by an older config-tools): <A>/config-tools --yes writes it again from personas.json
+## run 2: nexus c1 start  (running)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+(empty)
+## run 3: nexus c1 review  (running)  [pipe]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s review -c <P>]
+--- stderr
+nexus: warning: <A>/compose.personas.yml is out of step with personas.json (edited by hand, or written by an older config-tools): <A>/config-tools --yes writes it again from personas.json, then `nexus c1 restart`

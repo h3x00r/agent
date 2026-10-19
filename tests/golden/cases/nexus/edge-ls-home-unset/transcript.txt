@@ -1,0 +1,16 @@
+## run 1: (no HOME) nexus ls  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: HOME isn't set, and there is no PROJECTS_ROOT in your shell or <A>/.env
+## run 2: (no HOME) PROJECTS_ROOT=<P> nexus ls  [pipe]
+rc: 0
+--- stdout
+PERSONA  FLAVOUR  CONTEXT  SSH      STATE        PROJECTS ROOT
+c1       claude   docker   agent    not started  <P>
+g1       grok     docker   own key  not started  <P>
+
+nexus <persona> starts one that isn't running
+--- stderr
+(empty)

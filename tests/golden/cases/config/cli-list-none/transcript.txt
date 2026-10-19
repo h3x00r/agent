@@ -1,0 +1,6 @@
+## run 1: config --list  [pipe]
+rc: 0
+--- stdout
+  (none yet)
+--- stderr
+(empty)

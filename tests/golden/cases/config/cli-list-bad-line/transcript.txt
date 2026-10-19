@@ -1,0 +1,31 @@
+## run 1: config --list  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: compose.personas.yml: persona 'c1' has a bad line (edited by hand?): '# persona: c1 flavour=claude context=docker colour=colour25 statusline=maybe'; it takes flavour=claude|grok context=ddev|docker colour=colourN statusline=yes|no [root=/dir] [ssh=none|/path|personas/NAME.key]
+## run 2: config --yes --no-link --no-build  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: compose.personas.yml: persona 'c1' has a bad line (edited by hand?): '# persona: c1 flavour=claude context=docker colour=colour25 statusline=maybe'; it takes flavour=claude|grok context=ddev|docker colour=colourN statusline=yes|no [root=/dir] [ssh=none|/path|personas/NAME.key]
+## run 3: config --list  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: compose.personas.yml: persona 'c1' has a bad line (edited by hand?): '# persona: c1 root=rel/dir flavour=claude context=docker colour=colour25 statusline=yes'; it takes flavour=claude|grok context=ddev|docker colour=colourN statusline=yes|no [root=/dir] [ssh=none|/path|personas/NAME.key]
+## run 4: config --list  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: compose.personas.yml: persona 'c1' has a bad line (edited by hand?): '# persona: c1 ssh=personas/g1.key flavour=claude context=docker colour=colour25 statusline=yes'; it takes flavour=claude|grok context=ddev|docker colour=colourN statusline=yes|no [root=/dir] [ssh=none|/path|personas/NAME.key]
+## run 5: config --list  [pipe]
+rc: 0
+--- stdout
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+--- stderr
+(empty)

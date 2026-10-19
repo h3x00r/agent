@@ -1,0 +1,6 @@
+## run 1: nexus c1 headless 'nxt hi'  (the exec's ignored signals)  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+FAKE-REPLY
+--- stderr
+(empty)

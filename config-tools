@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# config-tools — set this checkout up for one dev VM: which personas it runs, their settings, the launcher.
+# The work is done in Python (agentctl/, Python 3.8 or newer, nothing else to install); this script finds
+# it next to itself, through a symlink too, and hands over. `./config-tools --help` says what it takes.
+self="$(readlink -f -- "$0")" || { echo "config: can't tell where $0 is" >&2; exit 1; }
+if ! python3 -I -c 'import sys; sys.exit(sys.version_info < (3, 8))' 2>/dev/null; then
+  echo "config: needs Python 3.8 or newer; python3 here is $(python3 --version 2>&1 || echo missing)" >&2
+  exit 1
+fi
+# Python takes a C locale for C.UTF-8 and exports that to its children (PEP 538), and judges a locale that
+# isn't installed by its name; bash did neither. So this says what bash made of the locale (whether é is one
+# character) and what LC_CTYPE was, and the Python measures text by the one and passes the other on.
+u=$'\xc3\xa9'
+export AGENTCTL_LOCALE="$(( ${#u} == 1 ))${LC_CTYPE+:$LC_CTYPE}"
+exec python3 -I -B -S "${self%/*}/agentctl/_boot.py" config "$@"

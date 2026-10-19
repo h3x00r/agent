@@ -1,0 +1,36 @@
+## run 1: nexus top --once  [pipe]
+rc: 0
+--- stdout
+nexus top  <HOST>  <HH:MM:SS>
+
+PERSONA  STATE          CPU     MEM  PANES
+c1       healthy      0.50%  120MiB  3 claude
+g1       not started      -       -  -
+
+PERSONA  SESSION     MODEL      CONTEXT     5H    7D   COST  SEEN
+c1       five-0100   Opus 5.5  38k/200k  0100%  061%  $1.23    3d
+c1       pct-0100    Opus 5.5  38k/200k    12%   40%  $1.23    3d
+c1       used-octal  Opus 5.5  37k/200k    12%   40%  $1.23    3d
+
+CONTEXT used/size; 5H, 7D: the plan's limits used; COST: the session's, at API prices
+SEEN: since the CLI last drew its statusline, which it does as the session works
+--- stderr
+(empty)
+## run 2: nexus top --once  [tty-all]
+rc: 0
+--- stdout
+\e[1mnexus top\e[0m  <HOST>  <HH:MM:SS>
+
+\e[90mPERSONA  STATE          CPU     MEM  PANES\e[0m
+\e[1mc1\e[0m       \e[32mhealthy\e[0m      0.50%  120MiB  3 claude
+\e[1mg1\e[0m       \e[90mnot started\e[0m      -       -  -
+
+\e[90mPERSONA  SESSION     MODEL      CONTEXT     5H    7D   COST  SEEN\e[0m
+c1       five-0100   Opus 5.5  \e[32m38k/200k\e[0m  \e[31m0100%\e[0m  \e[33m061%\e[0m  $1.23    3d
+c1       pct-0100    Opus 5.5  \e[31m38k/200k\e[0m    \e[32m12%\e[0m   \e[32m40%\e[0m  $1.23    3d
+c1       used-octal  Opus 5.5  \e[32m37k/200k\e[0m    \e[32m12%\e[0m   \e[32m40%\e[0m  $1.23    3d
+
+\e[90mCONTEXT used/size; 5H, 7D: the plan's limits used; COST: the session's, at API prices\e[0m
+\e[90mSEEN: since the CLI last drew its statusline, which it does as the session works\e[0m
+--- stderr
+(empty)

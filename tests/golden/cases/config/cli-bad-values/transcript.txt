@@ -1,0 +1,84 @@
+## run 1: config --yes --no-build --projects-root rel/dir  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --projects-root must be an absolute directory other than /, without ':', not 'rel/dir'
+## run 2: config --yes --no-build --projects-root /  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --projects-root must be an absolute directory other than /, without ':', not '/'
+## run 3: config --yes --no-build --projects-root //  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --projects-root must be an absolute directory other than /, without ':', not '/'
+## run 4: config --yes --no-build --projects-root /a:b  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --projects-root must be an absolute directory other than /, without ':', not '/a:b'
+## run 5: config --yes --no-build --registry Reg.lan/Team  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --registry must be local or host[:port][/path] (e.g. registry.lan:5000/team), not 'Reg.lan/Team'
+## run 6: config --yes --no-build --registry /  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --registry must be local or host[:port][/path] (e.g. registry.lan:5000/team), not '/'
+## run 7: config --yes --no-build --registry reg lan  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --registry must be local or host[:port][/path] (e.g. registry.lan:5000/team), not 'reg lan'
+## run 8: config --yes --no-build --registry reg.lan:port  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --registry must be local or host[:port][/path] (e.g. registry.lan:5000/team), not 'reg.lan:port'
+## run 9: config --yes --no-build --registry -reg.lan  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --registry must be local or host[:port][/path] (e.g. registry.lan:5000/team), not '-reg.lan'
+## run 10: config --yes --no-build --claude-version v2.1.3  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --claude-version must be latest, stable or X.Y.Z, not 'v2.1.3'
+## run 11: config --yes --no-build --claude-version 2.1  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --claude-version must be latest, stable or X.Y.Z, not '2.1'
+## run 12: config --yes --no-build --claude-version beta  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --claude-version must be latest, stable or X.Y.Z, not 'beta'
+## run 13: config --yes --no-build --claude-version 2.1.3-  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --claude-version must be latest, stable or X.Y.Z, not '2.1.3-'
+## run 14: config --yes --no-build --link rel/bin  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --link must be an absolute directory, not 'rel/bin'
