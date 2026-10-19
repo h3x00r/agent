@@ -4,7 +4,7 @@ import tempfile
 import unittest
 
 from agentctl.configtools import cli, staging
-from agentctl.configtools.setup import cpus_ok, env_flavour
+from agentctl.configtools.host import cpus_ok, env_flavour
 from agentctl.core.errors import NexusError
 
 
