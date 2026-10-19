@@ -255,8 +255,9 @@ Only this session asks. The persona's other sessions work as before.
   name of its own: `nexus claude-team --skip-bypass-permissions billing-careful -- claude`. `main`, the
   persona's shell, always works the persona's way and comes back if you end it: give the new session a name of
   its own, or change the persona's setting (below).
-- The first time, Nexus may say `claude-team's image predates --skip-bypass-permissions`. Then rebuild the
-  persona's image once: `nexus claude-team build`, then `nexus claude-team restart`. That closes its sessions,
+- The first time, Nexus may say `nothing was started: claude-team's image was built before nexus had
+  --skip-bypass-permissions`. Then rebuild the persona's image once: `nexus claude-team build` (the message
+  says `pull` if your team uses an image registry), then `nexus claude-team restart`. That closes its sessions,
   so finish your work first.
 - If the bar at the bottom shows the session as `--skip-bypass-permissions` instead of `billing`, this VM's
   Nexus is older than this page and took the word for a session name, so that Claude doesn't ask. End that
@@ -312,7 +313,7 @@ Two more things to know:
 | `headless: … is outside claude-docker's projects root (…)` | You ran `headless` from a folder the persona can't see. | `cd` into a project under the projects root first. |
 | `… is outside claude-docker's projects root; starting in …` | You started it from a folder it can't see, so it opened at the projects root instead. | Next time, `cd` into the project first. |
 | `required variable SSH_AUTH_SOCK is missing a value: run an ssh-agent on the VM, …` | The persona was set up to borrow your ssh keys for git (SSH `agent`), and this login has no keys to lend. | Easiest: `nexus --config` → `change` → the persona → SSH `none`, then `nexus <persona> restart`. Or connect with `ssh -A you@your-vm`, which lends your laptop's keys to the VM for that login only: you have to do it every time, and a persona started with it needs `nexus <persona> restart` after you reconnect. |
-| `claude-team's image predates --skip-bypass-permissions: rebuild it …` (or `… predates --bypass-permissions …`) | The persona's image was built before Nexus had the words `--skip-bypass-permissions` and `--bypass-permissions`. | Rebuild it once: `nexus claude-team build` (if your team uses an image registry: `nexus claude-team pull`), then `nexus claude-team restart`. That closes its sessions, so finish your work first. |
+| `nothing was started: claude-team's image was built before nexus had --skip-bypass-permissions` (or `… --bypass-permissions`) | The persona's image was built before Nexus had the words `--skip-bypass-permissions` and `--bypass-permissions`. | Rebuild it once: `nexus claude-team build` (if your team uses an image registry: `nexus claude-team pull`), then `nexus claude-team restart`. That closes its sessions, so finish your work first. |
 | `session billing already runs its tools without asking (…)` or `… already asks before running tools (…)`, or `session main is claude-team's shell, in its own mode …` | You asked for the other mode, but that session is already open, and an open session can't switch (example 11). | Give the new session a name of its own, with the same word you typed: e.g. `nexus claude-team --skip-bypass-permissions billing-careful -- claude`. For `billing`, you can also end the old one first; for `main`, change the persona's setting instead (example 11). |
 
 Anything else: the message usually says what to run. The full list is in

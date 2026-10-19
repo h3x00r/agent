@@ -162,8 +162,11 @@ class Run:
                     % (session, SAYS[now], how, p.name, self.word))
             return ""
         if got.get("wrapper") != "yes":
-            die("%s's image predates %s: rebuild it (nexus %s build; with an image registry, pull), then `nexus %s "
-                "restart` (that ends its tmux sessions)" % (p.name, self.word, p.name, p.name))
+            # build or pull as upgrade does: pull with a registry other than local.
+            verb = "build" if (os.environ.get("REGISTRY") or self.ctx.env_get("REGISTRY") or "local") == "local" else "pull"
+            die("nothing was started: %s's image was built before nexus had %s.\n"
+                "       Run `nexus %s %s`, then `nexus %s restart` (this closes its tmux sessions)."
+                % (p.name, self.word, p.name, verb, p.name))
         return self.mode
 
     def main(self):

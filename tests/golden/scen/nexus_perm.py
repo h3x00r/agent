@@ -105,6 +105,8 @@ def _(sb):
     sb.run("nexus", "c1", SKIP, "headless", "nxt hi", cwd="projects/app")
     sb.run("nexus", "c1", BYPASS, "s3", label="nexus c1 --bypass-permissions s3  (its own mode, too)")
     sb.run("nexus", "c1", "s3", label="nexus c1 s3  (no word: as ever)")
+    sb.run("nexus", "c1", SKIP, "s4", env={"REGISTRY": "registry.example.com"},
+           label="nexus c1 --skip-bypass-permissions s4  (REGISTRY set: pull, not build)")
     sb.load_world()
     sb.world["containers"]["agent-c1"]["perm_probe_rc"] = 1
     sb.save_world()

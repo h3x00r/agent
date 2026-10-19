@@ -210,7 +210,7 @@ after `--` it belongs to the command, and any other `-x` after the persona is st
 - The words need the persona's image built from this checkout, and the persona recreated on it:
   `nexus <persona> build` (with a registry, `pull`), then `nexus <persona> restart`; or the next
   `nexus <persona> upgrade`, which does both. On an image from before, a word for a new session or a headless run
-  is refused, saying it predates them ([section 10](#10-update-a-vm)); a session that is there already is handled
+  is refused, saying its image was built before them ([section 10](#10-update-a-vm)); a session that is there already is handled
   as above. Without a word, nexus works exactly as before.
 - That teammates keep the mode was checked by reading Claude Code 2.1.302 and testing the links
   `/usr/local/libexec/claude-ask` and `claude-bypass`, not with a real signed-in team.
@@ -758,8 +758,8 @@ before), and setting a persona to ask works on any image. The session words, `--
 `--bypass-permissions` ([section 2](#2-daily-use)), need each Claude image built once from the new checkout:
 `nexus <persona> build` (with a registry, `pull`) once per context, then `nexus <persona> restart` for each
 Claude persona; or the next `nexus <persona> upgrade`, which does both. Until then a word for a new session or a
-headless run is refused with `<persona>'s image predates …`, even when it is the persona's own mode; without a
-word nexus works as before.
+headless run is refused with `nothing was started: <persona>'s image was built before nexus had …`, even when
+it is the persona's own mode; without a word nexus works as before.
 
 **From before `nexus --config`:** after the `git pull`, `config-tools` is gone; `nexus --config --yes --no-build`
 does what `config-tools --yes --no-build` did, with the same flags. A `compose.personas.yml` config-tools wrote is
@@ -885,7 +885,7 @@ Back on the Python tools (`git checkout main`), `# persona:` lines in `compose.p
 | `--skip-bypass-permissions is for claude personas: <persona> is a grok one, …` (or `--bypass-permissions`); `nexus --config`: `--permissions <persona>:ask: <persona> is a grok persona, …` | grok takes its approval mode from `personas/grok.toml` | leave the word out; change `personas/grok.toml`, which every grok persona gets |
 | `pick one of --skip-bypass-permissions and --bypass-permissions` | both words given | give one |
 | `--skip-bypass-permissions is for a session or a headless run, not for <command>` (or `--bypass-permissions`) | a word with `ls`, `stop`, `logs`, `build`, `pull`, `start`, `restart` or `upgrade` | leave it out there: it goes with `nexus <persona> [session]` or `headless` |
-| `<persona>'s image predates --skip-bypass-permissions` (or `--bypass-permissions`) | its image was built before the session words: its `claude` is Claude Code itself, not `claude-mode.sh` | `nexus <persona> build` (with a registry, `pull`), then `nexus <persona> restart` (ends its tmux sessions) ([section 10](#10-update-a-vm)) |
+| `nothing was started: <persona>'s image was built before nexus had --skip-bypass-permissions` (or `--bypass-permissions`) | its image was built before the session words: its `claude` is Claude Code itself, not `claude-mode.sh` | `nexus <persona> build` (with a registry, `pull`: the message says which), then `nexus <persona> restart` (ends its tmux sessions) ([section 10](#10-update-a-vm)) |
 | `session <name> already runs its tools without asking (…)`, or `… already asks before running tools (…)` | that session started in the other mode (with the other word, or in the persona's own mode), and keeps it | end it, or name a new session: `nexus <persona> --skip-bypass-permissions <new>` (or `--bypass-permissions`) |
 | `session main is <persona>'s shell, in its own mode (…)` | `main`, the persona's own shell session, always runs in the persona's mode | name a new session; or change the persona's setting (`nexus --config`, change), then `nexus <persona> restart` |
 | `can't read the mode session <name> runs in: …` | nexus couldn't read that session's tmux environment | name a new session |
