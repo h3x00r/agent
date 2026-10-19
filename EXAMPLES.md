@@ -1,0 +1,260 @@
+# Nexus by example
+
+This page is for you if you are new to Nexus, or to tmux, containers and dev VMs in general. It explains
+the ideas in plain words, then walks through the everyday tasks one at a time, with the exact commands
+to type. The full reference is [runbook.md](runbook.md); how it is built is in [README.md](README.md).
+
+Every command on this page runs **on the dev VM**, not on your laptop: connect to it first, for example
+`ssh you@your-vm`.
+
+## The idea in one minute
+
+You work on a **dev VM**: a Linux machine you reach over ssh, where your projects live. An AI coding agent
+such as Claude Code or Grok Build is a program that reads your code, edits it and runs commands, like a
+teammate in the terminal.
+
+Normally that agent runs in your terminal window. Close the laptop and it stops. Nexus fixes that:
+
+- **Think of the VM as an office building.** Nexus gives each agent an office of its own there: a
+  **persona**. The office stays open when you go home, so the agent keeps working.
+- **Each office has its own name badge.** A persona has its own login, its own git name and email, and its
+  own colour, so your team account and your personal account never mix.
+- **Each project gets its own desk.** Inside a persona, every project you open is a separate **session**.
+  You can have `billing` and `shop` open at once and hop between them.
+- **You can walk out and come back.** Leaving a session without closing it is called **detaching**. When
+  you come back, everything is exactly where you left it, even if you connect from another computer.
+
+You talk to all of it through one command: `nexus`.
+
+### Words you'll meet
+
+| Word | What it means here |
+|---|---|
+| **persona** | One AI agent with its own account, for example `claude-team` or `grok-docker`. It runs in a container on the VM. |
+| **container** | A separate box on the VM where a persona lives. You don't manage it by hand; `nexus` does. |
+| **image** | The ready-made package a persona's container starts from: the agent program and its tools. `nexus` builds it once on the VM (a few minutes). You never edit it. |
+| **session** | One open project inside a persona, named after the folder you are in when you run `nexus`: in `~/projects/billing` it is `billing`. Every persona also has a session called `main`, a plain shell, that is always there. |
+| **detach** | Leave the session but keep it running: press `Ctrl-b`, let go, then press `d`. |
+| **projects root** | The folder that holds your projects, `~/projects` by default. The persona works on the files inside it. It is **not a security wall**: a persona can also run Docker on the VM, and through Docker it can reach the rest of the VM. Use it on dev VMs only, and give it only work you would be OK running yourself. |
+| **flavour** | Which agent a persona runs: `claude` (Claude Code) or `grok` (Grok Build). |
+| **context** | What kind of projects it works on: `ddev` or `docker`. ddev is a tool that runs PHP web sites in containers; your project uses it if its folder has a `.ddev` folder inside. If it doesn't, or you're not sure, pick `docker` (docker compose, Go, Node, …). |
+
+## Example 1: set up a VM for the first time
+
+Someone has to do this once per VM. If `nexus ls` (or `~/agents/nexus ls`) already lists personas, skip to
+example 2.
+
+Get the repo's address from your team (the same kind of address you'd give any `git clone`), then:
+
+```bash
+git clone https://example.com/your-team/agents.git ~/agents
+~/agents/nexus --config
+```
+
+It asks a few questions. For each one, the default is shown in `[brackets]`, and pressing Enter takes it:
+
+1. **The settings every persona shares.** Where your projects are (Enter for `~/projects`), where the
+   images come from (Enter for `local`: built on this VM), and which Claude Code version (Enter for the
+   latest).
+2. **Where to put the `nexus` command**, so you can type `nexus` anywhere (Enter for `/usr/local/bin`; it may
+   ask for your password, for sudo).
+3. **Your first persona.** In this order:
+   - the agent (`claude`), the context, and a name. On a VM that has ddev, the context default is `ddev`:
+     type `docker` if your projects don't use ddev. Enter takes the suggested name, such as `claude-docker`;
+   - the statusline and the persona's own projects root: press Enter for both;
+   - **SSH (git over ssh): type `none`.** The agent can still commit; you run `git pull` and `git push`
+     yourself on the VM, in the same folder. The default, `agent`, lends the persona your ssh keys, but only
+     while you are connected with them loaded (see "When something goes wrong" below), so start with `none`;
+   - how it signs in to Claude (Enter for `login`: you log in inside it later);
+   - your git name and email for this persona. Enter takes your own. If you'll have more than one persona,
+     type a name that says which one, e.g. `Ana (claude-team)`, so `git log` can tell them apart;
+   - `GH_TOKEN`: press Enter to skip it. What you type here is hidden, so the screen stays empty. That is
+     normal.
+4. **Build its image now?** Say yes. The first build takes a few minutes; later ones take seconds.
+
+Then it shows what is set up and a small menu. Type `quit` (or press Enter) to finish. You can run
+`nexus --config` again at any time to add or change things (example 9).
+
+## Example 2: start working on a project
+
+```bash
+cd ~/projects/billing
+nexus claude-docker -- claude
+```
+
+What happens:
+
+1. Nexus starts the `claude-docker` persona if it isn't running yet (a few seconds the first time).
+2. It opens a session called `billing`, in the `billing` folder.
+3. Because of `-- claude`, Claude Code starts in it right away.
+
+The first time, Claude asks you to log in. It shows a link: open it in your browser, then paste the code
+back. You do this once per persona; it remembers.
+
+Now talk to Claude as usual, for example: *"Add a CSV export to the invoices page and make the tests pass."*
+
+## Example 3: leave it working, come back later
+
+You've given Claude a long task and it's your time to go home.
+
+1. Press `Ctrl-b`, let go, then press `d`. You're back in your normal terminal. This is detaching.
+2. Close the laptop. Claude keeps working on the VM.
+3. Next morning, from any computer, ssh to the VM and run, **from the same folder**:
+
+```bash
+cd ~/projects/billing
+nexus claude-docker
+```
+
+No `-- claude` this time: the session already exists, so you simply get back into it, with Claude's screen
+as it left it. (From another folder, say `~/projects/billing/src`, you'd get a new session called `src`
+instead. You can also name a session yourself: `nexus claude-docker billing` gets back into `billing` from
+anywhere under the projects root.)
+
+**Careful:** typing `/exit` in Claude (or `exit` in the shell) *ends* the session instead of leaving it
+running. To keep it, always leave with `Ctrl-b d`.
+
+## Example 4: two projects at the same time
+
+```bash
+cd ~/projects/billing && nexus claude-docker -- claude
+# Ctrl-b d to detach, then:
+cd ~/projects/shop && nexus claude-docker -- claude
+```
+
+You now have two project sessions in the same persona, `billing` and `shop`, each with its own Claude working
+on its own project. Inside, `Shift+→` and `Shift+←` step through the sessions (the `main` one too), and
+`Ctrl-b` then `s` shows a list to pick from. To see them all from outside:
+
+```bash
+nexus claude-docker ls
+```
+
+## Example 5: a work account and a personal account
+
+Say your team pays for one Claude account and you have a personal plan too. Make one persona for each with
+`nexus --config` → `add` (example 9), for example `claude-team` and `claude-max`, each with its own git name
+(example 1, step 3). Then:
+
+```bash
+# terminal 1
+cd ~/projects/billing
+nexus claude-team -- claude       # signs in with the team account
+```
+
+```bash
+# terminal 2: ssh to the VM again, then
+cd ~/projects/billing
+nexus claude-max -- claude        # your personal plan, same project
+```
+
+Each one has its own login and its own git name and email, so `git log` shows which persona made each commit.
+Each also has its own colour in the bar at the bottom, so you can tell at a glance which one you are typing
+into. Give them work one at a time: two agents editing the same folder at once can overwrite each other's
+changes, and git may stop with an `index.lock` error.
+
+## Example 6: a second opinion from another agent
+
+Add a grok persona (example 9): pick `grok` as the agent. Grok has no browser login: it asks for
+`XAI_API_KEY`, an API key from xAI (ask your team lead, or get one from xAI's console, before you start).
+Paste it and press Enter; the screen stays empty while you paste, and that is normal. Then point it at the
+same project:
+
+```bash
+cd ~/projects/billing
+nexus grok-docker -- grok
+```
+
+Ask it, for example: *"Review the last commit and tell me what could break."* Claude wrote the feature; grok
+checks it. Both see the same files, because both work in your projects root.
+
+## Example 7: one quick question, no session
+
+Sometimes you just want an answer printed, for example in a script or a git hook:
+
+```bash
+cd ~/projects/billing
+git diff | nexus claude-docker headless "review this diff"
+```
+
+This runs one prompt and prints the answer, then stops. No session is opened. It must be run inside a
+project under the persona's projects root (otherwise it refuses and says so).
+
+## Example 8: see what's running
+
+```bash
+nexus ls       # every persona: is it running, and the sessions of the running ones
+nexus top      # a live view: CPU and memory, and for each Claude session how full its conversation
+               # memory is (Claude calls this "context") and how much of your plan's limits is used
+```
+
+In `nexus top`, press `q` to quit.
+
+## Example 9: add, change or remove a persona
+
+```bash
+nexus --config
+```
+
+It shows what is set up, then a menu:
+
+```text
+What next?
+  1) list      the shared settings and the personas, again
+  2) add       a new persona
+  3) change    one persona's flavour, context, statusline, projects root or ssh
+  4) remove    one persona (its env file and home volume stay)
+  5) shared    the settings every persona shares: projects root, image registry, Claude Code version
+  6) launcher  link nexus into a directory on your PATH
+  7) images    build (or pull) the image of every persona
+  8) quit
+choice [quit]:
+```
+
+Type the number or the word. Each choice asks only what it needs, and saves when you finish it. For example,
+`add` asks the same questions as the first persona in example 1 (a grok one asks for its API key instead of a
+login). After a `change`, it tells you to run `nexus <persona> restart` so the change takes effect. That
+closes the persona's sessions, so finish your work first.
+
+## Example 10: a new Claude Code version is out
+
+```bash
+nexus claude-team upgrade
+```
+
+It finds the newest version, builds it and checks it. If Claude personas are running, it lists their sessions
+and asks `Recreate them now? [y/N]` before it restarts them on the new version: answer `y` when nobody is in the
+middle of something. Your logins, settings and history are kept.
+
+## When something goes wrong
+
+| You see | What it means | What to do |
+|---|---|---|
+| `nexus: command not found` | The `nexus` command isn't linked yet. | Type the full path for now, e.g. `~/agents/nexus ls`. To fix it for good: run `~/agents/nexus --config`, type `launcher`, and press Enter for `/usr/local/bin` (it may ask for your password). |
+| `no personas set up yet: run …/nexus --config` | This VM has no personas yet. | Example 1. |
+| `no persona 'x' (set up: …)` | A typo, or that persona doesn't exist. | Use one of the names it lists, or add it (example 9). |
+| `claude-docker isn't running; start it with: nexus claude-docker` | You asked for its sessions, but it is stopped. | Run what it says. |
+| `headless: … is outside claude-docker's projects root (…)` | You ran `headless` from a folder the persona can't see. | `cd` into a project under the projects root first. |
+| `… is outside claude-docker's projects root; starting in …` | You started it from a folder it can't see, so it opened at the projects root instead. | Next time, `cd` into the project first. |
+| `required variable SSH_AUTH_SOCK is missing a value: run an ssh-agent on the VM, …` | The persona was set up to borrow your ssh keys for git (SSH `agent`), and this login has no keys to lend. | Easiest: `nexus --config` → `change` → the persona → SSH `none`, then `nexus <persona> restart`. Or connect with `ssh -A you@your-vm`, which lends your laptop's keys to the VM for that login only: you have to do it every time, and a persona started with it needs `nexus <persona> restart` after you reconnect. |
+
+Anything else: the message usually says what to run. The full list is in
+[runbook.md, Troubleshooting](runbook.md#troubleshooting).
+
+## Cheat sheet
+
+| I want to… | Type |
+|---|---|
+| set up or change the VM's personas | `nexus --config` |
+| start a project with Claude | `cd ~/projects/<project> && nexus <persona> -- claude` |
+| get back into it | `cd ~/projects/<project> && nexus <persona>` |
+| leave it running | `Ctrl-b` then `d` |
+| hop between sessions | `Shift+→` / `Shift+←`, or `Ctrl-b` then `s` for a list |
+| list a persona's sessions | `nexus <persona> ls` |
+| see everything | `nexus ls`, `nexus top` |
+| ask one question from a script | `nexus <persona> headless "…"` |
+| upgrade Claude Code | `nexus <persona> upgrade` |
+| apply a change to a running persona | `nexus <persona> restart` |
+
+The persona names on this page (`claude-docker`, `claude-team`, `claude-max`, `grok-docker`), the repo address
+and `you@your-vm` are examples: use your own, and the persona names `nexus ls` shows on your VM.

@@ -23,6 +23,10 @@ the same way with `-- grok`. When a new Claude Code (or grok) comes out, `nexus 
 rebuilds, and recreates every persona of that flavour once you confirm.
 How the pieces fit together, as diagrams: [Annex: how it works](#annex-how-it-works).
 
+**New to this?** [EXAMPLES.md](EXAMPLES.md) explains it in plain words and walks through the everyday tasks,
+one example at a time: setting up, starting a project, leaving it running, two accounts, a second opinion, a
+quick question from a script. It is the place for examples; this README is how it is built.
+
 ## What's in the checkout
 
 The checkout is generic. `nexus --config` decides which personas a VM runs, the flavour of each
@@ -47,6 +51,7 @@ ssh/                    ssh settings for personas with a key of their own (a dep
 tests/                  run.sh: end-to-end tests of nexus and nexus --config; unit/: unit tests; golden/: recorded
                         scenarios; secrets.sh: the secret scan (gitleaks)
 .github/workflows/      ci.yml: GitHub Actions on every push and pull request: secret scan, unit tests, run.sh
+EXAMPLES.md             the everyday tasks, step by step, in plain words: start here
 runbook.md              setup, day-to-day use, upgrades, troubleshooting, every environment variable
 LICENSE                 MIT, for the files in this repo (not the software the images download)
 .env.example            per-VM settings template → .env (gitignored)

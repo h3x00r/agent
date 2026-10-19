@@ -1,7 +1,8 @@
 # Runbook — persona containers
 
 How to set up, use and maintain the agent personas on a dev VM, from the user's side, plus every
-environment variable involved. The design and its rules are in [README.md](README.md).
+environment variable involved. The design and its rules are in [README.md](README.md). New to Nexus? Start with
+[EXAMPLES.md](EXAMPLES.md): the same tasks in plain words, with examples.
 
 **When:** setup once per VM · daily use · upgrades and persona changes as needed.
 
