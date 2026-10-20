@@ -553,21 +553,27 @@ Check that data arrives (here with Prometheus and Loki behind the collector; the
 as `_`):
 - Claude: `claude_code_session_count_total{persona="<name>"}`, cost
   `sum by (persona) (claude_code_cost_usage_USD_total)`, events `{service_name="claude-code"} | persona="<name>"`.
-- grok: `grok_code_session_count_total`, events `{service_name="grok-cli"}`. grok ignores the resource attributes it
-  is given, so its data carries no host or persona. nexus sends both as headers (`X-Nexus-Host`,
-  `X-Nexus-Persona`); a collector can make attributes of them (OpenTelemetry Collector contrib):
+- grok: `grok_code_session_count_total`, `grok_code_token_usage_total`, events `{service_name="grok-cli"}`. grok
+  ignores the resource attributes it is given, so nexus sends the VM and persona as headers (`X-Nexus-Host`,
+  `X-Nexus-Persona`), and the collector has to put them on the data; without that, grok's data carries no host or
+  persona. In an OpenTelemetry Collector (contrib), as tested with 0.162.0:
   ```yaml
   receivers:
     otlp:
       protocols:
-        http: { include_metadata: true }      # with the endpoint, TLS and auth you have
+        http: { include_metadata: true }      # with the endpoint, TLS and auth you have (grpc the same)
   processors:
-    attributes/nexus:
+    resource/nexus:        # host.name on the resource, as Claude Code sends it: the label host_name
+      attributes:
+        - { key: host.name, from_context: metadata.x-nexus-host, action: insert }
+    attributes/nexus:      # persona on each datapoint and event, as Claude Code copies it
       actions:
         - { key: persona, from_context: metadata.x-nexus-persona, action: insert }
-        - { key: host.name, from_context: metadata.x-nexus-host, action: insert }
-  # and attributes/nexus in the metrics and logs pipelines' processors, after memory_limiter
+  # both in the metrics and logs pipelines' processors, after memory_limiter; insert leaves Claude Code's own
+  # values (and data without the headers) as they are
   ```
+  Then `grok_code_session_count_total{host_name="<vm>", persona="<name>"}` and
+  `{service_name="grok-cli", host_name="<vm>"} | persona="<name>"` work as Claude's do.
 
 If nothing arrives, the persona works all the same: neither CLI says anything about a failed export, and a
 collector that doesn't answer costs at most about 2 s when the CLI exits.
