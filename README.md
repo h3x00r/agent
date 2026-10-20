@@ -64,6 +64,7 @@ personas/claude.json    Claude Code defaults for every Claude persona, on every 
 personas/claude.managed.json  Claude Code settings that hold in every Claude persona (a managed drop-in)
 personas/claude.ask.json  the permission mode a Claude persona set to ask starts in (a managed drop-in after that one)
 personas/grok.toml      grok settings for every grok persona, on every VM (its managed config, with the statusline)
+personas/*.telemetry.*  written by nexus --config for the personas that send telemetry, from .env (gitignored)
 ```
 
 ## Why Nexus
@@ -238,6 +239,19 @@ own choices.
   refuses them on an older one.
 - Details, and how to see what a persona got: runbook §5, [Settings for every persona](runbook.md#settings-for-every-persona).
 
+## Telemetry (optional)
+
+Off unless you set it up. With `nexus --config`, then `telemetry`, a persona can send what its CLI reports about
+itself (tokens, cost, sessions, tool use, errors; no prompts or replies) to an OpenTelemetry collector you run for
+several VMs: its OTLP/HTTP address, its bearer token and, for a private CA, its CA file go into `.env`, and you pick
+the personas that send. Claude Code sends metrics, events and traces, tagged with the VM (`host.name`) and the
+persona (`persona`); grok sends metrics and events, and the VM and persona as headers a collector can turn into
+attributes. Claude Code gets it all as managed settings, never through the container's environment, so nothing
+else in the persona (docker compose has telemetry of its own) starts sending. grok takes its token from the
+environment only, so a grok persona's environment holds it, as the headers of metrics and events alone, which
+docker compose and tracing don't read. `nexus --config` tries the collector after a save and says what is wrong if
+it doesn't take the export. Details: runbook §5, [Telemetry](runbook.md#telemetry-opentelemetry).
+
 ## Headless / pipeline use
 
 One prompt, no tmux. `nexus <persona> headless` runs the persona's CLI in its one-shot mode (`claude -p`, or
@@ -320,11 +334,15 @@ personas/claude.ask.json ───────── mount (ro) ───► /et
                                    (a persona set to ask)
 statusline/claude/settings.json ── mount (ro) ───► /etc/claude-code/managed-settings.d/20-statusline.json
                                   (the image's own 10-agent-image.json: its update lock)
+.env TELEMETRY_* ─ nexus --config ─► personas/<name>.telemetry.json ─ mount (ro) ─► …/managed-settings.d/50-telemetry.json
+                   (a persona that sends)
 
                                                    inside a grok persona
 personas/grok.toml ──────┐
 statusline/grok/         ├─ nexus --config ─► personas/<name>.grok.toml ─ mount (ro) ─► /etc/grok/managed_config.toml
-  settings.toml ─────────┘  (statusline on)                                              below ~/.grok/config.toml, which wins
+  settings.toml ─────────┤  (statusline on)                                              below ~/.grok/config.toml, which wins
+.env TELEMETRY_* ────────┘  ([telemetry], a persona that sends) and personas/<name>.telemetry.env ─► its environment
+                                                                                         (the token header alone)
 ```
 
 ### Setup, once per VM (run it again to change anything)

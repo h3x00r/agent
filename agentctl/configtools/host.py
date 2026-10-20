@@ -9,6 +9,7 @@ Pitfalls (each pinned where named):
 import os
 import re
 import shutil
+import socket
 
 from agentctl.configtools import staging
 from agentctl.core import dotenv, proc
@@ -57,6 +58,12 @@ def ddev_version():
     r = proc.run(["ddev", "--version"])
     m = re.search(r"[0-9]+\.[0-9]+\.[0-9]+", r.out)
     return m.group(0) if m else ""
+
+
+def short_host():
+    """The VM's name as bash's ${HOSTNAME%%.*}: its own HOSTNAME unless one came in from the environment, even an
+    empty one, up to the first dot."""
+    return (os.environ["HOSTNAME"] if "HOSTNAME" in os.environ else socket.gethostname()).split(".", 1)[0]
 
 
 def nproc():

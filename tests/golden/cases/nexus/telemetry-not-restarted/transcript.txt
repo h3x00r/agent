@@ -1,0 +1,54 @@
+## run 1: nexus c1 start  (running, made before it sent)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+nexus: warning: c1 sends telemetry now, but its container was made before that and doesn't: `nexus c1 restart` applies it (that ends its tmux sessions)
+## run 2: nexus g1  (an attach, made before it sent)  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s app -c <P>/app]
+--- stderr
+nexus: warning: g1 sends telemetry now, but its container was made before that and doesn't: `nexus g1 restart` applies it (that ends its tmux sessions)
+## run 3: nexus c1 restart  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-c1  Recreated
+## run 4: nexus g1 restart  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-g1  Recreated
+## run 5: nexus c1 start  (restarted: nothing to say)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+(empty)
+## run 6: nexus c1 start  (running, made while it sent)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+nexus: warning: c1 no longer sends telemetry, but its container was made while it did and still sends it: `nexus c1 restart` stops it (that ends its tmux sessions)
+## run 7: nexus g1 start  (grok stops at its next start: nothing to say)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+(empty)
+## run 8: nexus c1 restart  (its neutral drop-in goes)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-c1  Recreated
+## run 9: nexus c1 start  (nothing to say)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+(empty)

@@ -43,6 +43,15 @@
     | # AGENT_CPUS must not exceed the VM's vCPU count (nproc), or the container won't start.
     | AGENT_CPUS=3
     | AGENT_MEMORY=8g
+    | 
+    | # Telemetry: OpenTelemetry from the personas that send it to one collector (nexus --config: telemetry in its
+    | # menu, or --telemetry-endpoint and the like). Empty: none. Its OTLP/HTTP address, e.g. https://collector.lan:4318;
+    | # its bearer token (this file is made private, mode 600, once it holds one); the CA its certificate is signed by,
+    | # as nexus --config copied it in (personas/telemetry-ca.pem; empty: a publicly trusted certificate). A path of
+    | # your own here is copied in at the next nexus --config. Which personas send is in personas.json.
+    | #TELEMETRY_ENDPOINT=
+    | #TELEMETRY_TOKEN=
+    | #TELEMETRY_CA=
 + wrap/locked-the-personas-file-c1  f 755
     | #!/bin/sh
     | chmod 000 "<A>/personas.json"; "<A>/nexus" "$@"; rc=$?; chmod 644 "<A>/personas.json"; exit $rc

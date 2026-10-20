@@ -3,7 +3,7 @@
 A first run (no .env yet) asks the settings every persona shares, then where to link the launcher, then the
 first persona; any other run first brings what it generates up to date (as a re-run of the setup always did),
 saying which files it wrote, if any. Every run then shows what is set up, and a menu: list, add, change or remove a persona, the
-shared settings, the launcher, the images. Each action is saved as soon as it is done (the Session's stage,
+shared settings, telemetry, the launcher, the images. Each action is saved as soon as it is done (the Session's stage,
 check and commit, as one --yes run saves), so a run stopped in the middle of one loses that one only; one the
 check refuses is said, nothing of it written, and the menu comes back. Options given with it (--persona,
 --projects-root, …) are saved first. A checkout still on the `# persona:` lines has them moved first, so what
@@ -16,13 +16,17 @@ Pitfalls (each pinned where named):
   (golden config/menu-eof)
 - an action the check refuses: said, nothing of it written, the personas and shared settings as saved, and
   none of its notes (golden config/menu-refused)
-- the options' shared settings saved first, then .env's are the defaults (golden config/menu-flags-shared)
+- the options' shared settings saved first, then .env's are the defaults (golden config/menu-flags-shared); the
+  options refused, the telemetry settings as .env has them too (golden config/telemetry-hand-edits)
 - a first persona refused: the menu all the same (golden config/menu-first-refused)
 - a run brings the generated files up to date first, saying which it wrote; one the check refuses, the menu all
   the same (golden config/menu-refresh, golden config/menu-refused)
 - a save that writes nothing says so (golden config/menu-shared-kept)
 - a new persona's ssh key told as a new one's, not a restart (golden config/menu-add-key)
 - a build that failed makes the exit code 1, at quit too (golden config/menu-images)
+- telemetry: the collector tried with a test export after a save that changed its settings or made a persona send,
+  and when the telemetry action changed nothing (to try it again); not otherwise (golden config/telemetry-menu,
+  golden config/telemetry-flags)
 """
 import copy
 import os
@@ -37,9 +41,10 @@ from agentctl.ui.prompts import EOF_MESSAGE
 
 ACTIONS = ["list      the shared settings and the personas, again",
            "add       a new persona",
-           "change    one persona's flavour, context, statusline, projects root, ssh or permissions",
+           "change    one persona's flavour, context, statusline, projects root, ssh, permissions or telemetry",
            "remove    one persona (its env file and home volume stay)",
            "shared    the settings every persona shares: projects root, image registry, Claude Code version",
+           "telemetry send OpenTelemetry to a collector: its address, token and CA, and which personas send",
            "launcher  link nexus into a directory on your PATH",
            "images    build (or pull) the image of every persona",
            "quit"]
@@ -70,7 +75,8 @@ class Menu:
             s.say("nexus --config: setting up %s for the first time%s" % (s.a, ddev))
         else:
             s.say("nexus --config: %s%s" % (s.a, ddev))
-        flags = bool(o.add or o.ssh or o.permissions or o.remove or o.root or o.registry or o.claude)
+        flags = bool(o.add or o.ssh or o.permissions or o.remove or o.root or o.registry or o.claude or o.telemetry
+                     or o.tele_endpoint or o.tele_token_file or o.tele_ca)
         before = set(p.name for p in s.personas)
         read = copy.deepcopy(s.personas)
         s.apply_flags()
@@ -95,6 +101,7 @@ class Menu:
                 s.out.note(e.message)
                 s.personas = read
                 s.read_shared()
+                s.read_tele()
                 staging.cleanup()
                 s.unstage()
                 self.failed = 1
@@ -138,7 +145,7 @@ class Menu:
         settings go back to what is saved. The end of input stops the run (nothing is left to answer the menu),
         and ^C does; either way, an action stopped before its save says nothing of what it would have done."""
         s = self.s
-        kept = (copy.deepcopy(s.personas), s.root, s.registry, s.claude_version, s.vm_root_hint)
+        kept = (copy.deepcopy(s.personas), s.root, s.registry, s.claude_version, s.vm_root_hint, dict(s.tele), s.ca_from)
         mark, self.committed, done = len(s.later), False, False
         try:
             getattr(self, "act_" + act)()
@@ -147,7 +154,7 @@ class Menu:
             if e.message == EOF_MESSAGE:
                 raise
             s.out.note(e.message)
-            s.personas, s.root, s.registry, s.claude_version, s.vm_root_hint = kept
+            s.personas, s.root, s.registry, s.claude_version, s.vm_root_hint, s.tele, s.ca_from = kept
             staging.cleanup()
             s.unstage()
             self.failed = 1
@@ -180,6 +187,7 @@ class Menu:
         elif s.wrote:
             s.say("-- brought up to date: " + ", ".join(s.wrote))
         after.ssh_keys(s)
+        after.telemetry_check(s)
         s.saved()
 
     # --- what is set up ---
@@ -191,6 +199,7 @@ class Menu:
                 ("image registry", "%s (%s)" % (s.registry, "images built on this VM" if s.registry == "local"
                                                  else "images pulled from it")),
                 ("Claude Code", s.claude_version),
+                ("telemetry", self.telemetry_state()),
                 ("launcher", self.launcher_state()))
         for k, v in rows:
             s.say("  %s %s" % (pad(k, 15), v))
@@ -199,6 +208,13 @@ class Menu:
         for n, f in self.leftovers():
             s.say("  personas/%s.env%s is no persona's (one removed earlier?): add one named %s to use it again"
                   % (n, " (a %s one)" % f if f else "", n))
+
+    def telemetry_state(self):
+        t = self.s.tele
+        if not t["endpoint"]:
+            return "off"
+        return "%s (%s, %s)" % (t["endpoint"], "a token" if t["token"] else "no token",
+                                "its CA in " + t["ca"] if t["ca"] else "a publicly trusted certificate")
 
     def launcher_state(self):
         s = self.s
@@ -286,6 +302,18 @@ class Menu:
                               "the new registry" if s.registry != before[0] else "Claude Code " + s.claude_version),
                            "y") and self.q.room(verb, which):
                 self.build(verb, which)
+
+    def act_telemetry(self):
+        s = self.s
+        s.section("Telemetry (OpenTelemetry to a collector)")
+        before = (dict(s.tele), [(p.name, p.telemetry) for p in s.personas])
+        self.q.telemetry()
+        if (dict(s.tele), [(p.name, p.telemetry) for p in s.personas]) == before and not s.ca_changed():
+            s.say("  telemetry is as it was")
+            s.tele_check = True       # gone through to try the collector again, maybe
+            after.telemetry_check(s)
+            return
+        self.save("the telemetry settings")
 
     def act_launcher(self):
         self.s.section("The launcher")

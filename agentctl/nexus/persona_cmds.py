@@ -9,10 +9,11 @@ which decides which error wins:
      mkcert dir, and its CA if there is one; a persona with ssh= of its own gets no agent;
   3. upgrade, if that was asked;
   4. a restart, or a persona that isn't running: the checks that keep Docker from making root-owned
-     files (its ssh key, the settings files its service mounts), then that compose.personas.yml is what
-     personas.json gives (a hand edit isn't used to create one), the warnings (no mkcert CA, an empty or
-     stale ssh-agent), then compose up and the Claude defaults; a running one: the projects root it was
-     created with, if that isn't the persona's now, and a warning if compose.personas.yml is out of step;
+     files (its ssh key, the settings files its service mounts, its telemetry files and the collector's CA),
+     then that compose.personas.yml is what personas.json gives (a hand edit isn't used to create one), the
+     ddev telemetry bundle written (the CA, then mkcert's), the warnings (no mkcert CA, an empty or stale
+     ssh-agent), then compose up and the Claude defaults; a running one: the projects root it was created with,
+     if that isn't the persona's now, and a warning if compose.personas.yml is out of step;
   5. start stops here; otherwise where to start (domain.roots.place), then headless or the attach:
      `docker exec -it … tmux new-session -A`, which takes this process over. With one of the two words, a
      probe in the persona first (mode_env): the session's NEXUS_PERMISSIONS, which the image's claude
@@ -44,14 +45,23 @@ Pitfalls (each pinned where named):
   read, is refused, never attached; a new one gets NEXUS_PERMISSIONS whatever the persona's own mode, and no -A
   (golden nexus/perm-flag-sessions, golden nexus/perm-flag-main)
 - an image without claude-mode.sh is refused, not run in the persona's mode (golden nexus/perm-flag-old-image)
+- telemetry: a file its service mounts that isn't there (or a CA that isn't a certificate) is refused before Docker
+  makes it a root-owned directory; a ddev claude persona's bundle written at every start, so a later `mkcert
+  -install` and a restart reach it; once the container is made, a telemetry file its service no longer names (a
+  neutral drop-in left for the old container) removed (golden nexus/telemetry-start)
+- telemetry, running in a container made before it changed: a warning at a start, an attach and a headless run, as
+  for one that asks: a claude one by its drop-in's mount, a grok one by its token header in the container's
+  environment (golden nexus/telemetry-not-restarted)
 """
 import os
 import shutil
 
 from agentctl.adapters import checks, docker
+from agentctl.adapters import telemetry as tele_io
 from agentctl.core import proc
 from agentctl.core.errors import Exit, NexusError
 from agentctl.core.shellcompat import bash_basename, mkdir_p, realpath_e, utf8_locale
+from agentctl.domain import telemetry as tele
 from agentctl.domain.roots import moved, place
 from agentctl.nexus import headless, ls, upgrade
 from agentctl.nexus.context import Persona, is_socket
@@ -253,9 +263,22 @@ class Run:
                     die("%s/%s %s, and %s asks before running tools: %s" % (a, ASK_FILE, why, p.name, fix))
             if "./personas/%s.grok.toml," % p.name in text and not os.path.isfile(os.path.join(a, "personas", p.name + ".grok.toml")):
                 die("%s/personas/%s.grok.toml isn't there: re-run %s/nexus --config, which writes it" % (a, p.name, a))
+            mine = service_text(text, p.name)
+            for f in (tele.dropin_file(p.name), tele.env_file(p.name)):
+                if f in mine and not os.path.isfile(os.path.join(a, f)):
+                    die("%s/%s isn't there: re-run %s/nexus --config, which writes it" % (a, f, a))
+            if "./%s," % tele.CA_FILE in mine or "./%s," % tele.DDEV_BUNDLE in mine:
+                why = tele_io.ca_problem(os.path.join(a, tele.CA_FILE))
+                if why:
+                    die("%s/%s %s, and %s sends telemetry to a collector with a CA of its own: give the CA file again "
+                        "with %s/nexus --config, then telemetry" % (a, tele.CA_FILE, why, p.name, a))
             why = self.ctx.step_problem()
             if why:
                 die(why)
+            if "./%s," % tele.DDEV_BUNDLE in mine:
+                why = tele_io.write_bundle(a, self.env.get("HOME", ""))
+                if why:
+                    die("%s's telemetry needs the collector's CA and mkcert's in one file, but nexus %s" % (p.name, why))
             if no_ca:
                 self.out.warn("no mkcert CA on this VM yet — run 'mkcert -install' here, then `nexus %s restart`, or "
                               "https://*.ddev.site stays untrusted inside" % p.name)
@@ -271,18 +294,21 @@ class Run:
                 rc = proc.run(argv, env=e, capture=False).rc
                 if rc:
                     return rc
+                tele_leftovers(a, p.name, mine)
                 self.claude_defaults()
                 return 0
             argv, e = self.compose("up", "-d", p.name)
             rc = proc.run(argv, env=e, capture=False, stdout_to_stderr=True).rc
             if rc:
                 return rc
+            tele_leftovers(a, p.name, mine)
             self.claude_defaults()
         else:
             old = ls.old_root(p)
             if p.flavour == "claude" and p.permissions == "ask" and ASK_TARGET not in docker.mounts(p.container):
                 self.out.warn("%s asks before running tools now, but its container was made before that and doesn't: "
                               "`nexus %s restart` applies it (that ends its tmux sessions)" % (p.name, p.name))
+            self.tele_made_before()
         if start_only:
             if old:
                 self.out.warn(moved(p.name, old, p.root + p.root_from))
@@ -307,6 +333,24 @@ class Run:
         if is_headless:
             return headless.Headless(self, pl.dir, args).run()
         return self.attach(pl, old, args)
+
+    def tele_made_before(self):
+        """A running container made before the persona's telemetry changed: said, with the restart that applies it. A
+        claude one sends while its container mounts the drop-in; a grok one has the token header in its environment
+        (with no table in its managed config, which is rewritten in place, a grok stops sending at once)."""
+        p, a = self.p, self.ctx.agents_dir
+        if p.flavour == "claude" and (p.telemetry or os.path.isfile(os.path.join(a, tele.dropin_file(p.name)))):
+            made = tele.DROPIN_TARGET in docker.mounts(p.container)
+        elif p.flavour == "grok" and p.telemetry:
+            made = tele.GROK_HEADERS[0] in docker.env_keys(p.container)
+        else:
+            return
+        if p.telemetry and not made:
+            self.out.warn("%s sends telemetry now, but its container was made before that and doesn't: `nexus %s restart` "
+                          "applies it (that ends its tmux sessions)" % (p.name, p.name))
+        elif made and not p.telemetry:
+            self.out.warn("%s no longer sends telemetry, but its container was made while it did and still sends it: `nexus "
+                          "%s restart` stops it (that ends its tmux sessions)" % (p.name, p.name))
 
     def attach(self, pl, old, args):
         p, a = self.p, self.ctx.agents_dir
@@ -337,3 +381,23 @@ class Run:
         proc.execvp(["docker", "exec", "-it", "-e", "TERM=" + term, "-w", wd, p.container,
                      "tmux", "new-session"] + ([] if perm else ["-A"]) + ["-s", session, "-c", wd]
                     + (["-e", "NEXUS_PERMISSIONS=" + perm] if perm else []) + cmd)
+
+
+def service_text(text, name):
+    """NAME's service in compose.personas.yml's TEXT: from its name to the blank line after it ("" if none)."""
+    start = text.find('\n  "%s":\n' % name)
+    if start < 0:
+        return ""
+    end = text.find("\n\n", start + 1)
+    return text[start:] if end < 0 else text[start:end]
+
+
+def tele_leftovers(a, name, mine):
+    """Once NAME's container is made from its service MINE: a telemetry file of its that the service doesn't name any
+    more goes (a neutral drop-in, left for the container before, which mounted it)."""
+    for f in (tele.dropin_file(name), tele.env_file(name)):
+        if f not in mine:
+            try:
+                os.unlink(os.path.join(a, f))
+            except OSError:
+                pass

@@ -4,7 +4,8 @@ A Persona has a name, a flavour (claude | grok), a context (ddev | docker), a tm
 on or off, its own projects root ("" for the VM's), its ssh: "" (your ssh-agent, forwarded), "none",
 or a key: personas/NAME.key (made by nexus --config) or an absolute path; and, for a claude persona, its
 permissions: bypass (personas/claude.managed.json's bypassPermissions; the default) or ask
-(personas/claude.ask.json's mode over it).
+(personas/claude.ask.json's mode over it); and whether it sends telemetry (OpenTelemetry, to the collector
+TELEMETRY_ENDPOINT in .env names; domain/telemetry.py).
 
 Pitfalls (each pinned where named):
 - valid_name() is a fullmatch: a trailing newline is no name (test_domain.Rules.test_names)
@@ -23,6 +24,8 @@ Pitfalls (each pinned where named):
 - permissions: written only when it is ask, so a personas.json from before it reads the same
   (test_adapters.PersonasJson.test_a_round_trip_keeps_order_and_bytes); ask only for a claude persona
   (test_adapters.PersonasJson.test_what_it_refuses, golden config/perm-refused)
+- telemetry: written only when true, so a personas.json from before it reads the same; true or false, nothing else
+  (test_adapters.PersonasJson.test_a_round_trip_keeps_order_and_bytes, test_adapters.PersonasJson.test_what_it_refuses)
 """
 import os
 import re
@@ -54,6 +57,7 @@ class Persona:
     root: str = ""
     ssh: str = ""
     permissions: str = "bypass"
+    telemetry: bool = False
 
     @property
     def container(self):
@@ -152,7 +156,7 @@ def parse_meta_line(line):
     return Persona(name, f, c, col, sl == "yes", r, k)
 
 
-FIELDS = ("flavour", "context", "colour", "statusline", "root", "ssh", "permissions")
+FIELDS = ("flavour", "context", "colour", "statusline", "root", "ssh", "permissions", "telemetry")
 
 
 class BadRecord(ValueError):
@@ -172,7 +176,7 @@ def _text_ok(v):
 
 def to_record(p):
     """The persona as personas.json holds it under its name: root and ssh only when it has them, permissions
-    only when it asks."""
+    only when it asks, telemetry only when it sends."""
     d = {"flavour": p.flavour, "context": p.context, "colour": p.colour, "statusline": p.statusline}
     if p.root:
         d["root"] = p.root
@@ -180,6 +184,8 @@ def to_record(p):
         d["ssh"] = p.ssh
     if p.permissions != "bypass":
         d["permissions"] = p.permissions
+    if p.telemetry:
+        d["telemetry"] = True
     return d
 
 
@@ -201,6 +207,8 @@ def from_record(name, d):
             raise BadRecord("has a %s with a NUL or a \\u escape no file name can hold" % k)
     if not isinstance(d["statusline"], bool):
         raise BadRecord("has a statusline that isn't true or false")
+    if not isinstance(d.get("telemetry", False), bool):
+        raise BadRecord("has a telemetry that isn't true or false")
     if not valid_name(name):
         raise BadRecord("isn't a persona name: it takes %s" % NAME_RULE)
     f, c, col, r, k = d["flavour"], d["context"], d["colour"], d.get("root", ""), d.get("ssh", "")
@@ -220,7 +228,7 @@ def from_record(name, d):
         raise BadRecord("has permissions '%s', not bypass or ask" % perm)
     if perm == "ask" and f != "claude":
         raise BadRecord("has permissions 'ask', which only a claude persona takes (grok's come from personas/grok.toml)")
-    return Persona(name, f, c, col, d["statusline"], r, k, perm)
+    return Persona(name, f, c, col, d["statusline"], r, k, perm, d.get("telemetry", False))
 
 
 def key_file(p, checkout):

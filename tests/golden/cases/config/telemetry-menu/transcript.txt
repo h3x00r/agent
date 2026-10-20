@@ -1,0 +1,421 @@
+## run 1: config --no-link --no-build  (telemetry: set up, c1 sends)  [tty-in]
+rc: 0
+--- stdout
+nexus --config: <A>
+
+Shared by every persona
+  projects root   <P>
+  image registry  local (images built on this VM)
+  Claude Code     latest
+  telemetry       off
+  launcher        not on your PATH: link it with launcher, or run <A>/nexus
+Personas
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  g1                              grok     docker   yes        the VM's             your agent
+
+What next?
+  1) list      the shared settings and the personas, again
+  2) add       a new persona
+  3) change    one persona's flavour, context, statusline, projects root, ssh, permissions or telemetry
+  4) remove    one persona (its env file and home volume stay)
+  5) shared    the settings every persona shares: projects root, image registry, Claude Code version
+  6) telemetry send OpenTelemetry to a collector: its address, token and CA, and which personas send
+  7) launcher  link nexus into a directory on your PATH
+  8) images    build (or pull) the image of every persona
+  9) quit
+
+== Telemetry (OpenTelemetry to a collector)
+  it takes https://host[:port] (or http://), the collector's OTLP/HTTP address, e.g. https://collector.lan:4318
+  a token takes letters, digits and . _ ~ + / = - only
+  rel.pem isn't an absolute path (or ~/…)
+  <S>/keys/missing.pem isn't a file
+-- saved: the telemetry settings
+c1: changed; `nexus c1 restart` applies it (that ends its tmux sessions)
+telemetry: nothing answered at https://127.0.0.1:1 (is it down, or is the address wrong?). The personas work all the same, but what they send is lost until this is fixed.
+
+What next?
+  1) list      the shared settings and the personas, again
+  2) add       a new persona
+  3) change    one persona's flavour, context, statusline, projects root, ssh, permissions or telemetry
+  4) remove    one persona (its env file and home volume stay)
+  5) shared    the settings every persona shares: projects root, image registry, Claude Code version
+  6) telemetry send OpenTelemetry to a collector: its address, token and CA, and which personas send
+  7) launcher  link nexus into a directory on your PATH
+  8) images    build (or pull) the image of every persona
+  9) quit
+
+Shared by every persona
+  projects root   <P>
+  image registry  local (images built on this VM)
+  Claude Code     latest
+  telemetry       https://127.0.0.1:1 (a token, its CA in personas/telemetry-ca.pem)
+  launcher        not on your PATH: link it with launcher, or run <A>/nexus
+Personas
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  g1                              grok     docker   yes        the VM's             your agent
+  sends telemetry to https://127.0.0.1:1: c1
+
+What next?
+  1) list      the shared settings and the personas, again
+  2) add       a new persona
+  3) change    one persona's flavour, context, statusline, projects root, ssh, permissions or telemetry
+  4) remove    one persona (its env file and home volume stay)
+  5) shared    the settings every persona shares: projects root, image registry, Claude Code version
+  6) telemetry send OpenTelemetry to a collector: its address, token and CA, and which personas send
+  7) launcher  link nexus into a directory on your PATH
+  8) images    build (or pull) the image of every persona
+  9) quit
+
+Start one from a project directory:  cd <P>/<project> && nexus c1
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr (no newline at the end)
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
+choice [quit]: The collector's OTLP/HTTP address, e.g. https://collector.lan:4318 (none: no telemetry) [none]: The collector's OTLP/HTTP address, e.g. https://collector.lan:4318 (none: no telemetry) [none]: Its bearer token (sent as Authorization: Bearer …; - for none) (hidden; empty to skip): 
+Its bearer token (sent as Authorization: Bearer …; - for none) (hidden; empty to skip): 
+The CA file its certificate is signed by, PEM (-: none, a publicly trusted certificate) [-]: The CA file its certificate is signed by, PEM (-: none, a publicly trusted certificate) [-]: The CA file its certificate is signed by, PEM (-: none, a publicly trusted certificate) [-]: Send c1's telemetry (OpenTelemetry: tokens, cost, sessions, tool use; no prompts) to https://127.0.0.1:1? [y/N]: Send g1's telemetry (OpenTelemetry: tokens, cost, sessions, tool use; no prompts) to https://127.0.0.1:1? [y/N]: choice [quit]: choice [quit]: 
+--- echo
+telemetry\r
+collector.lan:4318\r
+https://127.0.0.1:1/\r
+rel.pem\r
+<S>/keys/missing.pem\r
+<S>/keys/ca.pem\r
+y\r
+\r
+list\r
+\r
+## run 2: config --no-link --no-build  (telemetry as it was; c2 added, sending)  [tty-in]
+rc: 0
+--- stdout
+nexus --config: <A>
+
+Shared by every persona
+  projects root   <P>
+  image registry  local (images built on this VM)
+  Claude Code     latest
+  telemetry       https://127.0.0.1:1 (a token, its CA in personas/telemetry-ca.pem)
+  launcher        not on your PATH: link it with launcher, or run <A>/nexus
+Personas
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  g1                              grok     docker   yes        the VM's             your agent
+  sends telemetry to https://127.0.0.1:1: c1
+
+What next?
+  1) list      the shared settings and the personas, again
+  2) add       a new persona
+  3) change    one persona's flavour, context, statusline, projects root, ssh, permissions or telemetry
+  4) remove    one persona (its env file and home volume stay)
+  5) shared    the settings every persona shares: projects root, image registry, Claude Code version
+  6) telemetry send OpenTelemetry to a collector: its address, token and CA, and which personas send
+  7) launcher  link nexus into a directory on your PATH
+  8) images    build (or pull) the image of every persona
+  9) quit
+
+== Telemetry (OpenTelemetry to a collector)
+  telemetry is as it was
+telemetry: nothing answered at https://127.0.0.1:1 (is it down, or is the address wrong?). The personas work all the same, but what they send is lost until this is fixed.
+
+What next?
+  1) list      the shared settings and the personas, again
+  2) add       a new persona
+  3) change    one persona's flavour, context, statusline, projects root, ssh, permissions or telemetry
+  4) remove    one persona (its env file and home volume stay)
+  5) shared    the settings every persona shares: projects root, image registry, Claude Code version
+  6) telemetry send OpenTelemetry to a collector: its address, token and CA, and which personas send
+  7) launcher  link nexus into a directory on your PATH
+  8) images    build (or pull) the image of every persona
+  9) quit
+
+== A new persona
+Flavour:
+  1) claude   Claude Code (Anthropic)
+  2) grok     Grok Build (xAI)
+Context: which kind of projects does it work on?
+  1) ddev     ddev projects: ddev inside, sharing the VM's ddev state and mkcert CA
+  2) docker   projects run with docker compose / Dockerfiles: no ddev
+SSH (git over ssh) for c2:
+  1) agent    your ssh-agent, forwarded: your own keys; starting it then needs an agent in your shell
+  2) none     no ssh: it commits, and you pull and push from the VM, in the same directory
+  3) new      a key of its own, made as personas/c2.key: add its public half as a deploy key
+  4) path     a private key you already have, without a passphrase
+
+== c2: sign-in and identity (personas/c2.env)
+How does c2 sign in to Claude?
+  1) login    interactively, inside the persona (a Claude subscription; kept in its home volume)
+  2) apikey   an Anthropic API key (Console / API billing)
+  3) token    a long-lived token from `claude setup-token` (Pro/Max/Team/Enterprise plan)
+-- saved: c2, a new persona
+telemetry: nothing answered at https://127.0.0.1:1 (is it down, or is the address wrong?). The personas work all the same, but what they send is lost until this is fixed.
+
+What next?
+  1) list      the shared settings and the personas, again
+  2) add       a new persona
+  3) change    one persona's flavour, context, statusline, projects root, ssh, permissions or telemetry
+  4) remove    one persona (its env file and home volume stay)
+  5) shared    the settings every persona shares: projects root, image registry, Claude Code version
+  6) telemetry send OpenTelemetry to a collector: its address, token and CA, and which personas send
+  7) launcher  link nexus into a directory on your PATH
+  8) images    build (or pull) the image of every persona
+  9) quit
+
+Start one from a project directory:  cd <P>/<project> && nexus c1
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr (no newline at the end)
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
+choice [quit]: The collector's OTLP/HTTP address, e.g. https://collector.lan:4318 (none: no telemetry) [https://127.0.0.1:1]: Its bearer token (sent as Authorization: Bearer …; empty keeps the one in .env, - for none) (hidden; empty to skip): 
+The CA file its certificate is signed by, PEM (-: none, a publicly trusted certificate) [personas/telemetry-ca.pem]: Send c1's telemetry (OpenTelemetry: tokens, cost, sessions, tool use; no prompts) to https://127.0.0.1:1? [Y/n]: Send g1's telemetry (OpenTelemetry: tokens, cost, sessions, tool use; no prompts) to https://127.0.0.1:1? [y/N]: choice [quit]: choice [claude]: choice [docker]: Name [claude-docker]: Statusline (statusline/: model, context, cost; what nexus top shows) in c2? [Y/n]: Projects root for c2 (-: the VM's, now <P>) [-]: choice [agent]: Let c2 run its tools without asking (bypassPermissions; no: it asks first, as personas/claude.ask.json says)? [Y/n]: Send c2's telemetry (OpenTelemetry: tokens, cost, sessions, tool use; no prompts) to https://127.0.0.1:1? [y/N]: choice [login]: git author name for c2 [Test User]: git author email for c2 [test@example.invalid]: GH_TOKEN for the gh CLI in c2 (hidden; empty to skip): 
+choice [quit]: 
+--- echo
+telemetry\r
+\r
+\r
+\r
+\r
+add\r
+\r
+\r
+c2\r
+\r
+\r
+\r
+\r
+y\r
+\r
+\r
+\r
+\r
+## run 3: config --no-link --no-build  (the CA gone: refused, then given again; c2 stops)  [tty-in]
+rc: 1
+--- stdout
+nexus --config: <A>
+
+Shared by every persona
+  projects root   <P>
+  image registry  local (images built on this VM)
+  Claude Code     latest
+  telemetry       https://127.0.0.1:1 (a token, its CA in personas/telemetry-ca.pem)
+  launcher        not on your PATH: link it with launcher, or run <A>/nexus
+Personas
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  g1                              grok     docker   yes        the VM's             your agent
+  c2                              claude   docker   yes        the VM's             your agent
+  sends telemetry to https://127.0.0.1:1: c1, c2
+
+What next?
+  1) list      the shared settings and the personas, again
+  2) add       a new persona
+  3) change    one persona's flavour, context, statusline, projects root, ssh, permissions or telemetry
+  4) remove    one persona (its env file and home volume stay)
+  5) shared    the settings every persona shares: projects root, image registry, Claude Code version
+  6) telemetry send OpenTelemetry to a collector: its address, token and CA, and which personas send
+  7) launcher  link nexus into a directory on your PATH
+  8) images    build (or pull) the image of every persona
+  9) quit
+
+== Telemetry (OpenTelemetry to a collector)
+  personas/telemetry-ca.pem isn't a file: give the CA file again
+-- saved: the telemetry settings
+c2: changed; `nexus c2 restart` applies it (that ends its tmux sessions)
+telemetry: nothing answered at https://127.0.0.1:1 (is it down, or is the address wrong?). The personas work all the same, but what they send is lost until this is fixed.
+
+What next?
+  1) list      the shared settings and the personas, again
+  2) add       a new persona
+  3) change    one persona's flavour, context, statusline, projects root, ssh, permissions or telemetry
+  4) remove    one persona (its env file and home volume stay)
+  5) shared    the settings every persona shares: projects root, image registry, Claude Code version
+  6) telemetry send OpenTelemetry to a collector: its address, token and CA, and which personas send
+  7) launcher  link nexus into a directory on your PATH
+  8) images    build (or pull) the image of every persona
+  9) quit
+
+Start one from a project directory:  cd <P>/<project> && nexus c1
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr (no newline at the end)
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: TELEMETRY_CA in <A>/.env names personas/telemetry-ca.pem, which isn't a file, and c1 and c2 send telemetry, so nothing was written: give the collector's CA file again (nexus --config, then telemetry; or --telemetry-ca FILE)
+choice [quit]: The collector's OTLP/HTTP address, e.g. https://collector.lan:4318 (none: no telemetry) [https://127.0.0.1:1]: Its bearer token (sent as Authorization: Bearer …; empty keeps the one in .env, - for none) (hidden; empty to skip): 
+The CA file its certificate is signed by, PEM (-: none, a publicly trusted certificate) [personas/telemetry-ca.pem]: The CA file its certificate is signed by, PEM (-: none, a publicly trusted certificate) [-]: Send c1's telemetry (OpenTelemetry: tokens, cost, sessions, tool use; no prompts) to https://127.0.0.1:1? [Y/n]: Send g1's telemetry (OpenTelemetry: tokens, cost, sessions, tool use; no prompts) to https://127.0.0.1:1? [y/N]: Send c2's telemetry (OpenTelemetry: tokens, cost, sessions, tool use; no prompts) to https://127.0.0.1:1? [Y/n]: config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
+choice [quit]: 
+--- echo
+telemetry\r
+\r
+\r
+<S>/keys/ca.pem\r
+\r
+\r
+n\r
+\r
+## run 4: config --no-link --no-build  (no token; the CA in place isn't one: given again)  [tty-in]
+rc: 1
+--- stdout
+nexus --config: <A>
+
+Shared by every persona
+  projects root   <P>
+  image registry  local (images built on this VM)
+  Claude Code     latest
+  telemetry       https://127.0.0.1:1 (a token, its CA in personas/telemetry-ca.pem)
+  launcher        not on your PATH: link it with launcher, or run <A>/nexus
+Personas
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  g1                              grok     docker   yes        the VM's             your agent
+  c2                              claude   docker   yes        the VM's             your agent
+  sends telemetry to https://127.0.0.1:1: c1
+
+What next?
+  1) list      the shared settings and the personas, again
+  2) add       a new persona
+  3) change    one persona's flavour, context, statusline, projects root, ssh, permissions or telemetry
+  4) remove    one persona (its env file and home volume stay)
+  5) shared    the settings every persona shares: projects root, image registry, Claude Code version
+  6) telemetry send OpenTelemetry to a collector: its address, token and CA, and which personas send
+  7) launcher  link nexus into a directory on your PATH
+  8) images    build (or pull) the image of every persona
+  9) quit
+
+== Telemetry (OpenTelemetry to a collector)
+  personas/telemetry-ca.pem has no certificate in it (it takes a PEM file: -----BEGIN CERTIFICATE----- …): give the CA file again
+-- saved: the telemetry settings
+c1: its telemetry settings changed; `nexus c1 restart` applies them (that ends its tmux sessions)
+telemetry: nothing answered at https://127.0.0.1:1 (is it down, or is the address wrong?). The personas work all the same, but what they send is lost until this is fixed.
+
+What next?
+  1) list      the shared settings and the personas, again
+  2) add       a new persona
+  3) change    one persona's flavour, context, statusline, projects root, ssh, permissions or telemetry
+  4) remove    one persona (its env file and home volume stay)
+  5) shared    the settings every persona shares: projects root, image registry, Claude Code version
+  6) telemetry send OpenTelemetry to a collector: its address, token and CA, and which personas send
+  7) launcher  link nexus into a directory on your PATH
+  8) images    build (or pull) the image of every persona
+  9) quit
+
+Shared by every persona
+  projects root   <P>
+  image registry  local (images built on this VM)
+  Claude Code     latest
+  telemetry       https://127.0.0.1:1 (no token, its CA in personas/telemetry-ca.pem)
+  launcher        not on your PATH: link it with launcher, or run <A>/nexus
+Personas
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  g1                              grok     docker   yes        the VM's             your agent
+  c2                              claude   docker   yes        the VM's             your agent
+  sends telemetry to https://127.0.0.1:1: c1
+
+What next?
+  1) list      the shared settings and the personas, again
+  2) add       a new persona
+  3) change    one persona's flavour, context, statusline, projects root, ssh, permissions or telemetry
+  4) remove    one persona (its env file and home volume stay)
+  5) shared    the settings every persona shares: projects root, image registry, Claude Code version
+  6) telemetry send OpenTelemetry to a collector: its address, token and CA, and which personas send
+  7) launcher  link nexus into a directory on your PATH
+  8) images    build (or pull) the image of every persona
+  9) quit
+
+Start one from a project directory:  cd <P>/<project> && nexus c1
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr (no newline at the end)
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: TELEMETRY_CA in <A>/.env names personas/telemetry-ca.pem, which has no certificate in it (it takes a PEM file: -----BEGIN CERTIFICATE----- …), and c1 sends telemetry, so nothing was written: give the collector's CA file again (nexus --config, then telemetry; or --telemetry-ca FILE)
+choice [quit]: The collector's OTLP/HTTP address, e.g. https://collector.lan:4318 (none: no telemetry) [https://127.0.0.1:1]: Its bearer token (sent as Authorization: Bearer …; empty keeps the one in .env, - for none) (hidden; empty to skip): 
+The CA file its certificate is signed by, PEM (-: none, a publicly trusted certificate) [personas/telemetry-ca.pem]: The CA file its certificate is signed by, PEM (-: none, a publicly trusted certificate) [-]: Send c1's telemetry (OpenTelemetry: tokens, cost, sessions, tool use; no prompts) to https://127.0.0.1:1? [Y/n]: Send g1's telemetry (OpenTelemetry: tokens, cost, sessions, tool use; no prompts) to https://127.0.0.1:1? [y/N]: Send c2's telemetry (OpenTelemetry: tokens, cost, sessions, tool use; no prompts) to https://127.0.0.1:1? [y/N]: config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
+choice [quit]: choice [quit]: 
+--- echo
+telemetry\r
+\r
+\r
+<S>/keys/ca.pem\r
+\r
+\r
+\r
+list\r
+\r
+## run 5: config --no-link --no-build  (telemetry off)  [tty-in]
+rc: 0
+--- stdout
+nexus --config: <A>
+
+Shared by every persona
+  projects root   <P>
+  image registry  local (images built on this VM)
+  Claude Code     latest
+  telemetry       https://127.0.0.1:1 (no token, its CA in personas/telemetry-ca.pem)
+  launcher        not on your PATH: link it with launcher, or run <A>/nexus
+Personas
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  g1                              grok     docker   yes        the VM's             your agent
+  c2                              claude   docker   yes        the VM's             your agent
+  sends telemetry to https://127.0.0.1:1: c1
+
+What next?
+  1) list      the shared settings and the personas, again
+  2) add       a new persona
+  3) change    one persona's flavour, context, statusline, projects root, ssh, permissions or telemetry
+  4) remove    one persona (its env file and home volume stay)
+  5) shared    the settings every persona shares: projects root, image registry, Claude Code version
+  6) telemetry send OpenTelemetry to a collector: its address, token and CA, and which personas send
+  7) launcher  link nexus into a directory on your PATH
+  8) images    build (or pull) the image of every persona
+  9) quit
+
+== Telemetry (OpenTelemetry to a collector)
+-- saved: the telemetry settings
+telemetry: off; c1 no longer sends it
+c1: changed; `nexus c1 restart` applies it (that ends its tmux sessions)
+
+What next?
+  1) list      the shared settings and the personas, again
+  2) add       a new persona
+  3) change    one persona's flavour, context, statusline, projects root, ssh, permissions or telemetry
+  4) remove    one persona (its env file and home volume stay)
+  5) shared    the settings every persona shares: projects root, image registry, Claude Code version
+  6) telemetry send OpenTelemetry to a collector: its address, token and CA, and which personas send
+  7) launcher  link nexus into a directory on your PATH
+  8) images    build (or pull) the image of every persona
+  9) quit
+
+Shared by every persona
+  projects root   <P>
+  image registry  local (images built on this VM)
+  Claude Code     latest
+  telemetry       off
+  launcher        not on your PATH: link it with launcher, or run <A>/nexus
+Personas
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  g1                              grok     docker   yes        the VM's             your agent
+  c2                              claude   docker   yes        the VM's             your agent
+
+What next?
+  1) list      the shared settings and the personas, again
+  2) add       a new persona
+  3) change    one persona's flavour, context, statusline, projects root, ssh, permissions or telemetry
+  4) remove    one persona (its env file and home volume stay)
+  5) shared    the settings every persona shares: projects root, image registry, Claude Code version
+  6) telemetry send OpenTelemetry to a collector: its address, token and CA, and which personas send
+  7) launcher  link nexus into a directory on your PATH
+  8) images    build (or pull) the image of every persona
+  9) quit
+
+Start one from a project directory:  cd <P>/<project> && nexus c1
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr (no newline at the end)
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
+choice [quit]: The collector's OTLP/HTTP address, e.g. https://collector.lan:4318 (none: no telemetry) [https://127.0.0.1:1]: choice [quit]: choice [quit]: 
+--- echo
+telemetry\r
+none\r
+list\r
+\r

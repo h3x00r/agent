@@ -51,6 +51,15 @@ DDEV_VERSION=
 # AGENT_CPUS must not exceed the VM's vCPU count (nproc), or the container won't start.
 AGENT_CPUS=3
 AGENT_MEMORY=8g
+
+# Telemetry: OpenTelemetry from the personas that send it to one collector (nexus --config: telemetry in its
+# menu, or --telemetry-endpoint and the like). Empty: none. Its OTLP/HTTP address, e.g. https://collector.lan:4318;
+# its bearer token (this file is made private, mode 600, once it holds one); the CA its certificate is signed by,
+# as nexus --config copied it in (personas/telemetry-ca.pem; empty: a publicly trusted certificate). A path of
+# your own here is copied in at the next nexus --config. Which personas send is in personas.json.
+#TELEMETRY_ENDPOINT=
+#TELEMETRY_TOKEN=
+#TELEMETRY_CA=
 CLAUDE_VERSION=2.1.301
 --- stderr
 (empty)
@@ -107,6 +116,15 @@ DDEV_VERSION=
 # AGENT_CPUS must not exceed the VM's vCPU count (nproc), or the container won't start.
 AGENT_CPUS=3
 AGENT_MEMORY=8g
+
+# Telemetry: OpenTelemetry from the personas that send it to one collector (nexus --config: telemetry in its
+# menu, or --telemetry-endpoint and the like). Empty: none. Its OTLP/HTTP address, e.g. https://collector.lan:4318;
+# its bearer token (this file is made private, mode 600, once it holds one); the CA its certificate is signed by,
+# as nexus --config copied it in (personas/telemetry-ca.pem; empty: a publicly trusted certificate). A path of
+# your own here is copied in at the next nexus --config. Which personas send is in personas.json.
+#TELEMETRY_ENDPOINT=
+#TELEMETRY_TOKEN=
+#TELEMETRY_CA=
 CLAUDE_VERSION=2.1.302
 --- stderr
 (empty)
@@ -163,6 +181,15 @@ DDEV_VERSION=
 # AGENT_CPUS must not exceed the VM's vCPU count (nproc), or the container won't start.
 AGENT_CPUS=3
 AGENT_MEMORY=8g
+
+# Telemetry: OpenTelemetry from the personas that send it to one collector (nexus --config: telemetry in its
+# menu, or --telemetry-endpoint and the like). Empty: none. Its OTLP/HTTP address, e.g. https://collector.lan:4318;
+# its bearer token (this file is made private, mode 600, once it holds one); the CA its certificate is signed by,
+# as nexus --config copied it in (personas/telemetry-ca.pem; empty: a publicly trusted certificate). A path of
+# your own here is copied in at the next nexus --config. Which personas send is in personas.json.
+#TELEMETRY_ENDPOINT=
+#TELEMETRY_TOKEN=
+#TELEMETRY_CA=
 CLAUDE_VERSION=2.1.303
 --- stderr
 (empty)
@@ -219,6 +246,15 @@ DDEV_VERSION=
 # AGENT_CPUS must not exceed the VM's vCPU count (nproc), or the container won't start.
 AGENT_CPUS=3
 AGENT_MEMORY=8g
+
+# Telemetry: OpenTelemetry from the personas that send it to one collector (nexus --config: telemetry in its
+# menu, or --telemetry-endpoint and the like). Empty: none. Its OTLP/HTTP address, e.g. https://collector.lan:4318;
+# its bearer token (this file is made private, mode 600, once it holds one); the CA its certificate is signed by,
+# as nexus --config copied it in (personas/telemetry-ca.pem; empty: a publicly trusted certificate). A path of
+# your own here is copied in at the next nexus --config. Which personas send is in personas.json.
+#TELEMETRY_ENDPOINT=
+#TELEMETRY_TOKEN=
+#TELEMETRY_CA=
 CLAUDE_VERSION=2.1.304
 --- stderr
 (empty)
@@ -275,6 +311,15 @@ DDEV_VERSION=
 # AGENT_CPUS must not exceed the VM's vCPU count (nproc), or the container won't start.
 AGENT_CPUS=3
 AGENT_MEMORY=8g
+
+# Telemetry: OpenTelemetry from the personas that send it to one collector (nexus --config: telemetry in its
+# menu, or --telemetry-endpoint and the like). Empty: none. Its OTLP/HTTP address, e.g. https://collector.lan:4318;
+# its bearer token (this file is made private, mode 600, once it holds one); the CA its certificate is signed by,
+# as nexus --config copied it in (personas/telemetry-ca.pem; empty: a publicly trusted certificate). A path of
+# your own here is copied in at the next nexus --config. Which personas send is in personas.json.
+#TELEMETRY_ENDPOINT=
+#TELEMETRY_TOKEN=
+#TELEMETRY_CA=
 CLAUDE_VERSION=latest
 #CLAUDE_VERSION=
 --- stderr
@@ -332,6 +377,15 @@ DDEV_VERSION=
 # AGENT_CPUS must not exceed the VM's vCPU count (nproc), or the container won't start.
 AGENT_CPUS=3
 AGENT_MEMORY=8g
+
+# Telemetry: OpenTelemetry from the personas that send it to one collector (nexus --config: telemetry in its
+# menu, or --telemetry-endpoint and the like). Empty: none. Its OTLP/HTTP address, e.g. https://collector.lan:4318;
+# its bearer token (this file is made private, mode 600, once it holds one); the CA its certificate is signed by,
+# as nexus --config copied it in (personas/telemetry-ca.pem; empty: a publicly trusted certificate). A path of
+# your own here is copied in at the next nexus --config. Which personas send is in personas.json.
+#TELEMETRY_ENDPOINT=
+#TELEMETRY_TOKEN=
+#TELEMETRY_CA=
 CLAUDE_VERSION=2.1.1
 X=1
 CLAUDE_VERSION=2.1.306
@@ -390,6 +444,15 @@ DDEV_VERSION=
 # AGENT_CPUS must not exceed the VM's vCPU count (nproc), or the container won't start.
 AGENT_CPUS=3
 AGENT_MEMORY=8g
+
+# Telemetry: OpenTelemetry from the personas that send it to one collector (nexus --config: telemetry in its
+# menu, or --telemetry-endpoint and the like). Empty: none. Its OTLP/HTTP address, e.g. https://collector.lan:4318;
+# its bearer token (this file is made private, mode 600, once it holds one); the CA its certificate is signed by,
+# as nexus --config copied it in (personas/telemetry-ca.pem; empty: a publicly trusted certificate). A path of
+# your own here is copied in at the next nexus --config. Which personas send is in personas.json.
+#TELEMETRY_ENDPOINT=
+#TELEMETRY_TOKEN=
+#TELEMETRY_CA=
 X=1
 CLAUDE_VERSION=latest
 --- stderr
@@ -447,6 +510,15 @@ DDEV_VERSION=
 # AGENT_CPUS must not exceed the VM's vCPU count (nproc), or the container won't start.
 AGENT_CPUS=3
 AGENT_MEMORY=8g
+
+# Telemetry: OpenTelemetry from the personas that send it to one collector (nexus --config: telemetry in its
+# menu, or --telemetry-endpoint and the like). Empty: none. Its OTLP/HTTP address, e.g. https://collector.lan:4318;
+# its bearer token (this file is made private, mode 600, once it holds one); the CA its certificate is signed by,
+# as nexus --config copied it in (personas/telemetry-ca.pem; empty: a publicly trusted certificate). A path of
+# your own here is copied in at the next nexus --config. Which personas send is in personas.json.
+#TELEMETRY_ENDPOINT=
+#TELEMETRY_TOKEN=
+#TELEMETRY_CA=
 X=1
 CLAUDE_VERSION=2.1.307
 --- stderr
@@ -504,6 +576,15 @@ DDEV_VERSION=\r
 # AGENT_CPUS must not exceed the VM's vCPU count (nproc), or the container won't start.\r
 AGENT_CPUS=3\r
 AGENT_MEMORY=8g\r
+\r
+# Telemetry: OpenTelemetry from the personas that send it to one collector (nexus --config: telemetry in its\r
+# menu, or --telemetry-endpoint and the like). Empty: none. Its OTLP/HTTP address, e.g. https://collector.lan:4318;\r
+# its bearer token (this file is made private, mode 600, once it holds one); the CA its certificate is signed by,\r
+# as nexus --config copied it in (personas/telemetry-ca.pem; empty: a publicly trusted certificate). A path of\r
+# your own here is copied in at the next nexus --config. Which personas send is in personas.json.\r
+#TELEMETRY_ENDPOINT=\r
+#TELEMETRY_TOKEN=\r
+#TELEMETRY_CA=\r
 X=1\r
 CLAUDE_VERSION=2.1.307
 --- stderr

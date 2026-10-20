@@ -1,0 +1,181 @@
+~ a/.env  f 600 inode=same
+    | # /opt/agents/.env — per-VM settings. nexus --config writes it from this template (re-run it to change
+    | # them, or edit by hand); docker compose reads it automatically.
+    | # Identity (AGENT_UID/AGENT_GID/DOCKER_GID/SSH_AUTH_SOCK) and AGENT_CA_CERTS are derived at launch by
+    | # ./nexus; don't set them here.
+    | # A variable exported in your shell takes precedence over this file (a persona's own projects root beats both).
+    | # Keep comments on their own lines: compose's .env parser mis-reads a comment after an empty value.
+    | 
+    | # The VM's projects root: an absolute path, mounted at the identical path inside every persona that has no
+    | # root of its own (nexus --config asks per persona; it is kept as root= in compose.personas.yml).
+    | # Without it, ./nexus uses $HOME/projects of the VM user.
+    | PROJECTS_ROOT=<P>
+    | 
+    | # Where images come from. "local" = build on this VM (nexus <persona> build);
+    | # otherwise a registry you push the images to (e.g. registry.lan:5000) and `nexus <persona> pull`.
+    | REGISTRY=local
+    | # The tags default to the versions below, so a pinned image is tagged with its CLI's version.
+    | #CLAUDE_TAG=
+    | #GROK_TAG=
+    | 
+    | # Build pins. `nexus <persona> upgrade` sets CLAUDE_VERSION or GROK_VERSION to the newest release and
+    | # rebuilds. DDEV_VERSION only matters when building ddev-context images here; CLAUDE_VERSION and
+    | # GROK_VERSION are also the image tags (unless the *_TAG is set), so on a pulling VM they pick the tag
+    | # that is pulled and run.
+    | # Claude Code (Anthropic's native installer): an exact X.Y.Z, or a channel, latest | stable.
+    | # A pin is reproducible, and bumping it re-runs only the Claude installer stage. A
+    | # channel is resolved once and then cached: `nexus <persona> build --no-cache` to move to a newer
+    | # release. Pins below 2.1.118 ignore the image's lock on `claude update`. Current versions:
+    | #   curl -fsSL https://downloads.claude.ai/claude-code-releases/latest   (or …/stable)
+    | CLAUDE_VERSION=latest
+    | # Grok Build (xAI's installer): an exact X.Y.Z, or latest (the newest on its stable channel), cached once
+    | # built like a Claude channel. Current version:  curl -fsSL https://x.ai/cli/stable
+    | GROK_VERSION=latest
+    | # APM (Agent Package Manager, in both flavours), from PyPI's apm-cli: an exact X.Y.Z, or latest.
+    | # As with Claude, a pin bump re-runs only the APM stage and latest is cached once built. Current version:
+    | #   curl -fsSL https://pypi.org/pypi/apm-cli/json | jq -r .info.version
+    | APM_VERSION=latest
+    | # ddev context only: pin ddev to `ddev version` on this VM (nexus --config does; the leading v is optional),
+    | # or the router gets recreated on every switch.
+    | DDEV_VERSION=
+    | 
+    | # Per-container ceiling. Six parallel Claude sessions sit comfortably in this.
+    | # AGENT_CPUS must not exceed the VM's vCPU count (nproc), or the container won't start.
+    | AGENT_CPUS=3
+    | AGENT_MEMORY=8g
+    | 
+    | # Telemetry: OpenTelemetry from the personas that send it to one collector (nexus --config: telemetry in its
+    | # menu, or --telemetry-endpoint and the like). Empty: none. Its OTLP/HTTP address, e.g. https://collector.lan:4318;
+    | # its bearer token (this file is made private, mode 600, once it holds one); the CA its certificate is signed by,
+    | # as nexus --config copied it in (personas/telemetry-ca.pem; empty: a publicly trusted certificate). A path of
+    | # your own here is copied in at the next nexus --config. Which personas send is in personas.json.
+    | TELEMETRY_ENDPOINT=https://127.0.0.1:1
+    | TELEMETRY_TOKEN=nxt-fake-tele-1
+- a/personas/c1.telemetry.json
+- a/personas/g1.telemetry.env
++ a/personas/telemetry-ca.ddev.pem  f 644
+    | -----BEGIN CERTIFICATE-----
+    | MIIBhDCCASqgAwIBAgIUaTCpTVc5j2jnmb4mf6Moiu/6kzkwCgYIKoZIzj0EAwIw
+    | HzEdMBsGA1UEAwwUbmV4dXMgZ29sZGVuIHRlc3QgQ0EwIBcNMjYxMDIwMTI0MDMw
+    | WhgPMjEyNjA5MjYxMjQwMzBaMB8xHTAbBgNVBAMMFG5leHVzIGdvbGRlbiB0ZXN0
+    | IENBMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEHuGLKDAnXBxtrxEdtA6HITJH
+    | ZgzPM88Ol0NTeVgrUBAuPOrAVmVMNh7OcXX9CvjuoAL1uAGj19fE5UhiRnv7/aNC
+    | MEAwDwYDVR0TAQH/BAUwAwEB/zAOBgNVHQ8BAf8EBAMCAQYwHQYDVR0OBBYEFIGM
+    | NwisauUgst9poI4qfrgwqBrgMAoGCCqGSM49BAMCA0gAMEUCIQD8aVC8N9DxkAHg
+    | W1r5iGwP7IGEahkb+uDH0IEOMIOkggIgSp2piuxZw+S42K2ogVjZ0UXmkVT2FlB1
+    | 7x0n5g4YD1g=
+    | -----END CERTIFICATE-----
+    | fake mkcert CA
+- a/personas/telemetry-ca.pem
++ ctr  d 755
++ ctr/c1  d 755
++ ctr/c1/home  d 755
++ ctr/c1/home/.claude  d 755
++ ctr/c1/home/.claude/.nexus-defaults.json  f 644
+    | {
+    |   "model": "opus",
+    |   "modelSettings": {
+    |     "opus": {
+    |       "effortLevel": "xhigh"
+    |     }
+    |   },
+    |   "outputStyle": "Concise",
+    |   "teammateMode": "tmux",
+    |   "theme": "auto",
+    |   "tui": "fullscreen",
+    |   "worktree": {
+    |     "baseRef": "head"
+    |   }
+    | }
++ ctr/c1/home/.claude/settings.json  f 644
+    | {
+    |   "model": "opus",
+    |   "modelSettings": {
+    |     "opus": {
+    |       "effortLevel": "xhigh"
+    |     }
+    |   },
+    |   "outputStyle": "Concise",
+    |   "teammateMode": "tmux",
+    |   "theme": "auto",
+    |   "tui": "fullscreen",
+    |   "worktree": {
+    |     "baseRef": "head"
+    |   }
+    | }
++ ctr/d1  d 755
++ ctr/d1/home  d 755
++ ctr/d1/home/.claude  d 755
++ ctr/d1/home/.claude/.nexus-defaults.json  f 644
+    | {
+    |   "model": "opus",
+    |   "modelSettings": {
+    |     "opus": {
+    |       "effortLevel": "xhigh"
+    |     }
+    |   },
+    |   "outputStyle": "Concise",
+    |   "teammateMode": "tmux",
+    |   "theme": "auto",
+    |   "tui": "fullscreen",
+    |   "worktree": {
+    |     "baseRef": "head"
+    |   }
+    | }
++ ctr/d1/home/.claude/settings.json  f 644
+    | {
+    |   "model": "opus",
+    |   "modelSettings": {
+    |     "opus": {
+    |       "effortLevel": "xhigh"
+    |     }
+    |   },
+    |   "outputStyle": "Concise",
+    |   "teammateMode": "tmux",
+    |   "theme": "auto",
+    |   "tui": "fullscreen",
+    |   "worktree": {
+    |     "baseRef": "head"
+    |   }
+    | }
++ ctr/n1  d 755
++ ctr/n1/home  d 755
++ ctr/n1/home/.claude  d 755
++ ctr/n1/home/.claude/.nexus-defaults.json  f 644
+    | {
+    |   "model": "opus",
+    |   "modelSettings": {
+    |     "opus": {
+    |       "effortLevel": "xhigh"
+    |     }
+    |   },
+    |   "outputStyle": "Concise",
+    |   "teammateMode": "tmux",
+    |   "theme": "auto",
+    |   "tui": "fullscreen",
+    |   "worktree": {
+    |     "baseRef": "head"
+    |   }
+    | }
++ ctr/n1/home/.claude/settings.json  f 644
+    | {
+    |   "model": "opus",
+    |   "modelSettings": {
+    |     "opus": {
+    |       "effortLevel": "xhigh"
+    |     }
+    |   },
+    |   "outputStyle": "Concise",
+    |   "teammateMode": "tmux",
+    |   "theme": "auto",
+    |   "tui": "fullscreen",
+    |   "worktree": {
+    |     "baseRef": "head"
+    |   }
+    | }
++ home/.ddev  d 755
++ home/.local  d 755
++ home/.local/share  d 755
++ home/.local/share/mkcert  d 755
++ home/.local/share/mkcert/rootCA.pem  f 644
+    | fake mkcert CA
