@@ -9,13 +9,16 @@ goldens record what goes to docker.
 check(path, fmt) → (rc, output): rc 0 fine, 3 broken (output says why), -1 nothing here could check,
 anything else the check itself failed (counts as unchecked). ask_problem(path): what keeps
 personas/claude.ask.json from making a persona ask and what to do, or ("", "") (read here: it is JSON, and no
-CLI is needed).
+CLI is needed). grok_sets_telemetry(path): whether personas/grok.toml has a [telemetry] of its own, which the one
+nexus --config adds for a persona that sends would clash with (read here, by its spellings: no CLI is needed).
 
 Pitfalls (each pinned where named):
 - the programs as spelt, in a persona image when this python3 has no tomllib (golden config/cli-images-build)
 - -1 makes nexus --config warn, not refuse (run.sh "with nothing to check the TOML with: it says so")
 - ask_problem(): a claude.ask.json without a mode, or with bypassPermissions, or unreadable, is a problem, as the
   persona would bypass (golden config/perm-file-missing, golden nexus/perm-ask-file-missing)
+- grok_sets_telemetry(): by table, not by line alone: [features] telemetry = false is no telemetry table, and
+  ['telemetry'] or [[telemetry]] is one (test_adapters.Telemetry.test_grok_sets_telemetry)
 """
 import json
 import os
@@ -77,6 +80,34 @@ def ask_problem(path):
 _S = "[ \t\r\f\v]"   # [[:space:]] within one line
 _GROK_SL = re.compile(r'%s*(\[%s*"?ui"?%s*\.%s*"?status_line|(ui%s*\.%s*)?"?status_line"?%s*[.=])'
                       % ((_S,) * 7))
+
+
+_TKEY = r'%s*("[^"]*"|\x27[^\x27]*\x27|[A-Za-z0-9_-]+)' % _S
+_THEAD = re.compile(r'%s*\[\[?' % _S + _TKEY)
+_TROOT = re.compile(_TKEY + r'%s*[.=]' % _S)
+
+
+def grok_sets_telemetry(path):
+    """Whether grok settings at PATH have telemetry settings of their own: a table named telemetry ([telemetry],
+    [telemetry.x], ['telemetry'], [[telemetry]]), or a telemetry key before the first table (telemetry.x = …,
+    telemetry = {…}); one in another table ([features] telemetry = false) is that table's. Read line by line, by
+    these spellings: no CLI is needed."""
+    if not os.path.isfile(path):
+        return False
+    with open(path, "rb") as f:
+        text = f.read().decode("utf-8", "surrogateescape")
+    at_root = True
+    for line in text.split("\n"):
+        h = _THEAD.match(line)
+        if h:
+            at_root = False
+            if h.group(1).strip("\"\x27") == "telemetry":
+                return True
+            continue
+        k = _TROOT.match(line) if at_root else None
+        if k and k.group(1).strip("\"\x27") == "telemetry":
+            return True
+    return False
 
 
 def grok_sets_statusline(path):

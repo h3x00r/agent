@@ -156,6 +156,15 @@ def mounts(container):
     return set(r.out.split("\n")) - {""} if r.rc == 0 else set()
 
 
+ENV_FORMAT = "{{range .Config.Env}}{{println .}}{{end}}"
+
+
+def env_keys(container):
+    """The names of the variables in the container's environment (one docker inspect); none if it can't be inspected."""
+    r = proc.run(["docker", "inspect", "-f", ENV_FORMAT, container])
+    return {l.split("=", 1)[0] for l in r.out.split("\n") if l} if r.rc == 0 else set()
+
+
 def exec_probe(container, script, *args, timeout=10, pipe_stdin=False):
     """`timeout T docker exec C sh -c SCRIPT sh ARGS…`, stderr dropped: (rc, stdout). pipe_stdin: an empty
     pipe for stdin, as a call inside bash's `while read …; done < <(…)` got (docker exec without -i

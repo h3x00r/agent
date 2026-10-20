@@ -1,0 +1,401 @@
+## run 1: config --yes --no-link --no-build --telemetry-endpoint https://127.0.0.1:1 --telemetry-token-file <S>/keys/token --telemetry-ca <S>/keys/ca.pem --telemetry c1:on --telemetry g1:on --telemetry d1:on  [pipe]
+rc: 0
+--- stdout
+nexus --config: setting up <A>
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  g1                              grok     docker   yes        the VM's             your agent
+  d1                              claude   ddev     yes        the VM's             your agent
+  sends telemetry to https://127.0.0.1:1: c1, g1, d1
+
+Start one from a project directory:  cd <P>/<project> && nexus c1
+c1: changed; `nexus c1 restart` applies it (that ends its tmux sessions)
+g1: changed; `nexus g1 restart` applies it (that ends its tmux sessions)
+d1: changed; `nexus d1 restart` applies it (that ends its tmux sessions)
+ddev: run `mkcert -install` on this VM (it comes with ddev), then `nexus <persona> restart`, or https://*.ddev.site stays untrusted inside
+.env: it holds the telemetry token now, so only you can read it (mode 600)
+telemetry: nothing answered at https://127.0.0.1:1 (is it down, or is the address wrong?). The personas work all the same, but what they send is lost until this is fixed.
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: warning: ddev isn't installed on this VM: the ddev personas get the newest ddev; install the same on the VM (pkg.ddev.com) so both agree, and for mkcert
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
+## run 2: config --list  [pipe]
+rc: 0
+--- stdout
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  g1                              grok     docker   yes        the VM's             your agent
+  d1                              claude   ddev     yes        the VM's             your agent
+  sends telemetry to https://127.0.0.1:1: c1, g1, d1
+--- stderr
+(empty)
+## run 3: grep ^TELEMETRY_ .env  [pipe, cwd a]
+rc: 0
+--- stdout
+TELEMETRY_ENDPOINT=https://127.0.0.1:1
+TELEMETRY_TOKEN=nxt-fake-tele-1
+TELEMETRY_CA=personas/telemetry-ca.pem
+--- stderr
+(empty)
+## run 4: grep telemetry|^  " compose.personas.yml  [pipe, cwd a]
+rc: 0
+--- stdout
+  "c1":
+      # Telemetry (nexus --config, telemetry): Claude Code's OpenTelemetry to the collector in .env, as a managed
+      - { type: bind, source: ./personas/c1.telemetry.json, target: /etc/claude-code/managed-settings.d/50-telemetry.json, read_only: true, bind: { create_host_path: false } }
+      # The CA the telemetry collector's certificate is signed by (TELEMETRY_CA in .env).
+      - { type: bind, source: ./personas/telemetry-ca.pem, target: /etc/nexus/telemetry-ca.pem, read_only: true, bind: { create_host_path: false } }
+  "g1":
+    env_file: [personas/g1.env, personas/g1.telemetry.env]
+      # The CA the telemetry collector's certificate is signed by (TELEMETRY_CA in .env).
+      - { type: bind, source: ./personas/telemetry-ca.pem, target: /etc/nexus/telemetry-ca.pem, read_only: true, bind: { create_host_path: false } }
+  "d1":
+      # Telemetry (nexus --config, telemetry): Claude Code's OpenTelemetry to the collector in .env, as a managed
+      - { type: bind, source: ./personas/d1.telemetry.json, target: /etc/claude-code/managed-settings.d/50-telemetry.json, read_only: true, bind: { create_host_path: false } }
+      # The CA the telemetry collector's certificate is signed by (TELEMETRY_CA in .env), then mkcert's: nexus
+      - { type: bind, source: ./personas/telemetry-ca.ddev.pem, target: /etc/nexus/telemetry-ca.pem, read_only: true, bind: { create_host_path: false } }
+  "c1-home":
+  "g1-home":
+  "d1-home":
+--- stderr
+(empty)
+## run 5: grep telemetry|^\[ personas/g1.grok.toml  [pipe, cwd a]
+rc: 0
+--- stdout
+[[marketplace.sources]]
+[ui]
+[models]
+[compat.claude]
+[tools]
+[features]
+[ui.status_line]
+# Telemetry (nexus --config, telemetry in its menu): metrics and events to the collector in .env.
+# The token comes from the environment (personas/<name>.telemetry.env): grok has no setting for it.
+[telemetry]
+otel_certificate = "/etc/nexus/telemetry-ca.pem"
+--- stderr
+(empty)
+## run 6: grep . personas/d1.telemetry.json  [pipe, cwd a]
+rc: 0
+--- stdout
+{
+  "env": {
+    "CLAUDE_CODE_ENABLE_TELEMETRY": "1",
+    "OTEL_METRICS_EXPORTER": "otlp",
+    "OTEL_LOGS_EXPORTER": "otlp",
+    "OTEL_TRACES_EXPORTER": "otlp",
+    "CLAUDE_CODE_ENHANCED_TELEMETRY_BETA": "1",
+    "OTEL_EXPORTER_OTLP_PROTOCOL": "http/protobuf",
+    "OTEL_EXPORTER_OTLP_ENDPOINT": "https://127.0.0.1:1",
+    "OTEL_EXPORTER_OTLP_HEADERS": "Authorization=Bearer nxt-fake-tele-1",
+    "OTEL_RESOURCE_ATTRIBUTES": "host.name=<HOST>,persona=d1",
+    "NODE_EXTRA_CA_CERTS": "/etc/nexus/telemetry-ca.pem"
+  }
+}
+--- stderr
+(empty)
+## run 7: grep . personas/g1.telemetry.env  [pipe, cwd a]
+rc: 0
+--- stdout
+# personas/g1.telemetry.env: written by nexus --config from TELEMETRY_TOKEN in .env, for grok's telemetry
+# (it takes the token from the environment only; as the metrics and logs headers, which nothing but an
+# exporter of those reads). Don't edit it: re-run nexus --config.
+OTEL_EXPORTER_OTLP_METRICS_HEADERS='Authorization=Bearer nxt-fake-tele-1,X-Nexus-Persona=g1,X-Nexus-Host=<HOST>'
+OTEL_EXPORTER_OTLP_LOGS_HEADERS='Authorization=Bearer nxt-fake-tele-1,X-Nexus-Persona=g1,X-Nexus-Host=<HOST>'
+--- stderr
+(empty)
+## run 8: config --yes …  (again: nothing new)  [pipe]
+rc: 0
+--- stdout
+nexus --config: setting up <A>
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  g1                              grok     docker   yes        the VM's             your agent
+  d1                              claude   ddev     yes        the VM's             your agent
+  sends telemetry to https://127.0.0.1:1: c1, g1, d1
+
+Start one from a project directory:  cd <P>/<project> && nexus c1
+ddev: run `mkcert -install` on this VM (it comes with ddev), then `nexus <persona> restart`, or https://*.ddev.site stays untrusted inside
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: warning: ddev isn't installed on this VM: the ddev personas get the newest ddev; install the same on the VM (pkg.ddev.com) so both agree, and for mkcert
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
+## run 9: config --yes … --telemetry…  (the same options again: nothing new)  [pipe]
+rc: 0
+--- stdout
+nexus --config: setting up <A>
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  g1                              grok     docker   yes        the VM's             your agent
+  d1                              claude   ddev     yes        the VM's             your agent
+  sends telemetry to https://127.0.0.1:1: c1, g1, d1
+
+Start one from a project directory:  cd <P>/<project> && nexus c1
+ddev: run `mkcert -install` on this VM (it comes with ddev), then `nexus <persona> restart`, or https://*.ddev.site stays untrusted inside
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: warning: ddev isn't installed on this VM: the ddev personas get the newest ddev; install the same on the VM (pkg.ddev.com) so both agree, and for mkcert
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
+## run 10: config --yes … --telemetry-endpoint https://127.0.0.1:1/  (the same)  [pipe]
+rc: 0
+--- stdout
+nexus --config: setting up <A>
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  g1                              grok     docker   yes        the VM's             your agent
+  d1                              claude   ddev     yes        the VM's             your agent
+  sends telemetry to https://127.0.0.1:1: c1, g1, d1
+
+Start one from a project directory:  cd <P>/<project> && nexus c1
+ddev: run `mkcert -install` on this VM (it comes with ddev), then `nexus <persona> restart`, or https://*.ddev.site stays untrusted inside
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: warning: ddev isn't installed on this VM: the ddev personas get the newest ddev; install the same on the VM (pkg.ddev.com) so both agree, and for mkcert
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
+## run 11: config --yes … --telemetry c1:off  (c1: a restart)  [pipe]
+rc: 0
+--- stdout
+nexus --config: setting up <A>
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  g1                              grok     docker   yes        the VM's             your agent
+  d1                              claude   ddev     yes        the VM's             your agent
+  sends telemetry to https://127.0.0.1:1: g1, d1
+
+Start one from a project directory:  cd <P>/<project> && nexus c1
+c1: changed; `nexus c1 restart` applies it (that ends its tmux sessions)
+ddev: run `mkcert -install` on this VM (it comes with ddev), then `nexus <persona> restart`, or https://*.ddev.site stays untrusted inside
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: warning: ddev isn't installed on this VM: the ddev personas get the newest ddev; install the same on the VM (pkg.ddev.com) so both agree, and for mkcert
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
+## run 12: config --yes … --telemetry-token-file <S>/keys/token  (a new token: g1 and d1 restart)  [pipe]
+rc: 0
+--- stdout
+nexus --config: setting up <A>
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  g1                              grok     docker   yes        the VM's             your agent
+  d1                              claude   ddev     yes        the VM's             your agent
+  sends telemetry to https://127.0.0.1:1: g1, d1
+
+Start one from a project directory:  cd <P>/<project> && nexus c1
+ddev: run `mkcert -install` on this VM (it comes with ddev), then `nexus <persona> restart`, or https://*.ddev.site stays untrusted inside
+g1: its telemetry settings changed; `nexus g1 restart` applies them (that ends its tmux sessions)
+d1: its telemetry settings changed; `nexus d1 restart` applies them (that ends its tmux sessions)
+telemetry: nothing answered at https://127.0.0.1:1 (is it down, or is the address wrong?). The personas work all the same, but what they send is lost until this is fixed.
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: warning: ddev isn't installed on this VM: the ddev personas get the newest ddev; install the same on the VM (pkg.ddev.com) so both agree, and for mkcert
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
+## run 13: config --yes … --persona g1:grok:docker  (it still sends)  [pipe]
+rc: 0
+--- stdout
+nexus --config: setting up <A>
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  g1                              grok     docker   yes        the VM's             your agent
+  d1                              claude   ddev     yes        the VM's             your agent
+  sends telemetry to https://127.0.0.1:1: g1, d1
+
+Start one from a project directory:  cd <P>/<project> && nexus c1
+ddev: run `mkcert -install` on this VM (it comes with ddev), then `nexus <persona> restart`, or https://*.ddev.site stays untrusted inside
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: warning: ddev isn't installed on this VM: the ddev personas get the newest ddev; install the same on the VM (pkg.ddev.com) so both agree, and for mkcert
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
+## run 14: config --yes … --telemetry-endpoint https://127.0.0.2:1  (d1: a restart; g1: its next grok reads it)  [pipe]
+rc: 0
+--- stdout
+nexus --config: setting up <A>
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  g1                              grok     docker   yes        the VM's             your agent
+  d1                              claude   ddev     yes        the VM's             your agent
+  sends telemetry to https://127.0.0.2:1: g1, d1
+
+Start one from a project directory:  cd <P>/<project> && nexus c1
+ddev: run `mkcert -install` on this VM (it comes with ddev), then `nexus <persona> restart`, or https://*.ddev.site stays untrusted inside
+d1: its telemetry settings changed; `nexus d1 restart` applies them (that ends its tmux sessions)
+g1: its grok settings changed; the next grok started in it reads them
+telemetry: nothing answered at https://127.0.0.2:1 (is it down, or is the address wrong?). The personas work all the same, but what they send is lost until this is fixed.
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: warning: ddev isn't installed on this VM: the ddev personas get the newest ddev; install the same on the VM (pkg.ddev.com) so both agree, and for mkcert
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
+## run 15: config --yes … --telemetry c1:on --persona c1:grok:docker  (claude, then grok: its drop-in neutral)  [pipe]
+rc: 0
+--- stdout
+nexus --config: setting up <A>
+-- c1 changed flavour: writing a new personas/c1.env (the old one is kept as a .bak)
+-- personas/c1.env
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              grok     docker   yes        the VM's             your agent
+  g1                              grok     docker   yes        the VM's             your agent
+  d1                              claude   ddev     yes        the VM's             your agent
+  sends telemetry to https://127.0.0.2:1: c1, g1, d1
+
+Start one from a project directory:  cd <P>/<project> && nexus c1
+c1: changed; `nexus c1 restart` applies it (that ends its tmux sessions)
+c1: add XAI_API_KEY to <A>/personas/c1.env
+ddev: run `mkcert -install` on this VM (it comes with ddev), then `nexus <persona> restart`, or https://*.ddev.site stays untrusted inside
+c1: its grok settings and statusline come through personas/c1.grok.toml now; `nexus c1 restart` brings them in
+telemetry: nothing answered at https://127.0.0.2:1 (is it down, or is the address wrong?). The personas work all the same, but what they send is lost until this is fixed.
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: warning: ddev isn't installed on this VM: the ddev personas get the newest ddev; install the same on the VM (pkg.ddev.com) so both agree, and for mkcert
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
+## run 16: grep . personas/c1.telemetry.json  [pipe, cwd a]
+rc: 0
+--- stdout
+{}
+--- stderr
+(empty)
+## run 17: config --yes … --persona c1:claude:docker  (and back)  [pipe]
+rc: 0
+--- stdout
+nexus --config: setting up <A>
+-- c1 changed flavour: writing a new personas/c1.env (the old one is kept as a .bak)
+-- personas/c1.env
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  g1                              grok     docker   yes        the VM's             your agent
+  d1                              claude   ddev     yes        the VM's             your agent
+  sends telemetry to https://127.0.0.2:1: c1, g1, d1
+
+Start one from a project directory:  cd <P>/<project> && nexus c1
+c1: changed; `nexus c1 restart` applies it (that ends its tmux sessions)
+ddev: run `mkcert -install` on this VM (it comes with ddev), then `nexus <persona> restart`, or https://*.ddev.site stays untrusted inside
+telemetry: nothing answered at https://127.0.0.2:1 (is it down, or is the address wrong?). The personas work all the same, but what they send is lost until this is fixed.
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: warning: ddev isn't installed on this VM: the ddev personas get the newest ddev; install the same on the VM (pkg.ddev.com) so both agree, and for mkcert
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
+## run 18: config --yes … --remove g1  (its telemetry file stays)  [pipe]
+rc: 0
+--- stdout
+nexus --config: setting up <A>
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  d1                              claude   ddev     yes        the VM's             your agent
+  sends telemetry to https://127.0.0.2:1: c1, d1
+
+Start one from a project directory:  cd <P>/<project> && nexus c1
+g1: removed. Its env file and home volume stay; to delete them:
+    docker rm -f agent-g1; docker volume rm agents_g1-home; rm -f <A>/personas/g1.env <A>/personas/g1.key <A>/personas/g1.key.pub <A>/personas/g1.grok.toml <A>/personas/g1.telemetry.env 
+ddev: run `mkcert -install` on this VM (it comes with ddev), then `nexus <persona> restart`, or https://*.ddev.site stays untrusted inside
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: warning: ddev isn't installed on this VM: the ddev personas get the newest ddev; install the same on the VM (pkg.ddev.com) so both agree, and for mkcert
+## run 19: config --yes … --telemetry-ca none  (a public certificate)  [pipe]
+rc: 0
+--- stdout
+nexus --config: setting up <A>
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  d1                              claude   ddev     yes        the VM's             your agent
+  sends telemetry to https://127.0.0.2:1: c1, d1
+
+Start one from a project directory:  cd <P>/<project> && nexus c1
+ddev: run `mkcert -install` on this VM (it comes with ddev), then `nexus <persona> restart`, or https://*.ddev.site stays untrusted inside
+c1: its telemetry settings changed; `nexus c1 restart` applies them (that ends its tmux sessions)
+d1: its telemetry settings changed; `nexus d1 restart` applies them (that ends its tmux sessions)
+telemetry: nothing answered at https://127.0.0.2:1 (is it down, or is the address wrong?). The personas work all the same, but what they send is lost until this is fixed.
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: warning: ddev isn't installed on this VM: the ddev personas get the newest ddev; install the same on the VM (pkg.ddev.com) so both agree, and for mkcert
+## run 20: config --yes … --telemetry-token-file <S>/keys/empty  (no token)  [pipe]
+rc: 0
+--- stdout
+nexus --config: setting up <A>
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  d1                              claude   ddev     yes        the VM's             your agent
+  sends telemetry to https://127.0.0.2:1: c1, d1
+
+Start one from a project directory:  cd <P>/<project> && nexus c1
+ddev: run `mkcert -install` on this VM (it comes with ddev), then `nexus <persona> restart`, or https://*.ddev.site stays untrusted inside
+c1: its telemetry settings changed; `nexus c1 restart` applies them (that ends its tmux sessions)
+d1: its telemetry settings changed; `nexus d1 restart` applies them (that ends its tmux sessions)
+telemetry: nothing answered at https://127.0.0.2:1 (is it down, or is the address wrong?). The personas work all the same, but what they send is lost until this is fixed.
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: warning: ddev isn't installed on this VM: the ddev personas get the newest ddev; install the same on the VM (pkg.ddev.com) so both agree, and for mkcert
+## run 21: grep HEADERS personas/d1.telemetry.json  (none)  [pipe, cwd a]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+(empty)
+## run 22: config --yes … --telemetry-endpoint none  (c1 and d1 stop)  [pipe]
+rc: 0
+--- stdout
+nexus --config: setting up <A>
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  d1                              claude   ddev     yes        the VM's             your agent
+
+Start one from a project directory:  cd <P>/<project> && nexus c1
+telemetry: off; c1, d1 no longer send it
+c1: changed; `nexus c1 restart` applies it (that ends its tmux sessions)
+d1: changed; `nexus d1 restart` applies it (that ends its tmux sessions)
+ddev: run `mkcert -install` on this VM (it comes with ddev), then `nexus <persona> restart`, or https://*.ddev.site stays untrusted inside
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: warning: ddev isn't installed on this VM: the ddev personas get the newest ddev; install the same on the VM (pkg.ddev.com) so both agree, and for mkcert
+## run 23: config --list  [pipe]
+rc: 0
+--- stdout
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  d1                              claude   ddev     yes        the VM's             your agent
+--- stderr
+(empty)
+## run 24: grep . personas/d1.telemetry.json  (neutral, until it is restarted)  [pipe, cwd a]
+rc: 0
+--- stdout
+{}
+--- stderr
+(empty)

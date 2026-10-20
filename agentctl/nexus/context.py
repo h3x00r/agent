@@ -41,6 +41,8 @@ Pitfalls (each pinned where named):
   nexus/m4-grok-managed-gone, golden nexus/m4-managed-back); a missing file says so (golden nexus/m4-compose-gone)
 - step_problem(): a file config-tools wrote, before it was `nexus --config`, is in step until the next writing
   run (golden nexus/cfg-legacy-header)
+- step_problem(): with or without the telemetry CA's mounts, whatever .env says (a hand edit of it isn't the
+  compose file's) (golden nexus/telemetry-start)
 """
 import os
 import stat
@@ -138,8 +140,8 @@ class Context:
         except OSError:
             return "%s isn't there: %s/nexus --config --yes writes it from personas.json" % (self.personas_file,
                                                                                           self.agents_dir)
-        if any(have == compose_render.render(self.personas(), m, legacy=l).encode("utf-8", "surrogateescape")
-               for m in (True, False) for l in (False, True)):
+        if any(have == compose_render.render(self.personas(), m, legacy=l, ca=ca).encode("utf-8", "surrogateescape")
+               for m in (True, False) for l in (False, True) for ca in (False, True)):
             return ""
         return ("%s is out of step with personas.json (edited by hand, or written by an older nexus --config): "
                 "%s/nexus --config --yes writes it again from personas.json" % (self.personas_file, self.agents_dir))
@@ -201,7 +203,7 @@ class Persona:
                 % (name, " ".join(p.name for p in ps), ctx.agents_dir))
         self.name, self.container = name, rec.container
         self.flavour, self.context, self.ssh, self.own_root = rec.flavour, rec.context, rec.ssh, rec.root
-        self.permissions = rec.permissions
+        self.permissions, self.telemetry = rec.permissions, rec.telemetry
         self.root = rec.root or ctx.vm_root
         if self.root.endswith("/"):
             self.root = self.root[:-1]

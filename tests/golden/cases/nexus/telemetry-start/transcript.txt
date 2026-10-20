@@ -1,0 +1,70 @@
+## run 1: nexus d1 start  (no mkcert CA yet)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+nexus: warning: no mkcert CA on this VM yet — run 'mkcert -install' here, then `nexus d1 restart`, or https://*.ddev.site stays untrusted inside
+ Container agent-d1  Started
+nexus: d1: Claude defaults from personas/claude.json: model, modelSettings.opus.effortLevel, outputStyle, teammateMode, theme, tui, worktree.baseRef
+## run 2: nexus d1 restart  (after mkcert -install)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-d1  Recreated
+## run 3: nexus d1 restart  (nothing changed since)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-d1  Recreated
+## run 4: nexus c1 start  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-c1  Started
+nexus: c1: Claude defaults from personas/claude.json: model, modelSettings.opus.effortLevel, outputStyle, teammateMode, theme, tui, worktree.baseRef
+## run 5: nexus g1 start  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-g1  Started
+## run 6: nexus n1 start  (sends nothing)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-n1  Started
+nexus: n1: Claude defaults from personas/claude.json: model, modelSettings.opus.effortLevel, outputStyle, teammateMode, theme, tui, worktree.baseRef
+## run 7: nexus c1 restart  (TELEMETRY_CA taken out of .env by hand)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-c1  Recreated
+## run 8: nexus c1 restart  (its drop-in gone)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: <A>/personas/c1.telemetry.json isn't there: re-run <A>/nexus --config, which writes it
+## run 9: nexus g1 restart  (its env file gone)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: <A>/personas/g1.telemetry.env isn't there: re-run <A>/nexus --config, which writes it
+## run 10: nexus d1 restart  (the CA gone)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: <A>/personas/telemetry-ca.pem isn't a file, and d1 sends telemetry to a collector with a CA of its own: give the CA file again with <A>/nexus --config, then telemetry
+## run 11: nexus n1 restart  (the CA gone; n1 sends nothing)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-n1  Recreated

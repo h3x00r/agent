@@ -131,6 +131,7 @@ def new_id(w, ref):
 
 
 ASK_TARGET = "/etc/claude-code/managed-settings.d/16-ask.json"
+DROPIN_TARGET = "/etc/claude-code/managed-settings.d/50-telemetry.json"
 
 
 def service_text(files, service):
@@ -189,10 +190,12 @@ def compose(world, args):
         ref = service_image(w, service) or "local/agent-%s:latest" % service
         img = w["images"].get(ref, {}).get("id") or new_id(w, ref)
         name = "agent-" + service
-        mounts = [ASK_TARGET] if ASK_TARGET in service_text(files, service) else []
+        text = service_text(files, service)
+        mounts = [t for t in (ASK_TARGET, DROPIN_TARGET) if t in text]
         w["containers"][name] = {
             "state": "running", "status": "Up Less than a second (health: starting)", "image": img,
-            "env": {"PROJECTS_ROOT": os.environ.get("PROJECTS_ROOT", "")},
+            "env": dict({"PROJECTS_ROOT": os.environ.get("PROJECTS_ROOT", "")},
+                        **({"OTEL_EXPORTER_OTLP_METRICS_HEADERS": "(from the env file)"} if ".telemetry.env]" in text else {})),
             "workdir": os.path.dirname(files[0]) if files else "",
             "sessions": [{"name": "main", "windows": 1, "attached": 0, "path": os.environ.get("PROJECTS_ROOT", "")}],
             "home": w["containers"].get(name, {}).get("home") or os.path.join(SB, "ctr", service, "home"),

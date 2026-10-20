@@ -488,6 +488,98 @@ then, for one that is there already, `nexus <name> restart`; `nexus --config` sa
   ([section 3](#3-headless-runs)).
 - grok personas can't be set to ask (refused): grok takes its approval mode from `personas/grok.toml`.
 
+### Telemetry (OpenTelemetry)
+
+Off unless you set it up. A persona can send what its CLI reports about itself (tokens, cost, sessions, tool use,
+errors; no prompts or replies) to one OpenTelemetry collector, which every persona that sends shares: one you run
+for several VMs, say. Nothing is sent from a persona you didn't turn on.
+
+**Set it up:** `nexus --config`, then `telemetry` in the menu. It asks:
+1. the collector's OTLP/HTTP address, e.g. `https://collector.lan:4318` (`none` turns telemetry off for all);
+2. its bearer token, sent as `Authorization: Bearer <token>` (hidden; empty keeps the one set, `-` for none);
+3. the CA file its certificate is signed by, PEM, if it has a private CA (`-`: a publicly trusted one);
+4. for each persona, whether it sends.
+
+It saves, then tries the collector with an empty export (no data): `-- telemetry: <address> took a test export
+with the token`, or what is wrong. Then restart each persona it names, e.g. `nexus <name> restart` (that ends its
+tmux sessions). `add` and `change` ask whether a persona sends, while a collector is set.
+
+For scripts, the same with `--yes`:
+```bash
+nexus --config --yes --telemetry-endpoint https://collector.lan:4318 \
+  --telemetry-token-file ~/collector-token --telemetry-ca ~/collector-ca.pem \
+  --telemetry claude-team:on --telemetry grok:on
+```
+(`--telemetry-endpoint none` turns it off; `--telemetry NAME:off` stops one persona; the files take absolute paths;
+an empty token file sets none.)
+
+What it writes:
+- `.env`: `TELEMETRY_ENDPOINT`, `TELEMETRY_TOKEN` and `TELEMETRY_CA` (`personas/telemetry-ca.pem`, the copy of the CA
+  file it was given). `.env` is made private (mode 600) once it holds the token. A path of your own written into
+  `TELEMETRY_CA` by hand is copied in at the next `nexus --config`.
+- `personas.json`: `"telemetry": true` for each persona that sends.
+- For a Claude persona that sends, `personas/<name>.telemetry.json` (mode 600: it holds the token), mounted as the
+  managed drop-in `/etc/claude-code/managed-settings.d/50-telemetry.json`. Its `env` turns on Claude Code's metrics,
+  events and traces over `http/protobuf`, with `host.name` (the VM) and `persona` (its name) as resource attributes,
+  which Claude Code also puts on every datapoint, event and span. A drop-in rather than the container's environment,
+  so docker compose in the persona's shell sends nothing (it sends traces of its own as soon as it sees any
+  `OTEL_*ENDPOINT` variable), and a `claude -p` run from a script inside still sends.
+- For a grok persona that sends, a `[telemetry]` table after its managed config (`personas/<name>.grok.toml`), and
+  `personas/<name>.telemetry.env` (mode 600), a second env file holding the token header, which grok takes from
+  the environment only. grok sends metrics and events, no traces. The header is set as
+  `OTEL_EXPORTER_OTLP_METRICS_HEADERS` and `OTEL_EXPORTER_OTLP_LOGS_HEADERS`, which grok reads, not the generic
+  `OTEL_EXPORTER_OTLP_HEADERS`: every process in the persona sees its environment, and docker compose and a
+  project's tracing then never send the token. A project's own OpenTelemetry metrics or logs exporter run in that
+  persona would still send it to the collector that project names: don't run one there with the token set, or
+  give it its own `OTEL_EXPORTER_OTLP_*_HEADERS`.
+- The CA is mounted read-only at `/etc/nexus/telemetry-ca.pem` (Claude Code takes it as `NODE_EXTRA_CA_CERTS`,
+  grok as `otel_certificate`). A ddev Claude persona gets one file holding the collector's CA and then mkcert's
+  (`personas/telemetry-ca.ddev.pem`, written by nexus each time it starts the persona): Claude Code takes a single
+  file, and the drop-in's replaces the mkcert CA compose gives it, so without mkcert's in it `https://*.ddev.site`
+  would stop being trusted. After a later `mkcert -install`, `nexus <name> restart` brings it in.
+- A Claude persona that stops sending gets an empty drop-in (`{}`) until its next `nexus <name> restart`, after
+  which it is removed: its running container still mounts the file, and Docker couldn't start that container
+  again (a reboot) without it. A grok persona's file is removed at once. All of these are ignored by git.
+- `nexus --config` refuses (and writes nothing) while a persona sends and: no collector is set; `.env` holds an
+  address or token the options would refuse; the CA file isn't a certificate, or holds a private key; a Claude
+  persona sets `NODE_EXTRA_CA_CERTS` itself (in its env file, a docker one; or in `personas/claude.managed.json`),
+  which the drop-in's would replace: put both CAs in one PEM file and give that; or `personas/grok.toml` has a
+  `[telemetry]` table of its own.
+- Until a persona is restarted after it starts or stops sending, a start or an attach warns: `<name> sends
+  telemetry now, but its container was made before that …`, or `… no longer sends telemetry, but its container
+  was made while it did and still sends it …`.
+
+Check that data arrives (here with Prometheus and Loki behind the collector; the names are the OTLP ones with dots
+as `_`):
+- Claude: `claude_code_session_count_total{persona="<name>"}`, cost
+  `sum by (persona) (claude_code_cost_usage_USD_total)`, events `{service_name="claude-code"} | persona="<name>"`.
+- grok: `grok_code_session_count_total`, events `{service_name="grok-cli"}`. grok ignores the resource attributes it
+  is given, so its data carries no host or persona. nexus sends both as headers (`X-Nexus-Host`,
+  `X-Nexus-Persona`); a collector can make attributes of them (OpenTelemetry Collector contrib):
+  ```yaml
+  receivers:
+    otlp:
+      protocols:
+        http: { include_metadata: true }      # with the endpoint, TLS and auth you have
+  processors:
+    attributes/nexus:
+      actions:
+        - { key: persona, from_context: metadata.x-nexus-persona, action: insert }
+        - { key: host.name, from_context: metadata.x-nexus-host, action: insert }
+  # and attributes/nexus in the metrics and logs pipelines' processors, after memory_limiter
+  ```
+
+If nothing arrives, the persona works all the same: neither CLI says anything about a failed export, and a
+collector that doesn't answer costs at most about 2 s when the CLI exits.
+- `nexus --config`, then `telemetry`, and Enter through the questions: it tries the collector again.
+- In a Claude persona: `CLAUDE_CODE_OTEL_DIAG_STDERR=1 claude -p hi` prints why an export failed (`Unauthorized`:
+  the token; `unable to verify the first certificate`: the CA), and `claude -p hi --debug-file /tmp/d.log` logs
+  `[3P telemetry] First metrics export: SUCCESS` or the reason.
+- In a grok persona: `RUST_LOG=debug GROK_LOG_FILE=/tmp/g.log grok -p hi`, then `grep "export health" /tmp/g.log`
+  (`export_failures=0 export_successes=2` is good).
+- A token or CA changed on the collector: `nexus --config`, `telemetry`, give the new one, then restart the
+  personas it names.
+
 ### Settings for every persona
 
 Committed files hold the settings every persona of a flavour gets, on every VM that pulls the repo. Each is
@@ -842,6 +934,9 @@ Back on the Python tools (`git checkout main`), `# persona:` lines in `compose.p
 | `env file …/personas/<persona>.env not found` | deleted, or the persona was added by hand | re-run `nexus --config` (it writes a new one) |
 | `the projects root must be an absolute path` / `can't create the projects root …` | a bad `PROJECTS_ROOT` in `.env` or your shell, or a bad own root | the message says which: fix it, or re-run `nexus --config` |
 | `… is outside <persona>'s projects root; starting in …` | you ran `nexus` from a directory that persona doesn't mount | `cd` into its root, or give the persona that root (section 5) |
+| `telemetry: nothing answered at …` / `… refused the token (HTTP 401)` / `… has a certificate that … doesn't vouch for` / `… doesn't speak TLS (HTTPS) there` / `… answered a test export (HTTP 302), but not as an OpenTelemetry collector does` (`nexus --config`) | the collector is down or the address is wrong / the token is wrong / the CA given isn't the one its certificate is signed by / the port is plain HTTP: give `http://` / that address redirects (a login page, say): give the collector's own | fix it with `nexus --config`, then `telemetry` ([§5](#telemetry-opentelemetry)); the personas work meanwhile, but what they send is lost |
+| `… sends telemetry now, but its container was made before that` / `… no longer sends telemetry, but its container was made while it did` | its telemetry changed while it ran | `nexus <persona> restart` (ends its sessions) |
+| `… sends telemetry, but no collector is set` / `TELEMETRY_CA … names personas/telemetry-ca.pem, which isn't …` / `the collector's CA file … holds a private key as well` / `… sets NODE_EXTRA_CA_CERTS, and …'s telemetry drop-in would replace it` | a persona was turned on without a collector / the CA copy was deleted or replaced / a key+certificate file was given / a CA of its own for Claude | `nexus --config`, then `telemetry`: give the collector, or the CA certificate alone; for its own CA, put both in one PEM file and give that |
 | `<persona> still runs with the projects root it was created with, …` | its root changed (`nexus --config`, or `PROJECTS_ROOT`) while it ran: a running container keeps the root it was created with | `nexus <persona> restart` (ends its sessions); to finish one first, `nexus <persona> <session>` attaches to it |
 | `OCI runtime exec failed: … chdir to cwd …: no such file or directory` | an older nexus, attaching to a persona whose root changed while it ran | `nexus <persona> restart`; `git pull` brings the nexus that says so |
 | `no Docker socket at /var/run/docker.sock` | Docker isn't installed or running | install / start Docker |
@@ -924,6 +1019,9 @@ both. `.env` feeds compose, and the launcher reads `PROJECTS_ROOT`, `REGISTRY` a
 | `DDEV_VERSION` | no | latest in the apt repo | ddev in ddev-context images; the VM's `ddev version` (leading `v` optional) |
 | `AGENT_CPUS` | no | `4`, capped at `nproc` by `nexus --config` | CPU limit per persona; must not exceed `nproc` |
 | `AGENT_MEMORY` | no | `8g` | Memory limit per persona |
+| `TELEMETRY_ENDPOINT` | no | empty: no telemetry | The OpenTelemetry collector's OTLP/HTTP address for the personas that send ([§5](#telemetry-opentelemetry)) |
+| `TELEMETRY_TOKEN` | no | empty: none sent | Its bearer token; `.env` is made mode 600 once it holds one |
+| `TELEMETRY_CA` | no | empty: a public certificate | `personas/telemetry-ca.pem`, the collector's CA as `nexus --config` copied it in (a path of your own is copied in at its next run) |
 
 ### Derived by the launcher — don't set them
 
@@ -941,7 +1039,10 @@ Without the launcher, export them yourself and use both compose files, e.g. from
 (`PROJECTS_ROOT` = the persona's own root if it has one in `personas.json` (`root`), else the VM's; with
 `SSH_AUTH_SOCK` from your shell; `-p agents` keeps an exported `COMPOSE_PROJECT_NAME` from switching to fresh
 home volumes). For a ddev persona, first `mkdir -p ~/.ddev ~/.local/share/mkcert` (or Docker creates them
-root-owned), and add `AGENT_CA_CERTS=` (empty) if the VM has no mkcert CA.
+root-owned), and add `AGENT_CA_CERTS=` (empty) if the VM has no mkcert CA. A ddev Claude persona that sends telemetry
+to a collector with a CA of its own also needs the file nexus writes as it starts one:
+`cat personas/telemetry-ca.pem ~/.local/share/mkcert/rootCA.pem > personas/telemetry-ca.ddev.pem` (the second only if
+it is there).
 
 ### Per persona — `personas/<persona>.env` (written by `nexus --config` from `personas/<flavour>.env.example`)
 

@@ -1,10 +1,15 @@
+import http.server
 import os
 import shutil
+import socket
+import ssl
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import unittest
+from unittest import mock
 
 from agentctl.adapters import compose_render
 from agentctl.core import lock, proc
@@ -84,6 +89,29 @@ class Render(unittest.TestCase):
             self.assertIn("source: ./personas/claude.ask.json, target: /etc/claude-code/managed-settings.d/16-ask.json", c1)
             if managed:
                 self.assertLess(c1.index("15-personas.json"), c1.index("16-ask.json"))
+
+    def test_telemetry(self):
+        """Only a persona that sends gets anything new: claude its drop-in, grok its second env file; each the CA
+        when the collector has one (a ddev claude one the bundle). Every other service is as it was."""
+        off = [Persona("c1", "claude", "ddev", "colour25"), Persona("g1", "grok", "docker", "colour28", ssh="none")]
+        on = [Persona("c1", "claude", "ddev", "colour25", telemetry=True),
+              Persona("g1", "grok", "docker", "colour28", ssh="none", telemetry=True),
+              Persona("c3", "claude", "docker", "colour90", telemetry=True), Persona("c4", "claude", "docker", "colour1")]
+        for ca in (True, False):
+            self.assertEqual(compose_render.render(off, managed=True, ca=ca), compose_render.render(off, managed=True))
+            self.assertEqual(compose_render.service(on[3], True, ca), compose_render.service(on[3], True))
+            out = compose_render.render(on, managed=True, ca=ca, tele_files={"g1": "personas/g1.telemetry.env.X1"})
+            c1 = out[out.index('  "c1":'):out.index('  "g1":')]
+            g1 = out[out.index('  "g1":'):out.index('  "c3":')]
+            c3 = out[out.index('  "c3":'):out.index('  "c4":')]
+            self.assertIn("source: ./personas/c1.telemetry.json, target: /etc/claude-code/managed-settings.d/50-telemetry.json", c1)
+            self.assertIn("env_file: [personas/g1.env, personas/g1.telemetry.env.X1]\n", g1)
+            self.assertNotIn("telemetry.json", g1)
+            self.assertEqual("source: ./personas/telemetry-ca.ddev.pem, target: /etc/nexus/telemetry-ca.pem" in c1, ca)
+            self.assertEqual("source: ./personas/telemetry-ca.pem, target: /etc/nexus/telemetry-ca.pem" in g1, ca)
+            self.assertEqual("source: ./personas/telemetry-ca.pem, target: /etc/nexus/telemetry-ca.pem" in c3, ca)
+            self.assertLess(g1.index("grok.toml"), g1.index("50-nexus-none.conf"))
+        self.assertIn("env_file: [personas/g1.env, personas/g1.telemetry.env]\n", compose_render.render(on, managed=False))
 
     def test_legacy_is_what_config_tools_wrote(self):
         # The file as config-tools wrote it, before it was `nexus --config`: only its comments differ.
@@ -188,10 +216,12 @@ class PersonasJson(unittest.TestCase):
     def test_a_round_trip_keeps_order_and_bytes(self):
         ps = [Persona("z9", "grok", "ddev", "colour28", False, "/srv/caf\udce9", "personas/z9.key"),
               Persona("a1", "claude", "docker", "colour25", True, "", "none"),
-              Persona("k2", "claude", "docker", "colour90", permissions="ask")]
+              Persona("k2", "claude", "docker", "colour90", permissions="ask"),
+              Persona("t1", "grok", "docker", "colour1", telemetry=True)]
         text = self.store.dumps(ps)
         self.assertTrue(text.endswith("}\n") and text.index('"z9"') < text.index('"a1"'))
         self.assertEqual(text.count('"permissions"'), 1)   # the default isn't written
+        self.assertEqual(text.count('"telemetry": true'), 1)
         self.assertEqual(self.load(text), ps)
 
     def test_what_it_refuses(self):
@@ -212,7 +242,185 @@ class PersonasJson(unittest.TestCase):
                 ('{"version": 1, "personas": {"c1": {%s, "permissions": false}}}' % ok, "permissions that isn't a string"),
                 ('{"version": 1, "personas": {"g1": {%s, "permissions": "ask"}}}' % ok.replace('"claude"', '"grok"'),
                  "only a claude persona takes"),
+                ('{"version": 1, "personas": {"c1": {%s, "telemetry": "yes"}}}' % ok, "telemetry that isn't true or false"),
+                ('{"version": 1, "personas": {"c1": {%s, "telemetry": 1}}}' % ok, "telemetry that isn't true or false"),
                 ("{nope", "isn't valid JSON")):
             with self.assertRaises(self.store.BadPersonasJson) as c:
                 self.load(text)
             self.assertIn(why, str(c.exception), text)
+
+
+class _Answer(http.server.BaseHTTPRequestHandler):
+    """A stand-in for the collector, or for what else may sit at its address: answers each POST as self.server.answer
+    says ((code, content type, extra headers)), and records what it got."""
+    def log_message(self, *args):
+        pass
+
+    def do_POST(self):
+        self.rfile.read(int(self.headers.get("Content-Length", 0)))
+        code, kind, extra = self.server.answer
+        self.server.got.append((self.command, self.path, self.headers.get("Authorization", "")))
+        body = b'{"partialSuccess":{}}' if kind == "application/json" else b"<html></html>"
+        self.send_response(code)
+        self.send_header("Content-Type", kind)
+        self.send_header("Content-Length", str(len(body)))
+        for k, v in extra:
+            self.send_header(k, v)
+        self.end_headers()
+        self.wfile.write(body)
+
+    do_GET = do_POST
+
+
+def _serve(answer, tls=None):
+    srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), _Answer)
+    srv.answer, srv.got, srv.daemon_threads = answer, [], True
+    if tls:
+        ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        ctx.load_cert_chain(*tls)
+        srv.socket = ctx.wrap_socket(srv.socket, server_side=True)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    return srv, "127.0.0.1:%d" % srv.server_address[1]
+
+
+def _closed_port():
+    s = socket.socket()
+    s.bind(("127.0.0.1", 0))
+    port = s.getsockname()[1]
+    s.close()
+    return port
+
+
+class Telemetry(unittest.TestCase):
+    from agentctl.adapters import telemetry as io
+
+    def test_probe_outcomes(self):
+        """Each outcome, in words of its own; never a raise; the token never follows a redirect."""
+        servers = []
+        try:
+            ok, ok_at = _serve((200, "application/json", ()))
+            page, page_at = _serve((200, "text/html", ()))
+            refused, refused_at = _serve((401, "application/json", ()))
+            other, other_at = _serve((200, "application/json", ()))
+            moved, moved_at = _serve((302, "text/html", (("Location", "http://%s/sso" % other_at),)))
+            servers += [ok, page, refused, other, moved]
+            self.assertEqual(self.io.probe("http://" + ok_at, "tok", ""), ("ok", ""))
+            self.assertEqual(ok.got, [("POST", "/v1/metrics", "Bearer tok")])
+            self.assertEqual(self.io.probe("http://" + page_at, "tok", ""), ("status", "200"))
+            self.assertEqual(self.io.probe("http://" + refused_at, "tok", ""), ("auth", "401"))
+            self.assertEqual(self.io.probe("http://" + moved_at, "tok", ""), ("status", "302"))
+            self.assertEqual(other.got, [])                     # the token went nowhere else
+            self.assertEqual(self.io.probe("https://" + ok_at, "tok", ""), ("tls", ""))   # plain HTTP there
+            self.assertEqual(self.io.probe("http://127.0.0.1:%d" % _closed_port(), "", ""), ("connect", ""))
+            self.assertEqual(self.io.probe("collector", "", ""), ("connect", ""))
+            with tempfile.TemporaryDirectory() as d:
+                junk = os.path.join(d, "junk.pem")
+                with open(junk, "w") as f:
+                    f.write("-----BEGIN CERTIFICATE-----\nAAAA\n-----END CERTIFICATE-----\n")
+                self.assertEqual(self.io.probe("http://" + ok_at, "", junk), ("ca", ""))
+                self.assertEqual(self.io.probe("http://" + ok_at, "", os.path.join(d, "gone.pem")), ("ca", ""))
+                if shutil.which("openssl"):
+                    ca, cert, key = _test_ca(d)
+                    tls, tls_at = _serve((200, "application/json", ()), tls=(cert, key))
+                    servers.append(tls)
+                    self.assertEqual(self.io.probe("https://" + tls_at, "", ""), ("cert", ""))
+                    self.assertEqual(self.io.probe("https://" + tls_at, "", ca), ("ok", ""))
+        finally:
+            for srv in servers:
+                srv.shutdown()
+                srv.server_close()
+
+    def test_probe_ignores_proxy(self):
+        """The personas get no proxy from compose: nor does the probe. A probe that used one would leave a connection
+        in this listener's backlog."""
+        lst = socket.socket()
+        lst.bind(("127.0.0.1", 0))
+        lst.listen(1)
+        lst.settimeout(1)
+        proxy = "http://127.0.0.1:%d" % lst.getsockname()[1]
+        try:
+            with mock.patch.dict(os.environ, {"https_proxy": proxy, "http_proxy": proxy, "HTTPS_PROXY": proxy,
+                                              "HTTP_PROXY": proxy, "no_proxy": "", "NO_PROXY": ""}):
+                port = _closed_port()
+                self.assertEqual(self.io.probe("https://127.0.0.1:%d" % port, "tok", ""), ("connect", ""))
+                self.assertEqual(self.io.probe("http://127.0.0.1:%d" % port, "tok", ""), ("connect", ""))
+            with self.assertRaises(socket.timeout):
+                lst.accept()
+        finally:
+            lst.close()
+
+    def test_grok_sets_telemetry(self):
+        from agentctl.adapters import checks
+        with tempfile.TemporaryDirectory() as d:
+            f = os.path.join(d, "grok.toml")
+            for text, want in (("[telemetry]\nx = 1\n", True), ("[ telemetry ]\n", True), ("[telemetry.sub]\n", True),
+                               ("['telemetry']\n", True), ("[[telemetry]]\n", True), ('[ "telemetry" . x ]\n', True),
+                               ("telemetry.otel_enabled = true\n", True), ("telemetry = { otel_enabled = true }\n", True),
+                               ("[features]\ntelemetry = false\n", False), ("features.telemetry = false\n", False),
+                               ("[ui]\ntelemetry_x = 1\n", False), ("# [telemetry]\n", False),
+                               ("a = 1\n[x]\ntelemetry.y = 1\n", False)):
+                with open(f, "w") as fh:
+                    fh.write(text)
+                self.assertEqual(checks.grok_sets_telemetry(f), want, text)
+            self.assertFalse(checks.grok_sets_telemetry(os.path.join(d, "none.toml")))
+
+    def test_ca_problem(self):
+        with tempfile.TemporaryDirectory() as d:
+            f = os.path.join(d, "ca.pem")
+            self.assertEqual(self.io.ca_problem(f), "isn't a file")
+            with open(f, "w") as fh:
+                fh.write("not a cert\n")
+            self.assertIn("has no certificate", self.io.ca_problem(f))
+            with open(f, "w") as fh:
+                fh.write("-----BEGIN CERTIFICATE-----\nAAAA\n-----END CERTIFICATE-----\n")
+            self.assertIn("isn't a certificate a TLS client can load", self.io.ca_problem(f))
+            if os.path.isfile("/etc/ssl/certs/ca-certificates.crt"):
+                with open("/etc/ssl/certs/ca-certificates.crt", "rb") as src, open(f, "wb") as fh:
+                    fh.write(b"-----BEGIN PRIVATE KEY-----\nAAAA\n-----END PRIVATE KEY-----\n" + src.read())
+                self.assertIn("holds a private key as well", self.io.ca_problem(f))
+        if os.path.isfile("/etc/ssl/certs/ca-certificates.crt"):
+            self.assertEqual(self.io.ca_problem("/etc/ssl/certs/ca-certificates.crt"), "")
+
+    def test_write_bundle(self):
+        with tempfile.TemporaryDirectory() as d:
+            a, home = os.path.join(d, "a"), os.path.join(d, "home")
+            os.makedirs(os.path.join(a, "personas"))
+            self.assertIn("can't read", self.io.write_bundle(a, home))
+            with open(os.path.join(a, "personas", "telemetry-ca.pem"), "wb") as f:
+                f.write(b"CA")
+            dst = os.path.join(a, "personas", "telemetry-ca.ddev.pem")
+            self.assertEqual(self.io.write_bundle(a, home), "")
+            with open(dst, "rb") as f:
+                self.assertEqual(f.read(), b"CA\n")
+            self.assertEqual(os.stat(dst).st_mode & 0o777, 0o644)
+            ino = os.stat(dst).st_ino
+            self.assertEqual(self.io.write_bundle(a, home), "")
+            self.assertEqual(os.stat(dst).st_ino, ino)          # the same bytes: not written again
+            os.makedirs(os.path.join(home, ".local/share/mkcert"))
+            with open(os.path.join(home, ".local/share/mkcert/rootCA.pem"), "wb") as f:
+                f.write(b"MK\n")
+            self.assertEqual(self.io.write_bundle(a, home), "")  # mkcert -install since: in it now
+            with open(dst, "rb") as f:
+                self.assertEqual(f.read(), b"CA\nMK\n")
+            self.assertEqual(os.listdir(os.path.join(a, "personas")), sorted(["telemetry-ca.pem", "telemetry-ca.ddev.pem"],
+                                                                            key=os.listdir(os.path.join(a, "personas")).index))
+
+
+def _test_ca(d):
+    """A CA, and a certificate for 127.0.0.1 it signs (openssl, as the collector stack's certs service makes them):
+    (ca, cert, key) paths in D."""
+    cnf = os.path.join(d, "ssl.cnf")
+    with open(cnf, "w") as f:
+        f.write("[req]\ndistinguished_name = dn\n[dn]\n[ca]\nbasicConstraints = critical,CA:TRUE\n"
+                "keyUsage = critical,keyCertSign,cRLSign\n[srv]\nsubjectAltName = IP:127.0.0.1\n"
+                "basicConstraints = CA:FALSE\nextendedKeyUsage = serverAuth\n")
+    p = lambda n: os.path.join(d, n)  # noqa: E731
+    run = lambda *a: subprocess.run(["openssl"] + list(a), check=True, stdout=subprocess.DEVNULL,  # noqa: E731
+                                    stderr=subprocess.DEVNULL)
+    run("req", "-x509", "-newkey", "ec", "-pkeyopt", "ec_paramgen_curve:P-256", "-nodes", "-days", "2", "-subj", "/CN=t CA",
+        "-config", cnf, "-extensions", "ca", "-keyout", p("ca.key"), "-out", p("ca.pem"))
+    run("req", "-newkey", "ec", "-pkeyopt", "ec_paramgen_curve:P-256", "-nodes", "-subj", "/CN=t", "-config", cnf,
+        "-keyout", p("srv.key"), "-out", p("srv.csr"))
+    run("x509", "-req", "-in", p("srv.csr"), "-CA", p("ca.pem"), "-CAkey", p("ca.key"), "-CAcreateserial", "-days", "2",
+        "-extfile", cnf, "-extensions", "srv", "-out", p("srv.pem"))
+    return p("ca.pem"), p("srv.pem"), p("srv.key")

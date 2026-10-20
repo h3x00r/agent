@@ -20,9 +20,9 @@ nexus --config — set this checkout up for one dev VM: which personas it runs, 
 
   nexus --config                  the first time: the settings every persona shares, the launcher, the
                                 first persona; then, each time, what is set up and a menu: list, add,
-                                change or remove a persona, the shared settings, the launcher, the
-                                images. Each action is saved as it is done; the options below are
-                                saved first
+                                change or remove a persona, the shared settings, telemetry, the
+                                launcher, the images. Each action is saved as it is done; the options
+                                below are saved first
   nexus --config --list           the personas set up so far
   nexus --config --yes [options]  no questions, for scripts: current settings are kept, and the
                                 defaults below apply to new ones
@@ -37,6 +37,14 @@ nexus --config — set this checkout up for one dev VM: which personas it runs, 
     --permissions NAME:ask|bypass    whether that claude persona runs its tools without asking: bypass
                                      (personas/claude.managed.json's bypassPermissions; the default) or
                                      ask (personas/claude.ask.json's mode over it); repeatable
+    --telemetry NAME:on|off          whether that persona sends telemetry (OpenTelemetry: tokens, cost,
+                                     sessions, tool use; no prompts) to the collector below (default: off);
+                                     repeatable
+    --telemetry-endpoint URL|none    the collector's OTLP/HTTP address, e.g. https://collector.lan:4318;
+                                     none: no telemetry at all (the default)
+    --telemetry-token-file FILE      a file holding the collector's bearer token (an empty one: none)
+    --telemetry-ca FILE|none         the CA file (PEM) the collector's certificate is signed by, copied in
+                                     as personas/telemetry-ca.pem; none: a publicly trusted certificate
     --remove NAME                    drop a persona (its env file and home volume stay); repeatable
     --projects-root DIR              default: $HOME/projects
     --registry HOST                  local (build on this VM; the default) or host[:port][/path]
@@ -57,7 +65,10 @@ personas/claude.managed.json (committed) as a managed settings drop-in, and one 
 personas/claude.ask.json after it; nexus merges the defaults in
 personas/claude.json into its own settings when it starts it. A grok persona gets
 personas/<name>.grok.toml, its grok managed config: personas/grok.toml (the grok settings for every
-grok persona, committed) and, with the statusline on, statusline/grok/settings.toml.
+grok persona, committed) and, with the statusline on, statusline/grok/settings.toml. A persona that
+sends telemetry gets its settings written from .env's TELEMETRY_* (they hold the token, mode 600):
+personas/<name>.telemetry.json, a managed drop-in, for claude; a [telemetry] table in its grok config
+and personas/<name>.telemetry.env for grok.
 """
 
 
@@ -74,6 +85,11 @@ class Options:
         self.add = []
         self.ssh = []
         self.permissions = []
+        self.telemetry = []
+        self.tele_endpoint = ""
+        self.tele_token_file = ""
+        self.tele_token = None        # the token in that file, once read (check_flags)
+        self.tele_ca = ""
         self.remove = []
         self.help = False
 
@@ -82,6 +98,10 @@ VALUED = {
     "--persona": ("NAME:FLAVOUR:CONTEXT[:ROOT]", "add"),
     "--ssh": ("NAME:agent, NAME:none, NAME:new or NAME:KEY", "ssh"),
     "--permissions": ("NAME:ask or NAME:bypass", "permissions"),
+    "--telemetry": ("NAME:on or NAME:off", "telemetry"),
+    "--telemetry-endpoint": ("a URL or none", "tele_endpoint"),
+    "--telemetry-token-file": ("a FILE", "tele_token_file"),
+    "--telemetry-ca": ("a FILE or none", "tele_ca"),
     "--remove": ("a NAME", "remove"),
     "--projects-root": ("a DIR", "root"),
     "--registry": ("local or a HOST", "registry"),

@@ -26,6 +26,10 @@ class Parse(unittest.TestCase):
                          (True, ["c1:claude:docker", "g1:grok:ddev"], ["g1:new"], "none", False, "no", "b"))
         self.assertEqual(cli.parse(["--permissions", "c1:ask", "--permissions", "c2:bypass"]).permissions,
                          ["c1:ask", "c2:bypass"])
+        o = cli.parse(["--telemetry", "c1:on", "--telemetry", "g1:off", "--telemetry-endpoint", "https://c.lan:4318",
+                       "--telemetry-token-file", "/t", "--telemetry-ca", "none"])
+        self.assertEqual((o.telemetry, o.tele_endpoint, o.tele_token_file, o.tele_ca, o.tele_token),
+                         (["c1:on", "g1:off"], "https://c.lan:4318", "/t", "none", None))
 
     def test_help_stops_where_it_is_read(self):
         self.assertTrue(cli.parse(["--help", "--bogus"]).help)
@@ -143,7 +147,7 @@ class _Session:
 class Menu(unittest.TestCase):
     def test_every_action_is_a_method(self):
         keys = [o.split(" ", 1)[0] for o in menu.ACTIONS]
-        self.assertEqual(keys, ["list", "add", "change", "remove", "shared", "launcher", "images", "quit"])
+        self.assertEqual(keys, ["list", "add", "change", "remove", "shared", "telemetry", "launcher", "images", "quit"])
         for k in keys[:-1]:
             self.assertTrue(callable(getattr(menu.Menu, "act_" + k)), k)
 

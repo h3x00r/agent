@@ -1,0 +1,134 @@
+## run 1: config --yes --no-link --no-build --telemetry  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --telemetry needs NAME:on or NAME:off (see --help)
+## run 2: config --yes --no-link --no-build --telemetry c1  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --telemetry c1: it takes NAME:on or NAME:off
+## run 3: config --yes --no-link --no-build --telemetry c1:maybe  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --telemetry c1:maybe: it takes NAME:on or NAME:off
+## run 4: config --yes --no-link --no-build --telemetry Bad!:on  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --telemetry Bad!:on: it takes NAME:on or NAME:off
+## run 5: config --yes --no-link --no-build --telemetry nobody:on  [pipe]
+rc: 1
+--- stdout
+nexus --config: setting up <A>
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: --telemetry nobody:on: no persona nobody (add it with --persona)
+## run 6: config --yes --no-link --no-build --telemetry-endpoint collector.lan:4318  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --telemetry-endpoint takes https://host[:port] (or http://), the collector's OTLP/HTTP address, e.g. https://collector.lan:4318, or none; not 'collector.lan:4318'
+## run 7: config --yes --no-link --no-build --telemetry-endpoint https://collector.lan:4318?x=1  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --telemetry-endpoint takes https://host[:port] (or http://), the collector's OTLP/HTTP address, e.g. https://collector.lan:4318, or none; not 'https://collector.lan:4318?x=1'
+## run 8: config --yes --no-link --no-build --telemetry-token-file <S>/keys/missing  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --telemetry-token-file <S>/keys/missing: can't read it (No such file or directory)
+## run 9: config --yes --no-link --no-build --telemetry-token-file <S>/keys/two  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --telemetry-token-file <S>/keys/two: it takes a file holding the token alone (letters, digits and . _ ~ + / = - only)
+## run 10: config --yes --no-link --no-build --telemetry-token-file <S>/keys/comma  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --telemetry-token-file <S>/keys/comma: it takes a file holding the token alone (letters, digits and . _ ~ + / = - only)
+## run 11: config --yes --no-link --no-build --telemetry-ca <S>/keys/missing.pem  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --telemetry-ca <S>/keys/missing.pem isn't a file
+## run 12: config --yes --no-link --no-build --telemetry-ca <S>/keys/junk.pem  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --telemetry-ca <S>/keys/junk.pem has no certificate in it (it takes a PEM file: -----BEGIN CERTIFICATE----- …)
+## run 13: config --yes --no-link --no-build --telemetry-ca <S>/keys/withkey.pem  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --telemetry-ca <S>/keys/withkey.pem holds a private key as well: give the CA's certificate alone (its -----BEGIN CERTIFICATE----- block)
+## run 14: config --yes --no-link --no-build --telemetry-ca keys/ca.pem  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --telemetry-ca keys/ca.pem: it takes an absolute path (or ~/…), or none
+## run 15: config --yes --no-link --no-build --telemetry-token-file keys/token  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --telemetry-token-file keys/token: it takes an absolute path (or ~/…)
+## run 16: config --yes --no-link --no-build --telemetry c1:on  [pipe]
+rc: 1
+--- stdout
+nexus --config: setting up <A>
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: c1 sends telemetry, but no collector is set, so nothing was written: give one (nexus --config, then telemetry; or --telemetry-endpoint URL), or turn it off (--telemetry NAME:off)
+## run 17: config --yes …  (the CA copied in is gone)  [pipe]
+rc: 1
+--- stdout
+nexus --config: setting up <A>
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: TELEMETRY_CA in <A>/.env names personas/telemetry-ca.pem, which isn't a file, and g1 sends telemetry, so nothing was written: give the collector's CA file again (nexus --config, then telemetry; or --telemetry-ca FILE)
+## run 18: config --yes …  (personas/grok.toml has a [telemetry] of its own)  [pipe]
+rc: 1
+--- stdout
+nexus --config: setting up <A>
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: personas/grok.toml has a [telemetry] table of its own, and nexus --config writes one for g1, so nothing was written: take that table out of personas/grok.toml (the collector is set with nexus --config, then telemetry)
+## run 19: config --yes … --telemetry g1:off  (then it may)  [pipe]
+rc: 0
+--- stdout
+nexus --config: setting up <A>
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  g1                              grok     docker   yes        the VM's             your agent
+
+Start one from a project directory:  cd <P>/<project> && nexus c1
+g1: changed; `nexus g1 restart` applies it (that ends its tmux sessions)
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
+## run 20: config --list  (c1's telemetry: 'yes')  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: <A>/personas.json persona 'c1' has a telemetry that isn't true or false: fix it, or put back <A>/personas.json.bak (the one nexus --config kept before it), then run nexus --config again

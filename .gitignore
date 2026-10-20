@@ -7,6 +7,12 @@ personas/*.env.*
 personas/*.key
 personas/*.key.pub
 personas/*.grok.toml
+# written by nexus --config for telemetry: the collector's CA (and a ddev persona's bundle), and the files of the
+# personas that send it, which hold its token (personas/*.telemetry.env is an env file, above)
+personas/*.pem
+personas/*.pem.*
+personas/*.telemetry.json
+personas/*.telemetry.json.*
 # written by nexus --config: this VM's personas, and the compose file generated from them
 personas.json
 personas.json.*

@@ -3,14 +3,15 @@
 
   1. refuse root; take the lock (not for --list); read the personas; --list stops here
   2. preflight: Docker, its compose plugin, the ssh-agent, ddev on the VM
-  3. the personas: --remove, --persona, --ssh, --permissions
+  3. the personas: --remove, --persona, --ssh, --permissions, then the telemetry settings and --telemetry
   4. .env staged: the VM's projects root, the registry, the Claude Code version, DDEV_VERSION, AGENT_CPUS
   5. env files staged for the personas without a fitting one (sign-in and git identity)
   6. the settings files checked (JSON for Claude Code, TOML for grok), each grok persona's config staged
   7. compose.personas.yml staged, and everything checked with `docker compose config`
   8. the last questions: the launcher link, mkcert, the images
   9. commit: every staged file in place, signals ignored meanwhile (all of it or none of it)
- 10. after the commit, failures are notes: ssh keys made, the launcher linked, mkcert, the images
+ 10. after the commit, failures are notes: ssh keys made, the collector tried (when its settings changed, or a
+     persona sends now), the launcher linked, mkcert, the images
  11. the summary: the personas, how to start one, and the notes (LATER)
 """
 from agentctl.configtools import after
@@ -64,6 +65,7 @@ def run(s):
 
     # 10. after the commit
     after.ssh_keys(s)
+    after.telemetry_check(s)
     after.link(s, target)
     if mkcert:
         after.mkcert(s)

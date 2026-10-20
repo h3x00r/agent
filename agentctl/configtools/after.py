@@ -1,20 +1,20 @@
 """What nexus --config does once the settings are saved; a failure here is a note, not a stop (the files are in
-place already): the ssh keys asked for, the launcher linked, mkcert, the images built or pulled.
+place already): the ssh keys asked for, the launcher linked, mkcert, the images built or pulled, the telemetry
+collector tried.
 """
 import os
 import shutil
-import socket
 
 from agentctl.adapters import ssh
-from agentctl.configtools.host import ln_ok, mkdir_ok, read_or_empty, readlink_f
+from agentctl.adapters import telemetry as tele_io
+from agentctl.configtools.host import ln_ok, mkdir_ok, read_or_empty, readlink_f, short_host
 from agentctl.core import proc
 from agentctl.core.shellcompat import printf_q
 
 
 def ssh_keys(s):
     """The keys of the personas with ssh=new that aren't there yet."""
-    # bash's ${HOSTNAME%%.*}: its own HOSTNAME unless one came in from the environment, even an empty one
-    host = (os.environ["HOSTNAME"] if "HOSTNAME" in os.environ else socket.gethostname()).split(".", 1)[0]
+    host = short_host()
     for p in s.personas:
         k = p.ssh
         if k != "personas/%s.key" % p.name or os.path.exists(k):
@@ -96,3 +96,38 @@ def images(s, verb, personas=None):
             s.later.append("images: the %s of agent-%s failed (see above); retry with: %s %s %s"
                            % (verb, k, s.launcher, p.name, verb))
     return failed
+
+
+def telemetry_check(s):
+    """After a save that changed what the personas send with, or made one send (s.tele_check): the collector tried
+    with an empty export, as the personas will send theirs; said in a line when it takes it, else a note on what is
+    wrong. The personas work either way; what they send is lost while it fails."""
+    t = s.tele
+    if not (t["endpoint"] and s.tele_check):
+        return
+    ep = t["endpoint"]
+    lost = "The personas work all the same, but what they send is lost until this is fixed."
+    again = "nexus --config, then telemetry"
+    ca = os.path.join(s.a, t["ca"]) if t["ca"] else ""
+    why = tele_io.ca_problem(ca) if ca else ""
+    kind, code = ("ca", "") if why else tele_io.probe(ep, t["token"], ca)
+    if kind == "ok":
+        s.say("-- telemetry: %s took a test export%s" % (ep, " with the token" if t["token"] else ""))
+    elif kind == "ca":
+        s.later.append("telemetry: the collector's CA file %s %s, so the personas couldn't send to %s. %s Give it again "
+                       "with %s." % (t["ca"], why or "can't be loaded", ep, lost, again))
+    elif kind == "auth":
+        s.later.append("telemetry: %s refused the token (HTTP %s), so it would refuse the personas' telemetry too. %s "
+                       "Set the right token with %s." % (ep, code, lost, again))
+    elif kind == "status":
+        s.later.append("telemetry: %s answered a test export (HTTP %s), but not as an OpenTelemetry collector does: is "
+                       "it the collector's own OTLP/HTTP address (usually port 4318)? %s" % (ep, code, lost))
+    elif kind == "cert":
+        s.later.append("telemetry: %s has a certificate that %s doesn't vouch for (or one for another name), so the "
+                       "personas couldn't send to it. %s Give the CA file its certificate is signed by with %s."
+                       % (ep, "the CA given (%s)" % t["ca"] if t["ca"] else "no CA this VM trusts", lost, again))
+    elif kind == "tls":
+        s.later.append("telemetry: %s doesn't speak TLS (HTTPS) there, so the personas couldn't send to it: if that "
+                       "port is plain HTTP, give its http:// address with %s. %s" % (ep, again, lost))
+    else:
+        s.later.append("telemetry: nothing answered at %s (is it down, or is the address wrong?). %s" % (ep, lost))

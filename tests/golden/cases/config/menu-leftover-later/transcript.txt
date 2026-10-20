@@ -7,6 +7,7 @@ Shared by every persona
   projects root   <P>
   image registry  local (images built on this VM)
   Claude Code     latest
+  telemetry       off
   launcher        not on your PATH: link it with launcher, or run <A>/nexus
 Personas
   NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
@@ -16,12 +17,13 @@ Personas
 What next?
   1) list      the shared settings and the personas, again
   2) add       a new persona
-  3) change    one persona's flavour, context, statusline, projects root, ssh or permissions
+  3) change    one persona's flavour, context, statusline, projects root, ssh, permissions or telemetry
   4) remove    one persona (its env file and home volume stay)
   5) shared    the settings every persona shares: projects root, image registry, Claude Code version
-  6) launcher  link nexus into a directory on your PATH
-  7) images    build (or pull) the image of every persona
-  8) quit
+  6) telemetry send OpenTelemetry to a collector: its address, token and CA, and which personas send
+  7) launcher  link nexus into a directory on your PATH
+  8) images    build (or pull) the image of every persona
+  9) quit
 
 Start one from a project directory:  cd <P>/<project> && nexus c1
 Day-to-day use, upgrades and troubleshooting: runbook.md
@@ -39,6 +41,7 @@ Shared by every persona
   projects root   <P>
   image registry  local (images built on this VM)
   Claude Code     latest
+  telemetry       off
   launcher        not on your PATH: link it with launcher, or run <A>/nexus
 Personas
   NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
@@ -48,12 +51,13 @@ Personas
 What next?
   1) list      the shared settings and the personas, again
   2) add       a new persona
-  3) change    one persona's flavour, context, statusline, projects root, ssh or permissions
+  3) change    one persona's flavour, context, statusline, projects root, ssh, permissions or telemetry
   4) remove    one persona (its env file and home volume stay)
   5) shared    the settings every persona shares: projects root, image registry, Claude Code version
-  6) launcher  link nexus into a directory on your PATH
-  7) images    build (or pull) the image of every persona
-  8) quit
+  6) telemetry send OpenTelemetry to a collector: its address, token and CA, and which personas send
+  7) launcher  link nexus into a directory on your PATH
+  8) images    build (or pull) the image of every persona
+  9) quit
 
 == A new persona
 Flavour:
@@ -73,12 +77,13 @@ SSH (git over ssh) for o1:
 What next?
   1) list      the shared settings and the personas, again
   2) add       a new persona
-  3) change    one persona's flavour, context, statusline, projects root, ssh or permissions
+  3) change    one persona's flavour, context, statusline, projects root, ssh, permissions or telemetry
   4) remove    one persona (its env file and home volume stay)
   5) shared    the settings every persona shares: projects root, image registry, Claude Code version
-  6) launcher  link nexus into a directory on your PATH
-  7) images    build (or pull) the image of every persona
-  8) quit
+  6) telemetry send OpenTelemetry to a collector: its address, token and CA, and which personas send
+  7) launcher  link nexus into a directory on your PATH
+  8) images    build (or pull) the image of every persona
+  9) quit
 
 Start one from a project directory:  cd <P>/<project> && nexus c1
 Day-to-day use, upgrades and troubleshooting: runbook.md

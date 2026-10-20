@@ -1,7 +1,10 @@
 import os
 import unittest
 
+import json
+
 from agentctl.domain import flavour, persona, roots
+from agentctl.domain import telemetry as tele
 from agentctl.domain.persona import Persona
 
 
@@ -129,3 +132,55 @@ class Places(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Telemetry(unittest.TestCase):
+    def test_rules(self):
+        for url in ("https://collector.lan:4318", "http://10.0.0.5:4318", "https://c.lan", "https://c.lan:4318/otlp"):
+            self.assertTrue(tele.valid_endpoint(url), url)
+        for url in ("collector.lan:4318", "grpc://c:4317", "https://", "https://c lan", "https://c.lan:4318,x",
+                    "https://c.lan:4318?x=1", 'https://c"x'):
+            self.assertFalse(tele.valid_endpoint(url), url)
+        self.assertEqual(tele.norm_endpoint("https://c.lan:4318//"), "https://c.lan:4318")
+        self.assertEqual(tele.norm_endpoint("https://"), "https://")
+        for t in ("0a1b2c3d", "a.b_c~d+e/f=g-h", "x" * 4096):
+            self.assertTrue(tele.valid_token(t))
+        for t in ("", "a b", "a,b", "a%20b", "x" * 4097, 'a"b'):
+            self.assertFalse(tele.valid_token(t), t)
+        self.assertEqual(tele.PROTOCOL, "http/protobuf")
+        for h, want in (("vm-a1", "vm-a1"), ("vm1", "vm1"), ("vm,persona=x", ""), ("a b", ""), ("-x", ""), ("", "")):
+            self.assertEqual(tele.safe_host(h), want, h)
+
+    def test_claude_dropin(self):
+        env = json.loads(tele.claude_dropin("c1", "vm1", "https://c.lan:4318", "tok", True))["env"]
+        self.assertEqual(env["OTEL_EXPORTER_OTLP_HEADERS"], "Authorization=Bearer tok")   # a space, not %20
+        self.assertEqual(env["OTEL_RESOURCE_ATTRIBUTES"], "host.name=vm1,persona=c1")
+        self.assertEqual(env["NODE_EXTRA_CA_CERTS"], tele.CA_TARGET)
+        self.assertEqual((env["CLAUDE_CODE_ENABLE_TELEMETRY"], env["OTEL_EXPORTER_OTLP_PROTOCOL"]), ("1", "http/protobuf"))
+        self.assertNotIn("OTEL_LOG_USER_PROMPTS", env)
+        env = json.loads(tele.claude_dropin("c1", "", "https://c.lan:4318", "", False))["env"]
+        self.assertEqual(env["OTEL_RESOURCE_ATTRIBUTES"], "persona=c1")
+        self.assertNotIn("OTEL_EXPORTER_OTLP_HEADERS", env)
+        self.assertNotIn("NODE_EXTRA_CA_CERTS", env)
+
+    def test_grok(self):
+        t = tele.grok_table("https://c.lan:4318", True)
+        self.assertIn('\n[telemetry]\notel_enabled = true\n', t)
+        self.assertIn('otel_endpoint = "https://c.lan:4318"\n', t)
+        self.assertIn('otel_certificate = "%s"\n' % tele.CA_TARGET, t)
+        self.assertNotIn("otel_certificate", tele.grok_table("https://c.lan:4318", False))
+        e = tele.grok_env("g1", "vm1", "tok")
+        for v in ("OTEL_EXPORTER_OTLP_METRICS_HEADERS", "OTEL_EXPORTER_OTLP_LOGS_HEADERS"):
+            self.assertIn("\n%s='Authorization=Bearer tok,X-Nexus-Persona=g1,X-Nexus-Host=vm1'\n" % v, e)
+        self.assertNotIn("\nOTEL_EXPORTER_OTLP_HEADERS=", e)
+        self.assertIn("\nOTEL_EXPORTER_OTLP_LOGS_HEADERS='X-Nexus-Persona=g1'\n", tele.grok_env("g1", "", ""))
+
+    def test_ca_source(self):
+        self.assertEqual(tele.ca_source(Persona("c1", "claude", "ddev", "colour1"), True), tele.DDEV_BUNDLE)
+        self.assertEqual(tele.ca_source(Persona("g1", "grok", "ddev", "colour1"), True), tele.CA_FILE)
+        self.assertEqual(tele.ca_source(Persona("c1", "claude", "docker", "colour1"), True), tele.CA_FILE)
+        self.assertEqual(tele.ca_source(Persona("c1", "claude", "ddev", "colour1"), False), "")
+
+    def test_bundle(self):
+        self.assertEqual(tele.bundle(b"CA", b"MK\n"), b"CA\nMK\n")
+        self.assertEqual(tele.bundle(b"CA\n", b""), b"CA\n")

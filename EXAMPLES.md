@@ -302,6 +302,27 @@ Two more things to know:
 - It sets how Claude starts; it isn't a lock. If you type `claude --dangerously-skip-permissions` yourself in a
   session that asks, that Claude doesn't ask.
 
+## Example 12: see what the agents cost, on a dashboard
+
+You run an OpenTelemetry collector (with Grafana behind it, say) for all your VMs, and want each persona's tokens,
+cost and sessions there:
+
+```bash
+nexus --config
+```
+Pick `telemetry`, then answer: the collector's address (`https://collector.lan:4318`), its token, the CA file its
+certificate is signed by if it has a private one, and `y` for each persona that should send. nexus tries the
+collector at once and says if it doesn't take the export. Then restart each persona it names:
+
+```bash
+nexus claude-team restart
+```
+
+From then on every `claude` and `grok` in those personas sends; no prompts or replies, only what happened (tokens,
+cost, tool use, errors). In Grafana, `claude_code_cost_usage_USD_total` by `persona` shows the cost of each. To stop,
+`nexus --config`, `telemetry`, and `none` for the address. Details, and what to do if nothing arrives: runbook §5,
+[Telemetry](runbook.md#telemetry-opentelemetry).
+
 ## When something goes wrong
 
 | You see | What it means | What to do |
@@ -334,6 +355,7 @@ Anything else: the message usually says what to run. The full list is in
 | make one session ask before it acts | `nexus <persona> --skip-bypass-permissions -- claude` |
 | let one session act without asking, in a persona that asks | `nexus <persona> --bypass-permissions -- claude` |
 | make a whole persona ask | `nexus --config` → `change` → the persona → `n` at "Let … run its tools without asking", then `nexus <persona> restart` |
+| send tokens and cost to an OpenTelemetry collector | `nexus --config` → `telemetry`, then `nexus <persona> restart` |
 | upgrade Claude Code | `nexus <persona> upgrade` |
 | apply a change to a running persona | `nexus <persona> restart` |
 

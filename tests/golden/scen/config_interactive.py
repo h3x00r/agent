@@ -123,7 +123,7 @@ def _(sb):
         + [(FLAVOUR, "2"), (CONTEXT, "docker"), ("Name [grok-docker]: ", ""), (sl("grok-docker"), "n"),
            ("Projects root for grok-docker", "-"), (SSH, "new")]
         + [("XAI_API_KEY (hidden; empty to skip): ", "nxt-fake-key-2")]
-        + ident("Grok Tester", "grok@example.invalid", "") + [(MENU, "8")])
+        + ident("Grok Tester", "grok@example.invalid", "") + [(MENU, "9")])
 
 
 @case("config/ask-piped-first-grok")
@@ -368,7 +368,7 @@ def _(sb):
            (FLAVOUR, "  claude  "),
            (CONTEXT, "02"), ("Name [claude-docker]: ", ""), (sl("claude-docker"), "maybe"),
            ("Projects root for claude-docker", ""), (SSH, "Agent"), (SSH, ""), (perm("claude-docker"), "")]
-        + claude_env("1") + [(MENU, "9"), (MENU, "0"), (MENU, "")])
+        + claude_env("1") + [(MENU, "10"), (MENU, "0"), (MENU, "")])
 
 
 @case("config/ask-invalid-choices-piped")

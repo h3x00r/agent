@@ -185,3 +185,18 @@ personas/claude.managed.json), per persona and per session:
   the session it starts, or of that headless run. Every other `-x` still is one (nexus/perm-dash-session-unchanged).
 - **Four cases that list the checkout** (config/m4-menu-unmigrated, m4-migrate-check-fails, m4-migrate-readonly,
   m4-zero-not-migrating-note) show EXAMPLES.md, which came after they were recorded.
+
+## Changed on purpose: telemetry (telemetry M1)
+A persona can send telemetry (OpenTelemetry) to one collector, which .env names (TELEMETRY_ENDPOINT, TELEMETRY_TOKEN,
+TELEMETRY_CA); off unless set:
+- **The menu** has a telemetry action after shared, so launcher, images and quit are one further down (quit is 9:
+  config/ask-tty-first-grok answers 9 and config/ask-invalid-choices tries 10); the change line names telemetry;
+  the overview has a telemetry row ("off" in every case before this). Accepted@telemetry M1 in the 93 cases that
+  show the menu, the overview, .env (its TELEMETRY_* lines from .env.example) or --help.
+- **Add and change** ask whether the persona sends only while a collector is set, so no case before this one
+  answers a new question; personas.json holds "telemetry": true only for one that sends, and compose.personas.yml
+  changes only for those (config/telemetry-*, nexus/telemetry-start).
+- **The review's fixes** (telemetry M1): config/telemetry-hand-edits (.env's TELEMETRY_* edited by hand, a refused
+  menu run's options) and nexus/telemetry-not-restarted (the warnings for a running container made before its
+  telemetry changed) are new; the other telemetry cases were recorded again with grok's token as its metrics and
+  logs headers, a neutral drop-in for a Claude persona that stops sending, and restart notes for what changed.

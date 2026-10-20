@@ -1,6 +1,7 @@
 """nexus --config's questions, each kind in one place, asked through the Prompter (on a terminal, by piped lines,
 or answered by their defaults under --yes): the VM settings, a persona's flavour, context, name, statusline,
-projects root, ssh and permissions, its sign-in and git identity, and the launcher, mkcert and image questions.
+projects root, ssh, permissions and telemetry, its sign-in and git identity, the telemetry collector, and the
+launcher, mkcert and image questions.
 
 They change the Session (its personas, its staged files) and return what was decided; saving is the
 Session's, and what happens after a save is after.py's.
@@ -9,12 +10,14 @@ import os
 import shutil
 
 from agentctl.adapters import ssh
+from agentctl.adapters import telemetry as tele_io
 from agentctl.adapters.docker import Docker
 from agentctl.configtools.host import env_flavour, free_gb, git_config, pad, readlink_f, set_kv
 from agentctl.core import dotenv
 from agentctl.core.errors import NexusError
 from agentctl.core.shellcompat import mkdir_p
 from agentctl.domain import persona as rules
+from agentctl.domain import telemetry as tele
 from agentctl.domain.persona import Persona
 
 MIN_FREE_GB = 3
@@ -25,6 +28,9 @@ CONTEXTS = ["ddev     ddev projects: ddev inside, sharing the VM's ddev state an
 CONTEXT_Q = "Context: which kind of projects does it work on?"
 SL_Q = "Statusline (statusline/: model, context, cost; what nexus top shows) in"
 PERM_Q = "Let %s run its tools without asking (bypassPermissions; no: it asks first, as personas/claude.ask.json says)?"
+TELE_Q = "Send %s's telemetry (OpenTelemetry: tokens, cost, sessions, tool use; no prompts) to %s?"
+TELE_EP_Q = "The collector's OTLP/HTTP address, e.g. https://collector.lan:4318 (none: no telemetry)"
+TELE_CA_Q = "The CA file its certificate is signed by, PEM (-: none, a publicly trusted certificate)"
 SSH_HOW = ["agent    your ssh-agent, forwarded: your own keys; starting it then needs an agent in your shell",
            "none     no ssh: it commits, and you pull and push from the VM, in the same directory",
            "new      a key of its own, made as personas/NAME.key: add its public half as a deploy key",
@@ -152,6 +158,13 @@ class Questions:
             return "bypass"
         return "bypass" if self.ask.yesno(PERM_Q % name, "y" if current == "bypass" else "n") else "ask"
 
+    def telemetry_for(self, name, current):
+        """Whether NAME sends telemetry, asked only while a collector is set."""
+        ep = self.s.tele["endpoint"]
+        if not ep:
+            return False
+        return self.ask.yesno(TELE_Q % (name, ep), "y" if current else "n")
+
     def add(self):
         s = self.s
         f, c = self.flavour_context("claude", s.default_context)
@@ -164,7 +177,8 @@ class Questions:
         r = self.root(n, "")
         k = self.ssh(n, "")
         perm = self.permissions(n, f, "bypass")
-        s.put(Persona(n, f, c, rules.next_colour(s.personas), sl, r, k, perm))
+        tel = self.telemetry_for(n, False)
+        s.put(Persona(n, f, c, rules.next_colour(s.personas), sl, r, k, perm, tel))
         return n
 
     def change(self, name):
@@ -175,7 +189,59 @@ class Questions:
         r = self.root(name, p.root)
         k = self.ssh(name, p.ssh)
         perm = self.permissions(name, f, p.permissions)
-        s.put(Persona(name, f, c, p.colour, sl, r, k, perm))
+        tel = self.telemetry_for(name, p.telemetry)
+        s.put(Persona(name, f, c, p.colour, sl, r, k, perm, tel))
+
+    # --- telemetry: the collector, and who sends to it ---
+    def telemetry(self):
+        """The collector (its address, token and CA) into the Session, then, for each persona, whether it sends to
+        it; none for the address turns telemetry off for all."""
+        s, t = self.s, self.s.tele
+        while True:
+            ep = self.ask.ask(TELE_EP_Q, t["endpoint"] or "none")
+            if ep == "none":
+                s.tele_off()
+                return
+            ep = tele.norm_endpoint(ep)
+            if tele.valid_endpoint(ep):
+                break
+            s.say("  it takes " + tele.ENDPOINT_RULE)
+        t["endpoint"] = ep
+        while True:
+            tok = self.ask.secret("Its bearer token (sent as Authorization: Bearer …; %s- for none)"
+                                  % ("empty keeps the one in .env, " if t["token"] else ""))
+            if tok == "-":
+                t["token"] = ""
+                break
+            if not tok and t["token"] and not tele.valid_token(t["token"]):
+                s.say("  the one in .env isn't a token: it takes " + tele.TOKEN_RULE)
+                continue
+            if not tok or tele.valid_token(tok):
+                if tok:
+                    t["token"] = tok
+                break
+            s.say("  a token takes " + tele.TOKEN_RULE)
+        cur = t["ca"]
+        while True:
+            a = self.ask.ask(TELE_CA_Q, cur or "-")
+            if a == "-":
+                t["ca"], s.ca_from = "", ""
+                break
+            why = tele_io.ca_problem(s.ca_from or cur) if a == cur else ""
+            if a == cur and not why:
+                break
+            if a == cur:
+                s.say("  %s %s: give the CA file again" % (s.ca_from or cur, why))
+                t["ca"], s.ca_from, cur = "", "", ""
+                continue
+            path = s.norm_dir(a)
+            why = "isn't an absolute path (or ~/…)" if not path.startswith("/") else tele_io.ca_problem(path)
+            if not why:
+                t["ca"], s.ca_from = tele.CA_FILE, path
+                break
+            s.say("  %s %s" % (a, why))
+        for p in s.personas:
+            p.telemetry = self.ask.yesno(TELE_Q % (p.name, ep), "y" if p.telemetry else "n")
 
     def pick(self, verb):
         s = self.s

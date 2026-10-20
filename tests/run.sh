@@ -24,7 +24,8 @@
 #   personas   a Claude persona against a stand-in Messages API (tests/fake-api.py, in a container of
 #              its own) and a grok persona with a stand-in grok (tests/fake-grok), both on that one
 #              image: headless runs (prompt, piped input, flags, directories, exit codes, Ctrl-C, TERM,
-#              hangup, detached daemons, concurrent runs), sessions, ls, top, start and stop; the grok
+#              hangup, detached daemons, concurrent runs), telemetry to a stand-in collector
+#              (tests/fake-otlp.py, over TLS, with a CA made by openssl), sessions, ls, top, start and stop; the grok
 #              persona has an ssh key of its own, the Claude one this run's (empty) ssh-agent, and a
 #              third one, on the grok persona's image, no ssh at all
 #
@@ -90,7 +91,7 @@ git -C "$REPO" rev-parse --is-inside-work-tree >/dev/null 2>&1 \
   || { echo "tests: $REPO isn't a git checkout, and the tests copy its files from git" >&2; exit 2; }
 T="$(mktemp -d "${TMPDIR:-/tmp}/nxt.XXXXXX")" || exit 2
 ID="nxt-$$"
-PC="$ID-c" PG="$ID-g" PN="$ID-n" PX="$ID-x" REG="$ID.invalid" API="$ID-api"
+PC="$ID-c" PG="$ID-g" PN="$ID-n" PX="$ID-x" REG="$ID.invalid" API="$ID-api" OTLP="$ID-otlp"
 A="$T/agents" P="$T/agents/compose.personas.yml" J="$T/agents/personas.json" ROOT="$T/projects" S="$T/projects/.nxt-bin" SOCK="$T/ssh.sock"
 AGENT_PID="" TAGS=() BG=() BG_PID=""
 
@@ -99,12 +100,12 @@ cleanup() {
   cd / || true
   for p in "${BG[@]}"; do kill "$p" 2>/dev/null; done
   if (( KEEP )); then
-    echo "kept: $T; containers agent-$PC agent-$PG agent-$PN $API; volumes agents_$PC-home agents_$PG-home agents_$PN-home;" \
+    echo "kept: $T; containers agent-$PC agent-$PG agent-$PN $API $OTLP; volumes agents_$PC-home agents_$PG-home agents_$PN-home;" \
          "tags ${TAGS[*]:-none}; ssh-agent ${AGENT_PID:-none}"
     return
   fi
   if command -v docker >/dev/null; then
-    docker rm -f "agent-$PC" "agent-$PG" "agent-$PN" "$API" >/dev/null 2>&1
+    docker rm -f "agent-$PC" "agent-$PG" "agent-$PN" "$API" "$OTLP" >/dev/null 2>&1
     docker volume rm "agents_$PC-home" "agents_$PG-home" "agents_$PN-home" >/dev/null 2>&1
     for p in "${TAGS[@]}"; do docker image rm "$p" >/dev/null 2>&1; done   # the tag: the image keeps its own
   fi
@@ -172,6 +173,13 @@ if git -C "$REPO" -c core.excludesFile=/dev/null check-ignore -q personas.json \
    && git -C "$REPO" -c core.excludesFile=/dev/null check-ignore -q personas.json.bak; then
   ok ".gitignore: personas.json and its backups"
 else fail ".gitignore: personas.json and its backups" "git check-ignore doesn't ignore them"; fi
+# Nor the telemetry files: they hold the collector's token, or are this VM's copy of its CA.
+if git -C "$REPO" -c core.excludesFile=/dev/null check-ignore -q --no-index personas/x.telemetry.json \
+   && git -C "$REPO" -c core.excludesFile=/dev/null check-ignore -q --no-index personas/x.telemetry.env \
+   && git -C "$REPO" -c core.excludesFile=/dev/null check-ignore -q --no-index personas/telemetry-ca.pem \
+   && git -C "$REPO" -c core.excludesFile=/dev/null check-ignore -q --no-index personas/telemetry-ca.ddev.pem; then
+  ok ".gitignore: the telemetry files"
+else fail ".gitignore: the telemetry files" "git check-ignore doesn't ignore them"; fi
 
 docker_ok=0
 if command -v docker >/dev/null && docker info >/dev/null 2>&1 && docker compose version >/dev/null 2>&1 \
@@ -391,6 +399,26 @@ t cfg --yes --no-link --no-build </dev/null
 check "no Python bytecode in the checkout" '[[ -z $(find "$A" -name __pycache__ -o -name "*.pyc") ]]'
 check "  and with it back: it is mounted again, and the persona is told to restart for it" \
       'rc 0 && grep -qF "./personas/claude.managed.json," "$P" && out_has "$PC: it gets personas/claude.managed.json as managed settings now"'
+# Telemetry to a collector that isn't there (the system's CA bundle standing in for its CA): what docker compose
+# makes of a claude persona's drop-in and a grok one's second env file, and nothing of it left when it is off.
+printf 'nxt-tele-token\n' > "$T/tele-token"
+t cfg --yes --no-link --no-build --telemetry-endpoint https://127.0.0.1:1 --telemetry-token-file "$T/tele-token" \
+      --telemetry-ca /etc/ssl/certs/ca-certificates.crt --telemetry "$PC:on" --telemetry "$PG:on" </dev/null
+check "telemetry on for a Claude and a grok persona: saved, and nothing answered at the collector" \
+      'rc 0 && out_has "nothing answered at https://127.0.0.1:1" && out_has "sends telemetry to https://127.0.0.1:1: $PC, $PG"'
+t compose_t --profile "$PC" --profile "$PG" config "$PC" "$PG"
+check "  compose: the Claude one's drop-in, the grok one's token header from its second env file, the CA" \
+      'rc 0 && out_has "target: /etc/claude-code/managed-settings.d/50-telemetry.json" && out_has "/etc/nexus/telemetry-ca.pem" \
+       && out_re "OTEL_EXPORTER_OTLP_METRICS_HEADERS: Authorization=Bearer nxt-tele-token,X-Nexus-Persona=$PG,X-Nexus-Host=" \
+       && out_re "OTEL_EXPORTER_OTLP_LOGS_HEADERS: Authorization=Bearer nxt-tele-token," \
+       && ! out_has "OTEL_EXPORTER_OTLP_ENDPOINT" && ! out_has "OTEL_EXPORTER_OTLP_HEADERS"'
+check "  the files holding the token are yours alone" \
+      '[[ $(stat -c %a "$A/personas/$PC.telemetry.json") == 600 && $(stat -c %a "$A/personas/$PG.telemetry.env") == 600 && $(stat -c %a "$A/.env") == 600 ]]'
+t cfg --yes --no-link --no-build --telemetry-endpoint none </dev/null
+check "  --telemetry-endpoint none: both stop; the grok one's file goes, the Claude one's drop-in is neutral" \
+      'rc 0 && out_has "no longer send" && [[ $(cat "$A/personas/$PC.telemetry.json") == "{}" && ! -e $A/personas/$PG.telemetry.env ]] \
+       && ! grep -q telemetry "$P"'
+rm -f "$A/personas/$PC.telemetry.json"
 # --- the move into personas.json ------------------------------------------------------------------
 stage "nexus --config: the move from # persona: lines into personas.json"
 # A second scratch checkout, $T/legacy, with this one's personas as config.sh left them: the `# persona:` lines
@@ -828,6 +856,63 @@ check "two runs at once: stopping one" 'rc 143 && gone c1.pid'
 check "  leaves the other running" 'alive c2.pid && kill -0 "$p2" 2>/dev/null'
 kill -TERM "$p2"; bg_end "$p2" c2
 check "  until it gets its own signal" 'rc 143 && gone c2.pid'
+
+stage "telemetry ($PC and $PG, a stand-in collector over TLS)"
+TD="$T/otlp"
+if ! command -v openssl >/dev/null; then
+  skip "telemetry: no openssl on this VM, to make the stand-in collector's certificate"
+else
+  # A CA, and a certificate for 127.0.0.1 it signs, as the collector stack's certs service makes them.
+  mkdir -p "$TD"
+  printf '%s\n' '[req]' 'distinguished_name = dn' '[dn]' '[ca]' 'basicConstraints = critical,CA:TRUE' \
+    'keyUsage = critical,keyCertSign,cRLSign' '[srv]' 'subjectAltName = IP:127.0.0.1,DNS:localhost' \
+    'basicConstraints = CA:FALSE' 'extendedKeyUsage = serverAuth' > "$TD/ssl.cnf"
+  openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:P-256 -nodes -days 2 -subj "/CN=nxt CA" -config "$TD/ssl.cnf" \
+    -extensions ca -keyout "$TD/ca.key" -out "$TD/ca.pem" >/dev/null 2>&1
+  openssl req -newkey ec -pkeyopt ec_paramgen_curve:P-256 -nodes -subj "/CN=nxt collector" -config "$TD/ssl.cnf" \
+    -keyout "$TD/srv.key" -out "$TD/srv.csr" >/dev/null 2>&1
+  openssl x509 -req -in "$TD/srv.csr" -CA "$TD/ca.pem" -CAkey "$TD/ca.key" -CAcreateserial -days 2 -extfile "$TD/ssl.cnf" \
+    -extensions srv -out "$TD/srv.pem" >/dev/null 2>&1
+  VM="$(hostname -s)"
+  if ! docker run -d --name "$OTLP" --network host --user "$(id -u):$(id -g)" -v "$T:$T" --entrypoint python3 "$IMAGE" \
+         "$A/tests/fake-otlp.py" "$TD/port" "$TD/log" "$TD/srv.pem" "$TD/srv.key" "$PC" "$PG" "$VM" >/dev/null \
+     || ! wait_for 20 '[[ -s $TD/port ]]'; then
+    fail "the stand-in collector" "$(docker logs "$OTLP" 2>&1 | tail -n 20)"; summary
+  fi
+  EP="https://127.0.0.1:$(cat "$TD/port")"
+  t cfg --yes --no-link --no-build --telemetry-endpoint "$EP" --telemetry-token-file "$T/tele-token" \
+        --telemetry-ca "$TD/ca.pem" --telemetry "$PC:on" --telemetry "$PG:on" </dev/null
+  check "nexus --config: the collector takes a test export with the token and CA; restarts asked for" \
+        'rc 0 && out_has "took a test export with the token" && out_has "nexus $PC restart" && out_has "nexus $PG restart"'
+  t nx "$PC" restart </dev/null; t nx "$PG" restart </dev/null
+  : > "$TD/log"
+  t nx "$PC" headless "nxt telemetry" </dev/null
+  check "a headless run in $PC answers as ever" 'rc 0 && out_is FAKE-REPLY'
+  # otlp_got PATH WORD: the collector got PATH with the token, its body holding WORD.
+  otlp_got() { grep -F "\"path\": \"$1\"" "$TD/log" | grep -F "\"auth\": \"Bearer nxt-tele-token\"" | grep -qF "\"$2\""; }
+  check "  its metrics, events and traces reach the collector, with the token, tagged with the persona and the VM" \
+        'wait_for 30 "otlp_got /v1/metrics $PC && otlp_got /v1/logs $PC && otlp_got /v1/traces $PC" && otlp_got /v1/metrics "$VM"'
+  t docker exec "agent-$PC" sh -c 'env | grep -c "^OTEL_"; cat /etc/claude-code/managed-settings.d/50-telemetry.json'
+  check "  none of it in $PC's own environment (so its shell's docker compose sends nothing); the drop-in holds it" \
+        'rc 0 && out_line 0 && out_has "\"OTEL_EXPORTER_OTLP_ENDPOINT\": \"$EP\""'
+  t docker exec "agent-$PG" sh -c 'env | grep "^OTEL_"; sed -n "/^\[telemetry\]/,\$p" /etc/grok/managed_config.toml; head -n 1 /etc/nexus/telemetry-ca.pem'
+  check "$PG: the token as its metrics and logs headers in its environment, no endpoint there; [telemetry]; the CA" \
+        'rc 0 && out_line "OTEL_EXPORTER_OTLP_METRICS_HEADERS=Authorization=Bearer nxt-tele-token,X-Nexus-Persona=$PG,X-Nexus-Host=$VM" \
+         && out_line "OTEL_EXPORTER_OTLP_LOGS_HEADERS=Authorization=Bearer nxt-tele-token,X-Nexus-Persona=$PG,X-Nexus-Host=$VM" \
+         && ! out_has "OTEL_EXPORTER_OTLP_ENDPOINT" && ! out_has "OTEL_EXPORTER_OTLP_HEADERS=" \
+         && out_line "otel_endpoint = \"$EP\"" && out_line "-----BEGIN CERTIFICATE-----"'
+  t cfg --yes --no-link --no-build --telemetry-endpoint none </dev/null
+  t nx "$PC" start </dev/null
+  check "--telemetry-endpoint none: a start of $PC, still running as it was made, says it still sends" \
+        'rc 0 && err_has "$PC no longer sends telemetry, but its container was made while it did"'
+  t docker restart "agent-$PC"
+  check "  meanwhile Docker can restart its container (its drop-in, neutral now, is still there)" 'rc 0'
+  t nx "$PC" restart </dev/null
+  t docker exec "agent-$PC" ls /etc/claude-code/managed-settings.d
+  check "  after nexus $PC restart: no drop-in, and its neutral file gone" \
+        'rc 0 && out_has 15-personas.json && ! out_has 50-telemetry.json && [[ ! -e $A/personas/$PC.telemetry.json ]]'
+  t nx "$PG" restart </dev/null
+fi
 
 stage "sessions, ls, top, stop"
 tx() { docker exec "agent-$PC" tmux "$@"; }
