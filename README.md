@@ -82,6 +82,11 @@ they are.
 - **Personas, not just containers.** Each has its own account, git author, token and persistent home. Run
   several side by side on one project, a team account next to a personal plan or Claude next to Grok, each
   in its own colour in the status bar (*persona @ VM*).
+- **A memory of its own.** What a persona's CLI keeps lives in that persona's own home, across restarts and
+  upgrades: Claude Code's memory, conversations and settings in `~/.claude`, grok's sessions and settings in
+  `~/.grok`. None of it reaches another persona: what the team account learns stays out of your personal plan's
+  work, and resuming a conversation (`claude --resume`, grok's `/resume`) offers only that persona's own. What
+  every persona should know goes in the project: `CLAUDE.md` or `.claude/` for Claude Code, `.grok/` for Grok.
 - **Agents that keep running.** Sessions survive disconnects: detach, close the laptop, come back later.
 - **Native to your stack.** It uses the same Docker daemon, network and paths as the VM, so `ddev` and
   `docker compose` work inside exactly as outside. ddev personas share ddev's state and its local CA, so
@@ -298,7 +303,7 @@ agent-claude-max                        image: local/agent-claude-ddev:<version>
 │   ├── main        always there
 │   ├── billing  ◄── nexus claude-max -- claude, run in /home/local/src/billing
 │   └── api      ◄── nexus claude-max -- claude, run in /home/local/src/api
-├── /home/dev           volume agents_claude-max-home: login, settings, history (kept across rebuilds)
+├── /home/dev           volume agents_claude-max-home: login, settings, memory, history (kept across rebuilds)
 ├── /home/local/src     its projects root (same path as on the VM)
 ├── /ssh-agent          your agent (with a key of its own: /run/nexus/ssh-key and no agent; with none: neither)
 └── claude, apm, docker, ddev, gh   from the image, so a new image upgrades them
