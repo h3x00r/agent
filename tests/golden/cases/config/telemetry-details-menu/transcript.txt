@@ -27,7 +27,11 @@ What next?
   9) quit
 
 == Telemetry (OpenTelemetry to a collector)
-Tool details too (the commands, file paths and other input the tools ran with; they can hold secrets): from which personas?
+Tool details too (the commands, file paths and other input the tools ran with, which can hold secrets): from which personas?
+  1) none     from no persona
+  2) all      every persona that sends telemetry, and any that sends later
+  3) some     the personas you pick next
+Tool content too (what the tools read, wrote and printed, such as whole files, command output and web pages, which can hold secrets): from which personas?
   1) none     from no persona
   2) all      every persona that sends telemetry, and any that sends later
   3) some     the personas you pick next
@@ -76,7 +80,7 @@ Day-to-day use, upgrades and troubleshooting: runbook.md
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
 config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
 choice [quit]: The collector's OTLP/HTTP address, e.g. https://collector.lan:4318 (none: no telemetry) [https://127.0.0.1:1]: Its bearer token (sent as Authorization: Bearer …; empty keeps the one in .env, - for none) (hidden; empty to skip): 
-The CA file its certificate is signed by, PEM (-: none, a publicly trusted certificate) [personas/telemetry-ca.pem]: Send c1's telemetry (OpenTelemetry: tokens, cost, sessions, tool use; no prompts) to https://127.0.0.1:1? [Y/n]: Send g1's telemetry (OpenTelemetry: tokens, cost, sessions, tool use; no prompts) to https://127.0.0.1:1? [Y/n]: choice [none]: Send c1's tool details too (the commands, file paths and other input its tools ran with; they can hold secrets)? [y/N]: Send g1's tool details too (the commands, file paths and other input its tools ran with; they can hold secrets)? [y/N]: choice [quit]: choice [quit]: 
+The CA file its certificate is signed by, PEM (-: none, a publicly trusted certificate) [personas/telemetry-ca.pem]: Send c1's telemetry (OpenTelemetry: tokens, cost, sessions, tool use; no prompts) to https://127.0.0.1:1? [Y/n]: Send g1's telemetry (OpenTelemetry: tokens, cost, sessions, tool use; no prompts) to https://127.0.0.1:1? [Y/n]: choice [none]: Send c1's tool details too (the commands, file paths and other input the tools ran with, which can hold secrets)? [y/N]: Send g1's tool details too (the commands, file paths and other input the tools ran with, which can hold secrets)? [y/N]: choice [none]: choice [quit]: choice [quit]: 
 --- echo
 telemetry\r
 \r
@@ -85,6 +89,7 @@ telemetry\r
 \r
 some\r
 y\r
+\r
 \r
 list\r
 \r
@@ -124,7 +129,11 @@ What next?
   9) quit
 
 == Telemetry (OpenTelemetry to a collector)
-Tool details too (the commands, file paths and other input the tools ran with; they can hold secrets): from which personas?
+Tool details too (the commands, file paths and other input the tools ran with, which can hold secrets): from which personas?
+  1) none     from no persona
+  2) all      every persona that sends telemetry, and any that sends later
+  3) some     the personas you pick next
+Tool content too (what the tools read, wrote and printed, such as whole files, command output and web pages, which can hold secrets): from which personas?
   1) none     from no persona
   2) all      every persona that sends telemetry, and any that sends later
   3) some     the personas you pick next
@@ -148,9 +157,10 @@ Day-to-day use, upgrades and troubleshooting: runbook.md
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
 config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
 choice [quit]: The collector's OTLP/HTTP address, e.g. https://collector.lan:4318 (none: no telemetry) [https://127.0.0.1:1]: Its bearer token (sent as Authorization: Bearer …; empty keeps the one in .env, - for none) (hidden; empty to skip): 
-The CA file its certificate is signed by, PEM (-: none, a publicly trusted certificate) [personas/telemetry-ca.pem]: Send c1's telemetry (OpenTelemetry: tokens, cost, sessions, tool use; no prompts) to https://127.0.0.1:1? [Y/n]: Send g1's telemetry (OpenTelemetry: tokens, cost, sessions, tool use; no prompts) to https://127.0.0.1:1? [Y/n]: choice [some]: Send c1's tool details too (the commands, file paths and other input its tools ran with; they can hold secrets)? [Y/n]: Send g1's tool details too (the commands, file paths and other input its tools ran with; they can hold secrets)? [y/N]: choice [quit]: 
+The CA file its certificate is signed by, PEM (-: none, a publicly trusted certificate) [personas/telemetry-ca.pem]: Send c1's telemetry (OpenTelemetry: tokens, cost, sessions, tool use; no prompts) to https://127.0.0.1:1? [Y/n]: Send g1's telemetry (OpenTelemetry: tokens, cost, sessions, tool use; no prompts) to https://127.0.0.1:1? [Y/n]: choice [some]: Send c1's tool details too (the commands, file paths and other input the tools ran with, which can hold secrets)? [Y/n]: Send g1's tool details too (the commands, file paths and other input the tools ran with, which can hold secrets)? [y/N]: choice [none]: choice [quit]: 
 --- echo
 telemetry\r
+\r
 \r
 \r
 \r
@@ -189,7 +199,11 @@ What next?
   9) quit
 
 == Telemetry (OpenTelemetry to a collector)
-Tool details too (the commands, file paths and other input the tools ran with; they can hold secrets): from which personas?
+Tool details too (the commands, file paths and other input the tools ran with, which can hold secrets): from which personas?
+  1) none     from no persona
+  2) all      every persona that sends telemetry, and any that sends later
+  3) some     the personas you pick next
+Tool content too (what the tools read, wrote and printed, such as whole files, command output and web pages, which can hold secrets): from which personas?
   1) none     from no persona
   2) all      every persona that sends telemetry, and any that sends later
   3) some     the personas you pick next
@@ -215,7 +229,7 @@ Day-to-day use, upgrades and troubleshooting: runbook.md
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
 config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
 choice [quit]: The collector's OTLP/HTTP address, e.g. https://collector.lan:4318 (none: no telemetry) [https://127.0.0.1:1]: Its bearer token (sent as Authorization: Bearer …; empty keeps the one in .env, - for none) (hidden; empty to skip): 
-The CA file its certificate is signed by, PEM (-: none, a publicly trusted certificate) [personas/telemetry-ca.pem]: Send c1's telemetry (OpenTelemetry: tokens, cost, sessions, tool use; no prompts) to https://127.0.0.1:1? [Y/n]: Send g1's telemetry (OpenTelemetry: tokens, cost, sessions, tool use; no prompts) to https://127.0.0.1:1? [Y/n]: choice [some]: Send c1's tool details too (the commands, file paths and other input its tools ran with; they can hold secrets)? [Y/n]: Send g1's tool details too (the commands, file paths and other input its tools ran with; they can hold secrets)? [y/N]: choice [quit]: 
+The CA file its certificate is signed by, PEM (-: none, a publicly trusted certificate) [personas/telemetry-ca.pem]: Send c1's telemetry (OpenTelemetry: tokens, cost, sessions, tool use; no prompts) to https://127.0.0.1:1? [Y/n]: Send g1's telemetry (OpenTelemetry: tokens, cost, sessions, tool use; no prompts) to https://127.0.0.1:1? [Y/n]: choice [some]: Send c1's tool details too (the commands, file paths and other input the tools ran with, which can hold secrets)? [Y/n]: Send g1's tool details too (the commands, file paths and other input the tools ran with, which can hold secrets)? [y/N]: choice [none]: choice [quit]: 
 --- echo
 telemetry\r
 \r
@@ -225,6 +239,7 @@ telemetry\r
 \r
 n\r
 y\r
+\r
 \r
 ## run 5: config --no-link --no-build  (all: every persona that sends)  [tty-in]
 rc: 0
@@ -256,7 +271,11 @@ What next?
   9) quit
 
 == Telemetry (OpenTelemetry to a collector)
-Tool details too (the commands, file paths and other input the tools ran with; they can hold secrets): from which personas?
+Tool details too (the commands, file paths and other input the tools ran with, which can hold secrets): from which personas?
+  1) none     from no persona
+  2) all      every persona that sends telemetry, and any that sends later
+  3) some     the personas you pick next
+Tool content too (what the tools read, wrote and printed, such as whole files, command output and web pages, which can hold secrets): from which personas?
   1) none     from no persona
   2) all      every persona that sends telemetry, and any that sends later
   3) some     the personas you pick next
@@ -305,7 +324,7 @@ Day-to-day use, upgrades and troubleshooting: runbook.md
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
 config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
 choice [quit]: The collector's OTLP/HTTP address, e.g. https://collector.lan:4318 (none: no telemetry) [https://127.0.0.1:1]: Its bearer token (sent as Authorization: Bearer …; empty keeps the one in .env, - for none) (hidden; empty to skip): 
-The CA file its certificate is signed by, PEM (-: none, a publicly trusted certificate) [personas/telemetry-ca.pem]: Send c1's telemetry (OpenTelemetry: tokens, cost, sessions, tool use; no prompts) to https://127.0.0.1:1? [Y/n]: Send g1's telemetry (OpenTelemetry: tokens, cost, sessions, tool use; no prompts) to https://127.0.0.1:1? [Y/n]: choice [some]: choice [quit]: choice [quit]: 
+The CA file its certificate is signed by, PEM (-: none, a publicly trusted certificate) [personas/telemetry-ca.pem]: Send c1's telemetry (OpenTelemetry: tokens, cost, sessions, tool use; no prompts) to https://127.0.0.1:1? [Y/n]: Send g1's telemetry (OpenTelemetry: tokens, cost, sessions, tool use; no prompts) to https://127.0.0.1:1? [Y/n]: choice [some]: choice [none]: choice [quit]: choice [quit]: 
 --- echo
 telemetry\r
 \r
@@ -313,6 +332,7 @@ telemetry\r
 \r
 \r
 all\r
+\r
 list\r
 \r
 ## run 6: grep ^TELEMETRY_TOOL .env  [pipe, cwd a]
@@ -369,7 +389,7 @@ SSH (git over ssh) for c2:
   2) none     no ssh: it commits, and you pull and push from the VM, in the same directory
   3) new      a key of its own, made as personas/c2.key: add its public half as a deploy key
   4) path     a private key you already have, without a passphrase
-  tool details: on, as for every persona that sends telemetry. To leave one out: telemetry in the menu, then some
+  tool details: on, as for every persona that sends telemetry. To leave one out: telemetry in the menu, then some at "Tool details too"
 
 == c2: sign-in and identity (personas/c2.env)
 How does c2 sign in to Claude?
@@ -407,7 +427,7 @@ SSH (git over ssh) for g1:
   2) none     no ssh: it commits, and you pull and push from the VM, in the same directory
   3) new      a key of its own, made as personas/g1.key: add its public half as a deploy key
   4) path     a private key you already have, without a passphrase
-  tool details: on, as for every persona that sends telemetry. To leave one out: telemetry in the menu, then some
+  tool details: on, as for every persona that sends telemetry. To leave one out: telemetry in the menu, then some at "Tool details too"
   g1 is as it was
 
 What next?
@@ -426,8 +446,8 @@ Day-to-day use, upgrades and troubleshooting: runbook.md
 --- stderr (no newline at the end)
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
 config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
-choice [quit]: choice [claude]: choice [docker]: Name [claude-docker]: Statusline (statusline/: model, context, cost; what nexus top shows) in c2? [Y/n]: Projects root for c2 (-: the VM's, now <P>) [-]: choice [agent]: Let c2 run its tools without asking (bypassPermissions; no: it asks first, as personas/claude.ask.json says)? [Y/n]: Send c2's telemetry (OpenTelemetry: tokens, cost, sessions, tool use; no prompts) to https://127.0.0.1:1? [y/N]: choice [login]: git author name for c2 [Test User]: git author email for c2 [test@example.invalid]: GH_TOKEN for the gh CLI in c2 (hidden; empty to skip): 
-choice [quit]: choice [-]: choice [grok]: choice [docker]: Statusline (statusline/: model, context, cost; what nexus top shows) in g1? [Y/n]: Projects root for g1 (-: the VM's, now <P>) [-]: choice [agent]: Send g1's telemetry (OpenTelemetry: tokens, cost, sessions, tool use; no prompts) to https://127.0.0.1:1? [Y/n]: choice [quit]: 
+choice [quit]: choice [claude]: choice [docker]: Name [claude-docker]: Statusline (statusline/: model, context, cost; what nexus top shows) in c2? [Y/n]: Projects root for c2 (-: the VM's, now <P>) [-]: choice [agent]: Let c2 run its tools without asking (bypassPermissions; no: it asks first, as personas/claude.ask.json says)? [Y/n]: Send c2's telemetry (OpenTelemetry: tokens, cost, sessions, tool use; no prompts) to https://127.0.0.1:1? [y/N]: Send c2's tool content too (what the tools read, wrote and printed, such as whole files, command output and web pages, which can hold secrets)? [y/N]: choice [login]: git author name for c2 [Test User]: git author email for c2 [test@example.invalid]: GH_TOKEN for the gh CLI in c2 (hidden; empty to skip): 
+choice [quit]: choice [-]: choice [grok]: choice [docker]: Statusline (statusline/: model, context, cost; what nexus top shows) in g1? [Y/n]: Projects root for g1 (-: the VM's, now <P>) [-]: choice [agent]: Send g1's telemetry (OpenTelemetry: tokens, cost, sessions, tool use; no prompts) to https://127.0.0.1:1? [Y/n]: Send g1's tool content too (what the tools read, wrote and printed, such as whole files, command output and web pages, which can hold secrets)? [y/N]: choice [quit]: 
 --- echo
 add\r
 \r
@@ -441,8 +461,10 @@ y\r
 \r
 \r
 \r
+\r
 change\r
 g1\r
+\r
 \r
 \r
 \r
@@ -487,7 +509,11 @@ What next?
   9) quit
 
 == Telemetry (OpenTelemetry to a collector)
-Tool details too (the commands, file paths and other input the tools ran with; they can hold secrets): from which personas?
+Tool details too (the commands, file paths and other input the tools ran with, which can hold secrets): from which personas?
+  1) none     from no persona
+  2) all      every persona that sends telemetry, and any that sends later
+  3) some     the personas you pick next
+Tool content too (what the tools read, wrote and printed, such as whole files, command output and web pages, which can hold secrets): from which personas?
   1) none     from no persona
   2) all      every persona that sends telemetry, and any that sends later
   3) some     the personas you pick next
@@ -513,7 +539,7 @@ Day-to-day use, upgrades and troubleshooting: runbook.md
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
 config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
 choice [quit]: The collector's OTLP/HTTP address, e.g. https://collector.lan:4318 (none: no telemetry) [https://127.0.0.1:1]: Its bearer token (sent as Authorization: Bearer …; empty keeps the one in .env, - for none) (hidden; empty to skip): 
-The CA file its certificate is signed by, PEM (-: none, a publicly trusted certificate) [personas/telemetry-ca.pem]: Send c1's telemetry (OpenTelemetry: tokens, cost, sessions, tool use; no prompts) to https://127.0.0.1:1? [Y/n]: Send g1's telemetry (OpenTelemetry: tokens, cost, sessions, tool use; no prompts) to https://127.0.0.1:1? [Y/n]: Send c2's telemetry (OpenTelemetry: tokens, cost, sessions, tool use; no prompts) to https://127.0.0.1:1? [Y/n]: choice [all]: Send c1's tool details too (the commands, file paths and other input its tools ran with; they can hold secrets)? [Y/n]: Send g1's tool details too (the commands, file paths and other input its tools ran with; they can hold secrets)? [Y/n]: Send c2's tool details too (the commands, file paths and other input its tools ran with; they can hold secrets)? [Y/n]: choice [quit]: 
+The CA file its certificate is signed by, PEM (-: none, a publicly trusted certificate) [personas/telemetry-ca.pem]: Send c1's telemetry (OpenTelemetry: tokens, cost, sessions, tool use; no prompts) to https://127.0.0.1:1? [Y/n]: Send g1's telemetry (OpenTelemetry: tokens, cost, sessions, tool use; no prompts) to https://127.0.0.1:1? [Y/n]: Send c2's telemetry (OpenTelemetry: tokens, cost, sessions, tool use; no prompts) to https://127.0.0.1:1? [Y/n]: choice [all]: Send c1's tool details too (the commands, file paths and other input the tools ran with, which can hold secrets)? [Y/n]: Send g1's tool details too (the commands, file paths and other input the tools ran with, which can hold secrets)? [Y/n]: Send c2's tool details too (the commands, file paths and other input the tools ran with, which can hold secrets)? [Y/n]: choice [none]: choice [quit]: 
 --- echo
 telemetry\r
 \r
@@ -524,6 +550,7 @@ telemetry\r
 some\r
 n\r
 n\r
+\r
 \r
 \r
 ## run 11: config --no-link --no-build  (change c2: no tool details)  [tty-in]
@@ -617,7 +644,7 @@ Day-to-day use, upgrades and troubleshooting: runbook.md
 --- stderr (no newline at the end)
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
 config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
-choice [quit]: choice [-]: choice [claude]: choice [docker]: Statusline (statusline/: model, context, cost; what nexus top shows) in c2? [Y/n]: Projects root for c2 (-: the VM's, now <P>) [-]: choice [agent]: Let c2 run its tools without asking (bypassPermissions; no: it asks first, as personas/claude.ask.json says)? [Y/n]: Send c2's telemetry (OpenTelemetry: tokens, cost, sessions, tool use; no prompts) to https://127.0.0.1:1? [Y/n]: Send c2's tool details too (the commands, file paths and other input its tools ran with; they can hold secrets)? [Y/n]: choice [quit]: choice [quit]: 
+choice [quit]: choice [-]: choice [claude]: choice [docker]: Statusline (statusline/: model, context, cost; what nexus top shows) in c2? [Y/n]: Projects root for c2 (-: the VM's, now <P>) [-]: choice [agent]: Let c2 run its tools without asking (bypassPermissions; no: it asks first, as personas/claude.ask.json says)? [Y/n]: Send c2's telemetry (OpenTelemetry: tokens, cost, sessions, tool use; no prompts) to https://127.0.0.1:1? [Y/n]: Send c2's tool details too (the commands, file paths and other input the tools ran with, which can hold secrets)? [Y/n]: Send c2's tool content too (what the tools read, wrote and printed, such as whole files, command output and web pages, which can hold secrets)? [y/N]: choice [quit]: choice [quit]: 
 --- echo
 change\r
 c2\r
@@ -629,6 +656,7 @@ c2\r
 \r
 \r
 n\r
+\r
 list\r
 \r
 ## run 12: config --no-link --no-build  (none: as it was)  [tty-in]
@@ -661,7 +689,11 @@ What next?
   9) quit
 
 == Telemetry (OpenTelemetry to a collector)
-Tool details too (the commands, file paths and other input the tools ran with; they can hold secrets): from which personas?
+Tool details too (the commands, file paths and other input the tools ran with, which can hold secrets): from which personas?
+  1) none     from no persona
+  2) all      every persona that sends telemetry, and any that sends later
+  3) some     the personas you pick next
+Tool content too (what the tools read, wrote and printed, such as whole files, command output and web pages, which can hold secrets): from which personas?
   1) none     from no persona
   2) all      every persona that sends telemetry, and any that sends later
   3) some     the personas you pick next
@@ -685,9 +717,10 @@ Day-to-day use, upgrades and troubleshooting: runbook.md
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
 config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
 choice [quit]: The collector's OTLP/HTTP address, e.g. https://collector.lan:4318 (none: no telemetry) [https://127.0.0.1:1]: Its bearer token (sent as Authorization: Bearer …; empty keeps the one in .env, - for none) (hidden; empty to skip): 
-The CA file its certificate is signed by, PEM (-: none, a publicly trusted certificate) [personas/telemetry-ca.pem]: Send c1's telemetry (OpenTelemetry: tokens, cost, sessions, tool use; no prompts) to https://127.0.0.1:1? [Y/n]: Send g1's telemetry (OpenTelemetry: tokens, cost, sessions, tool use; no prompts) to https://127.0.0.1:1? [Y/n]: Send c2's telemetry (OpenTelemetry: tokens, cost, sessions, tool use; no prompts) to https://127.0.0.1:1? [Y/n]: choice [none]: choice [quit]: 
+The CA file its certificate is signed by, PEM (-: none, a publicly trusted certificate) [personas/telemetry-ca.pem]: Send c1's telemetry (OpenTelemetry: tokens, cost, sessions, tool use; no prompts) to https://127.0.0.1:1? [Y/n]: Send g1's telemetry (OpenTelemetry: tokens, cost, sessions, tool use; no prompts) to https://127.0.0.1:1? [Y/n]: Send c2's telemetry (OpenTelemetry: tokens, cost, sessions, tool use; no prompts) to https://127.0.0.1:1? [Y/n]: choice [none]: choice [none]: choice [quit]: 
 --- echo
 telemetry\r
+\r
 \r
 \r
 \r

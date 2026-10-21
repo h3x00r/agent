@@ -5,7 +5,8 @@
 # (path, then body), and answers every message with FAKE-REPLY, streamed or not as asked. A request
 # whose body says HOLD gets no answer for five minutes, so a test can interrupt the run waiting on it. One that
 # says NXT-TOOL and offers the Bash tool, with no tool result in it yet, is answered with a call of that tool
-# (echo nxt-tool-ran) instead, so the run has a command for its telemetry to report; FAKE-REPLY after it.
+# instead, so the run has a command for its telemetry to report: `echo nxt-tool-ran | tr a-z- A-Z_`, whose text
+# (tool details) and output, NXT_TOOL_RAN (tool content), tell the two apart; FAKE-REPLY after it.
 # Standard library only: it runs in a persona image.
 import json
 import os
@@ -51,7 +52,7 @@ class Handler(BaseHTTPRequestHandler):
         tools = req.get('tools') if isinstance(req.get('tools'), list) else []
         if 'NXT-TOOL' in body and '"tool_result"' not in body \
                 and any(isinstance(t, dict) and t.get('name') == 'Bash' for t in tools):
-            call = {'command': 'echo nxt-tool-ran', 'description': 'Print a word'}
+            call = {'command': 'echo nxt-tool-ran | tr a-z- A-Z_', 'description': 'Print a word'}
             block, delta = {'type': 'tool_use', 'id': 'toolu_nxt1', 'name': 'Bash', 'input': {}}, \
                 {'type': 'input_json_delta', 'partial_json': json.dumps(call)}
             content, stop = [dict(block, input=call)], 'tool_use'

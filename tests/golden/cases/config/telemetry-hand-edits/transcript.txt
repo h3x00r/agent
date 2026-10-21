@@ -252,9 +252,22 @@ telemetry: nothing answered at https://127.0.0.1:1 (is it down, or is the addres
 Day-to-day use, upgrades and troubleshooting: runbook.md
 --- stderr
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
-## run 15: config --list  (c1: tool_details without telemetry)  [pipe]
+## run 15: config --yes …  (TELEMETRY_TOOL_CONTENT by hand: maybe)  [pipe]
+rc: 1
+--- stdout
+nexus --config: setting up <A>
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: TELEMETRY_TOOL_CONTENT in <A>/.env is neither on nor off (nor empty), and c1 sends telemetry, so nothing was written: set it with nexus --config, then telemetry (or --tool-content all:on or all:off)
+## run 16: config --list  (c1: tool_details without telemetry)  [pipe]
 rc: 1
 --- stdout
 (empty)
 --- stderr
-config: <A>/personas.json persona 'c1' has "tool_details": true without "telemetry": true (tool details go only with telemetry): fix it, or put back <A>/personas.json.bak (the one nexus --config kept before it), then run nexus --config again
+config: <A>/personas.json persona 'c1' has "tool_details": true without "telemetry": true (only a persona that sends telemetry can send tool details): fix it, or put back <A>/personas.json.bak (the one nexus --config kept before it), then run nexus --config again
+## run 17: config --list  (c1: tool_content without telemetry)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: <A>/personas.json persona 'c1' has "tool_content": true without "telemetry": true (only a persona that sends telemetry can send tool content): fix it, or put back <A>/personas.json.bak (the one nexus --config kept before it), then run nexus --config again

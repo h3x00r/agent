@@ -64,6 +64,10 @@ AGENT_MEMORY=8g
 # tools ran with, which can hold secrets). Empty or off: only the personas marked "tool_details": true in
 # personas.json (none by default).
 #TELEMETRY_TOOL_DETAILS=
+# on: every persona that sends telemetry also sends its tool content (what its tools read, wrote and printed, such as
+# whole files and command output, which can hold secrets). Empty or off: only the personas marked "tool_content":
+# true in personas.json (none by default).
+#TELEMETRY_TOOL_CONTENT=
 CLAUDE_VERSION=2.1.301
 --- stderr
 (empty)
@@ -133,6 +137,10 @@ AGENT_MEMORY=8g
 # tools ran with, which can hold secrets). Empty or off: only the personas marked "tool_details": true in
 # personas.json (none by default).
 #TELEMETRY_TOOL_DETAILS=
+# on: every persona that sends telemetry also sends its tool content (what its tools read, wrote and printed, such as
+# whole files and command output, which can hold secrets). Empty or off: only the personas marked "tool_content":
+# true in personas.json (none by default).
+#TELEMETRY_TOOL_CONTENT=
 CLAUDE_VERSION=2.1.302
 --- stderr
 (empty)
@@ -202,6 +210,10 @@ AGENT_MEMORY=8g
 # tools ran with, which can hold secrets). Empty or off: only the personas marked "tool_details": true in
 # personas.json (none by default).
 #TELEMETRY_TOOL_DETAILS=
+# on: every persona that sends telemetry also sends its tool content (what its tools read, wrote and printed, such as
+# whole files and command output, which can hold secrets). Empty or off: only the personas marked "tool_content":
+# true in personas.json (none by default).
+#TELEMETRY_TOOL_CONTENT=
 CLAUDE_VERSION=2.1.303
 --- stderr
 (empty)
@@ -271,6 +283,10 @@ AGENT_MEMORY=8g
 # tools ran with, which can hold secrets). Empty or off: only the personas marked "tool_details": true in
 # personas.json (none by default).
 #TELEMETRY_TOOL_DETAILS=
+# on: every persona that sends telemetry also sends its tool content (what its tools read, wrote and printed, such as
+# whole files and command output, which can hold secrets). Empty or off: only the personas marked "tool_content":
+# true in personas.json (none by default).
+#TELEMETRY_TOOL_CONTENT=
 CLAUDE_VERSION=2.1.304
 --- stderr
 (empty)
@@ -340,6 +356,10 @@ AGENT_MEMORY=8g
 # tools ran with, which can hold secrets). Empty or off: only the personas marked "tool_details": true in
 # personas.json (none by default).
 #TELEMETRY_TOOL_DETAILS=
+# on: every persona that sends telemetry also sends its tool content (what its tools read, wrote and printed, such as
+# whole files and command output, which can hold secrets). Empty or off: only the personas marked "tool_content":
+# true in personas.json (none by default).
+#TELEMETRY_TOOL_CONTENT=
 CLAUDE_VERSION=latest
 #CLAUDE_VERSION=
 --- stderr
@@ -410,6 +430,10 @@ AGENT_MEMORY=8g
 # tools ran with, which can hold secrets). Empty or off: only the personas marked "tool_details": true in
 # personas.json (none by default).
 #TELEMETRY_TOOL_DETAILS=
+# on: every persona that sends telemetry also sends its tool content (what its tools read, wrote and printed, such as
+# whole files and command output, which can hold secrets). Empty or off: only the personas marked "tool_content":
+# true in personas.json (none by default).
+#TELEMETRY_TOOL_CONTENT=
 CLAUDE_VERSION=2.1.1
 X=1
 CLAUDE_VERSION=2.1.306
@@ -481,6 +505,10 @@ AGENT_MEMORY=8g
 # tools ran with, which can hold secrets). Empty or off: only the personas marked "tool_details": true in
 # personas.json (none by default).
 #TELEMETRY_TOOL_DETAILS=
+# on: every persona that sends telemetry also sends its tool content (what its tools read, wrote and printed, such as
+# whole files and command output, which can hold secrets). Empty or off: only the personas marked "tool_content":
+# true in personas.json (none by default).
+#TELEMETRY_TOOL_CONTENT=
 X=1
 CLAUDE_VERSION=latest
 --- stderr
@@ -551,6 +579,10 @@ AGENT_MEMORY=8g
 # tools ran with, which can hold secrets). Empty or off: only the personas marked "tool_details": true in
 # personas.json (none by default).
 #TELEMETRY_TOOL_DETAILS=
+# on: every persona that sends telemetry also sends its tool content (what its tools read, wrote and printed, such as
+# whole files and command output, which can hold secrets). Empty or off: only the personas marked "tool_content":
+# true in personas.json (none by default).
+#TELEMETRY_TOOL_CONTENT=
 X=1
 CLAUDE_VERSION=2.1.307
 --- stderr
@@ -621,6 +653,10 @@ AGENT_MEMORY=8g\r
 # tools ran with, which can hold secrets). Empty or off: only the personas marked "tool_details": true in\r
 # personas.json (none by default).\r
 #TELEMETRY_TOOL_DETAILS=\r
+# on: every persona that sends telemetry also sends its tool content (what its tools read, wrote and printed, such as\r
+# whole files and command output, which can hold secrets). Empty or off: only the personas marked "tool_content":\r
+# true in personas.json (none by default).\r
+#TELEMETRY_TOOL_CONTENT=\r
 X=1\r
 CLAUDE_VERSION=2.1.307
 --- stderr

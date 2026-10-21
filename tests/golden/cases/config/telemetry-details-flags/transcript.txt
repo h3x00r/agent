@@ -41,7 +41,7 @@ rc: 1
 nexus --config: setting up <A>
 --- stderr
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
-config: --tool-details c2:on: nothing was written, because c2 doesn't send telemetry, and tool details go only with it. To send both:
+config: --tool-details c2:on: nothing was written, because c2 doesn't send telemetry, so it can't send tool details. To send both:
         nexus --config --yes --telemetry c2:on --tool-details c2:on
 ## run 8: config --yes … --tool-details c1:on  (its drop-in: a restart)  [pipe]
 rc: 0
@@ -193,7 +193,7 @@ rc: 1
 nexus --config: setting up <A>
 --- stderr
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
-config: --tool-details c1:off: nothing was written, because tool details are on for every persona that sends telemetry (TELEMETRY_TOOL_DETAILS=on in <A>/.env). To leave c1 out, turn them off for all, then on for each of the others:
+config: --tool-details c1:off: nothing was written, because every persona that sends telemetry sends tool details now (TELEMETRY_TOOL_DETAILS=on in <A>/.env). To leave c1 out, turn it off for all, then turn tool details on for each of the others:
         nexus --config --yes --tool-details all:off --tool-details g1:on
 ## run 19: config --yes … --tool-details c1:on  (under all: it does already)  [pipe]
 rc: 0
@@ -209,7 +209,7 @@ Personas:
   sends tool details too (the commands, file paths and other input the tools ran with): c1, g1
 
 Start one from a project directory:  cd <P>/<project> && nexus c1
-tool details: c1 sends them already, as every persona that sends telemetry does (TELEMETRY_TOOL_DETAILS=on)
+c1: it sends tool details already, as every persona that sends telemetry does (TELEMETRY_TOOL_DETAILS=on)
 Day-to-day use, upgrades and troubleshooting: runbook.md
 --- stderr
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
@@ -309,7 +309,8 @@ rc: 1
 nexus --config: setting up <A>
 --- stderr
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
-config: --tool-details all:on: nothing was written, because there is no collector, and tool details go only with telemetry. Give one with --telemetry-endpoint URL
+config: --tool-details all:on: nothing was written, because there is no collector, so no persona can send tool details. To set one up:
+        nexus --config --yes --telemetry-endpoint URL --tool-details all:on
 ## run 28: config --yes … --tool-details all:on  [pipe]
 rc: 0
 --- stdout

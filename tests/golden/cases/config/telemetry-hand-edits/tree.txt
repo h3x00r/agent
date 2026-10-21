@@ -49,6 +49,10 @@
     | # tools ran with, which can hold secrets). Empty or off: only the personas marked "tool_details": true in
     | # personas.json (none by default).
     | #TELEMETRY_TOOL_DETAILS=
+    | # on: every persona that sends telemetry also sends its tool content (what its tools read, wrote and printed, such as
+    | # whole files and command output, which can hold secrets). Empty or off: only the personas marked "tool_content":
+    | # true in personas.json (none by default).
+    | #TELEMETRY_TOOL_CONTENT=
     | TELEMETRY_CA=personas/telemetry-ca.pem
     | TELEMETRY_TOKEN=nxt-fake-tele-hand
     | TELEMETRY_ENDPOINT=https://127.0.0.1:1
@@ -97,7 +101,7 @@
     |       "context": "docker",
     |       "colour": "colour25",
     |       "statusline": true,
-    |       "tool_details": true
+    |       "tool_content": true
     |     }
     |   }
     | }

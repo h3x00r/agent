@@ -223,3 +223,32 @@ other input its tools ran with); off unless asked for, for every persona (TELEME
   attach of a running Claude persona now also reads its mounted drop-in (`docker exec … cat`, in the calls of the
   telemetry cases that start one running) and warns when it isn't the checkout's (nexus/telemetry-not-restarted,
   five runs added: tool details turned on after the container was made).
+
+## Changed on purpose: tool content (telemetry M3)
+A persona that sends telemetry can send its tool content too (OTEL_LOG_TOOL_CONTENT: what its tools read, wrote and
+printed), set as tool details are, on its own: TELEMETRY_TOOL_CONTENT=on in .env, "tool_content": true in
+personas.json, --tool-content NAME|all:on|off. Both are one shape in the code now (tele.EXTRAS):
+- **.env.example** has a TELEMETRY_TOOL_CONTENT line, and --help a --tool-content option. Accepted@telemetry M3 in
+  the 72 cases that show .env whole or --help, after a script checked that each diff held those lines alone.
+- **The telemetry action** asks a second question after "Tool details too" ("Tool content too …", none, all or
+  some), so config/telemetry-menu and config/telemetry-details-menu answer it with its default and were recorded
+  again; add and change ask it too.
+- **Messages shared by both** were reworded so they read for either name, and after review:
+  - NAME:on for one that doesn't send: "…, so it can't send tool details. To send both:" (was "and tool details go
+    only with it").
+  - all:on with no collector: "…, so no persona can send tool details. To set one up:" and the command on its own
+    line (was "tool details go only with telemetry. Give one with --telemetry-endpoint URL").
+  - NAME:off under all: "every persona that sends telemetry sends tool details now (…). To leave c1 out, turn it
+    off for all, then turn tool details on for each of the others" (was "tool details are on for every persona …
+    turn them off for all, then on for each of the others").
+  - "c1: it sends tool details already, …" (was "tool details: c1 sends them already, …").
+  - personas.json's "(only a persona that sends telemetry can send tool details)".
+  - The questions say "…, which can hold secrets" (was "; they can hold secrets"), and the per-persona one "the tools
+    ran with" (was "its tools"); the line under all ends 'then some at "Tool details too"'.
+  config/telemetry-details-flags, config/telemetry-details-menu and config/telemetry-hand-edits were recorded again
+  for those lines.
+- **A persona that comes to send tool content without tool details** is told so once. A Claude one leaves out what
+  Claude Code writes to files, and the note gives the command that adds tool details. A grok one sends its commands
+  all the same.
+- **New cases**: config/telemetry-content-flags and config/telemetry-content-menu; config/telemetry-hand-edits has
+  TELEMETRY_TOOL_CONTENT neither on nor off, and "tool_content" without telemetry.

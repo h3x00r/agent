@@ -32,6 +32,8 @@ class Parse(unittest.TestCase):
                          (["c1:on", "g1:off"], "https://c.lan:4318", "/t", "none", None))
         self.assertEqual(cli.parse(["--tool-details", "all:on", "--tool-details", "c1:off"]).tool_details,
                          ["all:on", "c1:off"])
+        o = cli.parse(["--tool-content", "c1:on", "--tool-details", "all:off"])
+        self.assertEqual((o.tool_content, o.tool_details), (["c1:on"], ["all:off"]))
 
     def test_help_stops_where_it_is_read(self):
         self.assertTrue(cli.parse(["--help", "--bogus"]).help)

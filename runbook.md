@@ -501,11 +501,12 @@ for several VMs, say. Nothing is sent from a persona you didn't turn on.
 4. for each persona, whether it sends;
 5. if any persona sends, which of them send their tool details too: `none` (the default), `all` (every persona
    that sends, now or later) or `some` (a yes or no for each). See [Tool details](#tool-details) below.
+6. then the same for their tool content. See [Tool content](#tool-content) below.
 
 It saves, then tries the collector with an empty export (no data): `-- telemetry: <address> took a test export
 with the token`, or what is wrong. Then restart each persona it names, e.g. `nexus <name> restart` (that ends its
 tmux sessions). `add` and `change` ask whether a persona sends, while a collector is set, and then whether it sends
-its tool details, unless they are on for all.
+its tool details and its tool content, each unless it is on for all.
 
 For scripts, the same with `--yes`:
 ```bash
@@ -515,15 +516,15 @@ nexus --config --yes --telemetry-endpoint https://collector.lan:4318 \
 ```
 (`--telemetry-endpoint none` turns it off; `--telemetry NAME:off` stops one persona; the files take absolute paths;
 an empty token file sets none. Tool details: `--tool-details all:on` for every persona that sends, or
-`--tool-details NAME:on` for one; `all:off` for none.)
+`--tool-details NAME:on` for one; `all:off` for none. Tool content: `--tool-content`, the same way.)
 
 What it writes:
 - `.env`: `TELEMETRY_ENDPOINT`, `TELEMETRY_TOKEN` and `TELEMETRY_CA` (`personas/telemetry-ca.pem`, the copy of the CA
-  file it was given), and `TELEMETRY_TOOL_DETAILS` (`on` for all, empty otherwise). `.env` is made private (mode 600)
-  once it holds the token. A path of your own written into `TELEMETRY_CA` by hand is copied in at the next
-  `nexus --config`.
-- `personas.json`: `"telemetry": true` for each persona that sends, and `"tool_details": true` for each persona you
-  said yes to under `some`.
+  file it was given), and `TELEMETRY_TOOL_DETAILS` and `TELEMETRY_TOOL_CONTENT` (`on` for all, empty otherwise).
+  `.env` is made private (mode 600) once it holds the token. A path of your own written into `TELEMETRY_CA` by hand
+  is copied in at the next `nexus --config`.
+- `personas.json`: `"telemetry": true` for each persona that sends, and `"tool_details": true` and
+  `"tool_content": true` for each persona you said yes to under `some`.
 - For a Claude persona that sends, `personas/<name>.telemetry.json` (mode 600: it holds the token), mounted as the
   managed drop-in `/etc/claude-code/managed-settings.d/50-telemetry.json`. Its `env` turns on Claude Code's metrics,
   events and traces over `http/protobuf`, with `host.name` (the VM) and `persona` (its name) as resource attributes,
@@ -547,16 +548,16 @@ What it writes:
   which it is removed: its running container still mounts the file, and Docker couldn't start that container
   again (a reboot) without it. A grok persona's file is removed at once. All of these are ignored by git.
 - `nexus --config` refuses (and writes nothing) while a persona sends and: no collector is set; `.env` holds an
-  address or token the options would refuse, or a `TELEMETRY_TOOL_DETAILS` other than `on`, `off` or empty; the CA
-  file isn't a certificate, or holds a private key; a Claude
+  address or token the options would refuse, or a `TELEMETRY_TOOL_DETAILS` or `TELEMETRY_TOOL_CONTENT` other than
+  `on`, `off` or empty; the CA file isn't a certificate, or holds a private key; a Claude
   persona sets `NODE_EXTRA_CA_CERTS` itself (in its env file, a docker one; or in `personas/claude.managed.json`),
   which the drop-in's would replace: put both CAs in one PEM file and give that; or `personas/grok.toml` has a
   `[telemetry]` table of its own.
 - Until a persona is restarted after it starts or stops sending, a start or an attach warns: `<name> sends
   telemetry now, but its container was made before that …`, or `… no longer sends telemetry, but its container
   was made while it did and still sends it …`. A Claude persona whose telemetry settings changed since (tool
-  details turned off, say) warns too: `<name>'s telemetry settings changed after its container was made, and it
-  still sends with the old ones …`.
+  details or content turned off, say) warns too: `<name>'s telemetry settings changed after its container was made,
+  and it still sends with the old ones …`.
 
 #### Tool details
 
@@ -569,7 +570,8 @@ worked, but not what it ran. With tool details on, they also send what the tools
 - grok: real tool, MCP and skill names, file paths, and the start (up to 4 KB) of each tool's arguments, shell
   commands included (`otel_log_tool_details = true` in its `[telemetry]` table).
 
-Neither sends what a tool read or printed (apart from a failed tool's error), nor your prompts or the replies. But
+Neither sends what a tool read or printed (apart from a failed tool's error): that is [tool content](#tool-content),
+below. Nor do they send your prompts or the replies. But
 the start of what a tool writes goes, and a command can hold a secret, such as a password typed into it or a token
 in a URL. The collector stores it as sent, so have it mask secrets first. An OpenTelemetry Collector can, with a
 `transform` processor.
@@ -591,6 +593,39 @@ To apply them, restart a Claude persona, as `nexus --config` says:
 nexus <name> restart
 ```
 A grok persona needs no restart: its managed config is rewritten in place, and its next `grok` has them.
+
+#### Tool content
+
+Off by default, and set on its own, like tool details: with `telemetry` in the `nexus --config` menu (question 6
+above), or with `--tool-content all:on` or `--tool-content NAME:on`, as `TELEMETRY_TOOL_CONTENT=on` in `.env` or
+`"tool_content": true` in `personas.json`. The same rules apply: only with telemetry, all or per persona, off again
+when the collector is turned off, and a Claude persona needs a restart.
+
+With it on, the CLIs send what the tools read, wrote and printed, each value up to 60 KB:
+- Claude Code: the text a Read returned, a Bash command's output (stdout and stderr together), and what MCP tools,
+  WebFetch and WebSearch returned (`OTEL_LOG_TOOL_CONTENT=1`). It goes as a `tool.output` event on the tool's
+  span, so in traces only, not in events. The text a Write writes and the change an Edit makes go only with tool
+  details on too. `nexus --config` says so once, when a Claude persona comes to send content without details.
+- grok: each tool's input and output, the full command, and a failed tool's error message, on its events
+  (`otel_log_tool_content = true` in its `[telemetry]` table). This includes the command, so with tool content on,
+  grok sends its commands even with tool details off; `nexus --config` says so once. grok masks the secret shapes
+  it recognises (a token's prefix, say) before sending, but a plain password in a file a tool read usually doesn't
+  look like one.
+
+This is a different kind of data from tool details: whole files go, such as a `.env` or a key a tool read, the
+output of `env`, and API responses. Claude Code masks nothing in it. Masking at the collector is best effort, and
+for Claude Code it has to cover span events: the `tool.output` event on the `claude_code.tool` span, attributes
+`output`, `content` and `diff` (in an OpenTelemetry Collector, a `transform` processor's `spanevent` context). Keep
+traces no longer than you would keep these files. Mind the size too:
+- a record can reach a backend's limits. Tempo keeps the first 2 KB of an attribute by default, and Loki drops a
+  record whose structured metadata is over its limit (64 KB by default);
+- storage grows with every tool call.
+
+To apply it, restart a Claude persona, as `nexus --config` says:
+```bash
+nexus <name> restart
+```
+A grok persona needs no restart: its next `grok` has it.
 
 Check that data arrives (here with Prometheus and Loki behind the collector; the names are the OTLP ones with dots
 as `_`):

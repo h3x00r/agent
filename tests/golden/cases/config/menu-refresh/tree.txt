@@ -56,6 +56,10 @@
     | # tools ran with, which can hold secrets). Empty or off: only the personas marked "tool_details": true in
     | # personas.json (none by default).
     | #TELEMETRY_TOOL_DETAILS=
+    | # on: every persona that sends telemetry also sends its tool content (what its tools read, wrote and printed, such as
+    | # whole files and command output, which can hold secrets). Empty or off: only the personas marked "tool_content":
+    | # true in personas.json (none by default).
+    | #TELEMETRY_TOOL_CONTENT=
     | GROK_TAG=
 ~ a/personas/g1.grok.toml  f 600 inode=same
     | # /etc/grok/managed_config.toml in grok persona g1, written by nexus --config from personas/grok.toml

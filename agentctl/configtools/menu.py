@@ -37,6 +37,7 @@ from agentctl.configtools.host import env_flavour, pad, readlink_f
 from agentctl.configtools.questions import Questions
 from agentctl.core.errors import NexusError
 from agentctl.domain import persona as rules
+from agentctl.domain import telemetry as tele
 from agentctl.ui.prompts import EOF_MESSAGE
 
 ACTIONS = ["list      the shared settings and the personas, again",
@@ -76,7 +77,7 @@ class Menu:
         else:
             s.say("nexus --config: %s%s" % (s.a, ddev))
         flags = bool(o.add or o.ssh or o.permissions or o.remove or o.root or o.registry or o.claude or o.telemetry
-                     or o.tele_endpoint or o.tele_token_file or o.tele_ca or o.tool_details)
+                     or o.tele_endpoint or o.tele_token_file or o.tele_ca or o.tool_details or o.tool_content)
         before = set(p.name for p in s.personas)
         read = copy.deepcopy(s.personas)
         s.apply_flags()
@@ -213,9 +214,10 @@ class Menu:
         t = self.s.tele
         if not t["endpoint"]:
             return "off"
+        extras = " and ".join(x.name for x in tele.EXTRAS if self.s.all_on(x))
         return "%s (%s, %s%s)" % (t["endpoint"], "a token" if t["token"] else "no token",
                                   "its CA in " + t["ca"] if t["ca"] else "a publicly trusted certificate",
-                                  ", tool details from every persona that sends" if self.s.details_all() else "")
+                                  ", %s from every persona that sends" % extras if extras else "")
 
     def launcher_state(self):
         s = self.s
@@ -264,11 +266,11 @@ class Menu:
         if not n:
             return
         old = s.personas[s.idx(n)]
-        before, details = s.state(old), old.tool_details    # tool details aren't in state(): no restart of their own
+        before, extras = s.state(old), (old.tool_details, old.tool_content)    # not in state(): no restart of their own
         s.section("Change " + n)
         self.q.change(n)
         p = s.personas[s.idx(n)]
-        if s.state(p) == before and p.tool_details == details:
+        if s.state(p) == before and (p.tool_details, p.tool_content) == extras:
             s.say("  %s is as it was" % n)
             return
         self.save(n + "'s changes")
@@ -308,9 +310,10 @@ class Menu:
     def act_telemetry(self):
         s = self.s
         s.section("Telemetry (OpenTelemetry to a collector)")
-        before = (dict(s.tele), [(p.name, p.telemetry, p.tool_details) for p in s.personas])
+        before = (dict(s.tele), [(p.name, p.telemetry, p.tool_details, p.tool_content) for p in s.personas])
         self.q.telemetry()
-        if (dict(s.tele), [(p.name, p.telemetry, p.tool_details) for p in s.personas]) == before and not s.ca_changed():
+        if (dict(s.tele), [(p.name, p.telemetry, p.tool_details, p.tool_content) for p in s.personas]) == before \
+                and not s.ca_changed():
             s.say("  telemetry is as it was")
             s.tele_check = True       # gone through to try the collector again, maybe
             after.telemetry_check(s)

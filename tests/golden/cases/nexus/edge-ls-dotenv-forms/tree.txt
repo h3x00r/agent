@@ -50,4 +50,8 @@
     | # tools ran with, which can hold secrets). Empty or off: only the personas marked "tool_details": true in
     | # personas.json (none by default).
     | #TELEMETRY_TOOL_DETAILS=
+    | # on: every persona that sends telemetry also sends its tool content (what its tools read, wrote and printed, such as
+    | # whole files and command output, which can hold secrets). Empty or off: only the personas marked "tool_content":
+    | # true in personas.json (none by default).
+    | #TELEMETRY_TOOL_CONTENT=
     | PROJECTS_ROOT=<S>/env

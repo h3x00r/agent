@@ -333,6 +333,13 @@ nexus --config --yes --tool-details all:on
 nexus --config --yes --tool-details claude-team:on
 ```
 
+The question after it, "Tool content too", also sends what the tools read, wrote and printed, so whole files can
+reach the collector. Read [Tool content](runbook.md#tool-content) before you turn it on. For scripts:
+
+```bash
+nexus --config --yes --tool-content claude-team:on
+```
+
 ## When something goes wrong
 
 | You see | What it means | What to do |
@@ -367,6 +374,7 @@ Anything else: the message usually says what to run. The full list is in
 | make a whole persona ask | `nexus --config` → `change` → the persona → `n` at "Let … run its tools without asking", then `nexus <persona> restart` |
 | send tokens and cost to an OpenTelemetry collector | `nexus --config` → `telemetry`, then `nexus <persona> restart` |
 | send tool details too (the commands, file paths and other input the tools ran with) | `nexus --config` → `telemetry` → `all` or `some` at "Tool details too", then `nexus <persona> restart` for a Claude persona (grok needs none) |
+| send tool content too (what the tools read, wrote and printed) | `nexus --config` → `telemetry` → `all` or `some` at "Tool content too", then `nexus <persona> restart` for a Claude persona (grok needs none) |
 | upgrade Claude Code | `nexus <persona> upgrade` |
 | apply a change to a running persona | `nexus <persona> restart` |
 
