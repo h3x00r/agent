@@ -3,7 +3,9 @@
 #
 # Listens on a free port of 127.0.0.1 and writes it to PORT_FILE, logs every request to LOG as one line
 # (path, then body), and answers every message with FAKE-REPLY, streamed or not as asked. A request
-# whose body says HOLD gets no answer for five minutes, so a test can interrupt the run waiting on it.
+# whose body says HOLD gets no answer for five minutes, so a test can interrupt the run waiting on it. One that
+# says NXT-TOOL and offers the Bash tool, with no tool result in it yet, is answered with a call of that tool
+# (echo nxt-tool-ran) instead, so the run has a command for its telemetry to report; FAKE-REPLY after it.
 # Standard library only: it runs in a persona image.
 import json
 import os
@@ -46,20 +48,28 @@ class Handler(BaseHTTPRequestHandler):
         msg = {'id': 'msg_fake', 'type': 'message', 'role': 'assistant', 'model': req.get('model', 'fake'),
                'content': [], 'stop_reason': None, 'stop_sequence': None,
                'usage': {'input_tokens': 10, 'output_tokens': 1}}
+        tools = req.get('tools') if isinstance(req.get('tools'), list) else []
+        if 'NXT-TOOL' in body and '"tool_result"' not in body \
+                and any(isinstance(t, dict) and t.get('name') == 'Bash' for t in tools):
+            call = {'command': 'echo nxt-tool-ran', 'description': 'Print a word'}
+            block, delta = {'type': 'tool_use', 'id': 'toolu_nxt1', 'name': 'Bash', 'input': {}}, \
+                {'type': 'input_json_delta', 'partial_json': json.dumps(call)}
+            content, stop = [dict(block, input=call)], 'tool_use'
+        else:
+            block, delta = {'type': 'text', 'text': ''}, {'type': 'text_delta', 'text': 'FAKE-REPLY'}
+            content, stop = [{'type': 'text', 'text': 'FAKE-REPLY'}], 'end_turn'
         if not req.get('stream'):
-            msg.update(content=[{'type': 'text', 'text': 'FAKE-REPLY'}], stop_reason='end_turn')
+            msg.update(content=content, stop_reason=stop)
             return self.reply('application/json', json.dumps(msg).encode())
         self.send_response(200)
         self.send_header('content-type', 'text/event-stream')
         self.end_headers()
         for event, data in [
             ('message_start', {'type': 'message_start', 'message': msg}),
-            ('content_block_start', {'type': 'content_block_start', 'index': 0,
-                                     'content_block': {'type': 'text', 'text': ''}}),
-            ('content_block_delta', {'type': 'content_block_delta', 'index': 0,
-                                     'delta': {'type': 'text_delta', 'text': 'FAKE-REPLY'}}),
+            ('content_block_start', {'type': 'content_block_start', 'index': 0, 'content_block': block}),
+            ('content_block_delta', {'type': 'content_block_delta', 'index': 0, 'delta': delta}),
             ('content_block_stop', {'type': 'content_block_stop', 'index': 0}),
-            ('message_delta', {'type': 'message_delta', 'delta': {'stop_reason': 'end_turn', 'stop_sequence': None},
+            ('message_delta', {'type': 'message_delta', 'delta': {'stop_reason': stop, 'stop_sequence': None},
                                'usage': {'output_tokens': 5}}),
             ('message_stop', {'type': 'message_stop'}),
         ]:

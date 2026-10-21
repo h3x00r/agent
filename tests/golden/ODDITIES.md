@@ -200,3 +200,26 @@ TELEMETRY_CA); off unless set:
   menu run's options) and nexus/telemetry-not-restarted (the warnings for a running container made before its
   telemetry changed) are new; the other telemetry cases were recorded again with grok's token as its metrics and
   logs headers, a neutral drop-in for a Claude persona that stops sending, and restart notes for what changed.
+
+## Changed on purpose: tool details (telemetry M2)
+A persona that sends telemetry can send its tool details too (OTEL_LOG_TOOL_DETAILS: the commands, file paths and
+other input its tools ran with); off unless asked for, for every persona (TELEMETRY_TOOL_DETAILS=on in .env) or per persona
+(personas.json "tool_details": true):
+- **.env.example** has a TELEMETRY_TOOL_DETAILS line (commented out, with two comment lines), and --help a
+  --tool-details option. Accepted@telemetry M2 in the 72 cases that show .env whole or --help, after a script
+  checked that each diff held those lines and nothing else.
+- **The telemetry action** asks one more question when some persona sends ("Tool details too …: from which
+  personas?", none, all or some), so config/telemetry-menu answers it with its default (none) and was recorded
+  again; add and change ask it of a persona that sends, unless tool details are on for all.
+- **Drop-ins and grok tables** change only for a persona that sends them, so no case before this one shows a
+  difference there. The overview's telemetry row names tool details only while TELEMETRY_TOOL_DETAILS is on, and
+  the persona list only when some persona sends them.
+- **New cases**: config/telemetry-details-flags (--tool-details, what it refuses, all:on and back, a collector
+  turned off), config/telemetry-details-menu (none, some, all, add and change under all, a change that turns them
+  off), and three runs added to config/telemetry-hand-edits (TELEMETRY_TOOL_DETAILS neither on nor off, then off;
+  tool_details without telemetry).
+- **The review's fixes** (telemetry M2): the all:… flags apply before the NAME:… ones; NAME:on under all says it
+  does already; off reads as empty, and an emptied TELEMETRY_ENDPOINT turns tool details off too. A start or an
+  attach of a running Claude persona now also reads its mounted drop-in (`docker exec … cat`, in the calls of the
+  telemetry cases that start one running) and warns when it isn't the checkout's (nexus/telemetry-not-restarted,
+  five runs added: tool details turned on after the container was made).

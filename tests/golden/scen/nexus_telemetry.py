@@ -60,3 +60,13 @@ def _(sb):
     sb.run("nexus", "g1", "start", label="nexus g1 start  (grok stops at its next start: nothing to say)")
     sb.run("nexus", "c1", "restart", label="nexus c1 restart  (its neutral drop-in goes)")
     sb.run("nexus", "c1", "start", label="nexus c1 start  (nothing to say)")
+    # Sending, with its settings changed since its container was made (tool details on, then off): its container
+    # sends as its drop-in was then, and a start or an attach says so until a restart.
+    sb.setup("config", *YES, "--telemetry", "c1:on")
+    sb.setup("nexus", "c1", "restart")
+    sb.run("nexus", "c1", "start", label="nexus c1 start  (sending, as made: nothing to say)")
+    sb.setup("config", *YES, "--tool-details", "c1:on")
+    sb.run("nexus", "c1", "start", label="nexus c1 start  (tool details on since it was made)")
+    sb.run("nexus", "c1", cwd="projects/app", label="nexus c1  (an attach: the same)")
+    sb.run("nexus", "c1", "restart")
+    sb.run("nexus", "c1", "start", label="nexus c1 start  (restarted: nothing to say)")

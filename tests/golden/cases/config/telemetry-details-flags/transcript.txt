@@ -1,0 +1,386 @@
+## run 1: config --yes --no-link --no-build --tool-details  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --tool-details needs NAME:on, NAME:off, all:on or all:off (see --help)
+## run 2: config --yes --no-link --no-build --tool-details c1  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --tool-details c1: it takes NAME:on, NAME:off, all:on or all:off
+## run 3: config --yes --no-link --no-build --tool-details c1:yes  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --tool-details c1:yes: it takes NAME:on, NAME:off, all:on or all:off
+## run 4: config --yes --no-link --no-build --tool-details Bad!:on  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --tool-details Bad!:on: it takes NAME:on, NAME:off, all:on or all:off
+## run 5: config --yes --no-link --no-build --tool-details all  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --tool-details all: it takes NAME:on, NAME:off, all:on or all:off
+## run 6: config --yes --no-link --no-build --tool-details nobody:on  [pipe]
+rc: 1
+--- stdout
+nexus --config: setting up <A>
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: --tool-details nobody:on: no persona nobody (add it with --persona)
+## run 7: config --yes --no-link --no-build --tool-details c2:on  [pipe]
+rc: 1
+--- stdout
+nexus --config: setting up <A>
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: --tool-details c2:on: nothing was written, because c2 doesn't send telemetry, and tool details go only with it. To send both:
+        nexus --config --yes --telemetry c2:on --tool-details c2:on
+## run 8: config --yes … --tool-details c1:on  (its drop-in: a restart)  [pipe]
+rc: 0
+--- stdout
+nexus --config: setting up <A>
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  g1                              grok     docker   yes        the VM's             your agent
+  c2                              claude   docker   yes        the VM's             your agent
+  sends telemetry to https://127.0.0.1:1: c1, g1
+  sends tool details too (the commands, file paths and other input the tools ran with): c1
+
+Start one from a project directory:  cd <P>/<project> && nexus c1
+c1: its telemetry settings changed; `nexus c1 restart` applies them (that ends its tmux sessions)
+telemetry: nothing answered at https://127.0.0.1:1 (is it down, or is the address wrong?). The personas work all the same, but what they send is lost until this is fixed.
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
+## run 9: grep . personas/c1.telemetry.json  [pipe, cwd a]
+rc: 0
+--- stdout
+{
+  "env": {
+    "CLAUDE_CODE_ENABLE_TELEMETRY": "1",
+    "OTEL_METRICS_EXPORTER": "otlp",
+    "OTEL_LOGS_EXPORTER": "otlp",
+    "OTEL_TRACES_EXPORTER": "otlp",
+    "CLAUDE_CODE_ENHANCED_TELEMETRY_BETA": "1",
+    "OTEL_LOG_TOOL_DETAILS": "1",
+    "OTEL_EXPORTER_OTLP_PROTOCOL": "http/protobuf",
+    "OTEL_EXPORTER_OTLP_ENDPOINT": "https://127.0.0.1:1",
+    "OTEL_EXPORTER_OTLP_HEADERS": "Authorization=Bearer nxt-fake-tele-1",
+    "OTEL_RESOURCE_ATTRIBUTES": "host.name=<HOST>,persona=c1",
+    "NODE_EXTRA_CA_CERTS": "/etc/nexus/telemetry-ca.pem"
+  }
+}
+--- stderr
+(empty)
+## run 10: grep telemetry|tool_details personas.json  [pipe, cwd a]
+rc: 0
+--- stdout
+      "telemetry": true,
+      "tool_details": true
+      "telemetry": true
+--- stderr
+(empty)
+## run 11: config --yes … --tool-details g1:on  (its next grok reads it)  [pipe]
+rc: 0
+--- stdout
+nexus --config: setting up <A>
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  g1                              grok     docker   yes        the VM's             your agent
+  c2                              claude   docker   yes        the VM's             your agent
+  sends telemetry to https://127.0.0.1:1: c1, g1
+  sends tool details too (the commands, file paths and other input the tools ran with): c1, g1
+
+Start one from a project directory:  cd <P>/<project> && nexus c1
+g1: its grok settings changed; the next grok started in it reads them
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
+## run 12: grep ^\[telemetry|^otel_ personas/g1.grok.toml  [pipe, cwd a]
+rc: 0
+--- stdout
+[telemetry]
+otel_enabled = true
+otel_metrics_exporter = "otlp"
+otel_logs_exporter = "otlp"
+otel_protocol = "http/protobuf"
+otel_endpoint = "https://127.0.0.1:1"
+otel_certificate = "/etc/nexus/telemetry-ca.pem"
+otel_log_tool_details = true
+--- stderr
+(empty)
+## run 13: config --list  [pipe]
+rc: 0
+--- stdout
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  g1                              grok     docker   yes        the VM's             your agent
+  c2                              claude   docker   yes        the VM's             your agent
+  sends telemetry to https://127.0.0.1:1: c1, g1
+  sends tool details too (the commands, file paths and other input the tools ran with): c1, g1
+--- stderr
+(empty)
+## run 14: config --yes … --tool-details g1:on  (again: nothing new)  [pipe]
+rc: 0
+--- stdout
+nexus --config: setting up <A>
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  g1                              grok     docker   yes        the VM's             your agent
+  c2                              claude   docker   yes        the VM's             your agent
+  sends telemetry to https://127.0.0.1:1: c1, g1
+  sends tool details too (the commands, file paths and other input the tools ran with): c1, g1
+
+Start one from a project directory:  cd <P>/<project> && nexus c1
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
+## run 15: config --yes … --tool-details all:on  (.env; the personas' own go; their files stay as they are)  [pipe]
+rc: 0
+--- stdout
+nexus --config: setting up <A>
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  g1                              grok     docker   yes        the VM's             your agent
+  c2                              claude   docker   yes        the VM's             your agent
+  sends telemetry to https://127.0.0.1:1: c1, g1
+  sends tool details too (the commands, file paths and other input the tools ran with): c1, g1
+
+Start one from a project directory:  cd <P>/<project> && nexus c1
+telemetry: nothing answered at https://127.0.0.1:1 (is it down, or is the address wrong?). The personas work all the same, but what they send is lost until this is fixed.
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
+## run 16: grep ^TELEMETRY_ .env  [pipe, cwd a]
+rc: 0
+--- stdout
+TELEMETRY_ENDPOINT=https://127.0.0.1:1
+TELEMETRY_TOKEN=nxt-fake-tele-1
+TELEMETRY_CA=personas/telemetry-ca.pem
+TELEMETRY_TOOL_DETAILS=on
+--- stderr
+(empty)
+## run 17: grep telemetry|tool_details personas.json  [pipe, cwd a]
+rc: 0
+--- stdout
+      "telemetry": true
+      "telemetry": true
+--- stderr
+(empty)
+## run 18: config --yes … --tool-details c1:off  (refused under all)  [pipe]
+rc: 1
+--- stdout
+nexus --config: setting up <A>
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: --tool-details c1:off: nothing was written, because tool details are on for every persona that sends telemetry (TELEMETRY_TOOL_DETAILS=on in <A>/.env). To leave c1 out, turn them off for all, then on for each of the others:
+        nexus --config --yes --tool-details all:off --tool-details g1:on
+## run 19: config --yes … --tool-details c1:on  (under all: it does already)  [pipe]
+rc: 0
+--- stdout
+nexus --config: setting up <A>
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  g1                              grok     docker   yes        the VM's             your agent
+  c2                              claude   docker   yes        the VM's             your agent
+  sends telemetry to https://127.0.0.1:1: c1, g1
+  sends tool details too (the commands, file paths and other input the tools ran with): c1, g1
+
+Start one from a project directory:  cd <P>/<project> && nexus c1
+tool details: c1 sends them already, as every persona that sends telemetry does (TELEMETRY_TOOL_DETAILS=on)
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
+## run 20: config --yes … --telemetry c2:on  (its tool details too)  [pipe]
+rc: 0
+--- stdout
+nexus --config: setting up <A>
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  g1                              grok     docker   yes        the VM's             your agent
+  c2                              claude   docker   yes        the VM's             your agent
+  sends telemetry to https://127.0.0.1:1: c1, g1, c2
+  sends tool details too (the commands, file paths and other input the tools ran with): c1, g1, c2
+
+Start one from a project directory:  cd <P>/<project> && nexus c1
+c2: changed; `nexus c2 restart` applies it (that ends its tmux sessions)
+telemetry: nothing answered at https://127.0.0.1:1 (is it down, or is the address wrong?). The personas work all the same, but what they send is lost until this is fixed.
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
+## run 21: grep TOOL_DETAILS personas/c2.telemetry.json  [pipe, cwd a]
+rc: 0
+--- stdout
+    "OTEL_LOG_TOOL_DETAILS": "1",
+--- stderr
+(empty)
+## run 22: config --list  [pipe]
+rc: 0
+--- stdout
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  g1                              grok     docker   yes        the VM's             your agent
+  c2                              claude   docker   yes        the VM's             your agent
+  sends telemetry to https://127.0.0.1:1: c1, g1, c2
+  sends tool details too (the commands, file paths and other input the tools ran with): c1, g1, c2
+--- stderr
+(empty)
+## run 23: config --yes … --tool-details c2:on --tool-details all:off  (c2 alone: all:… comes first)  [pipe]
+rc: 0
+--- stdout
+nexus --config: setting up <A>
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  g1                              grok     docker   yes        the VM's             your agent
+  c2                              claude   docker   yes        the VM's             your agent
+  sends telemetry to https://127.0.0.1:1: c1, g1, c2
+  sends tool details too (the commands, file paths and other input the tools ran with): c2
+
+Start one from a project directory:  cd <P>/<project> && nexus c1
+c1: its telemetry settings changed; `nexus c1 restart` applies them (that ends its tmux sessions)
+g1: its grok settings changed; the next grok started in it reads them
+telemetry: nothing answered at https://127.0.0.1:1 (is it down, or is the address wrong?). The personas work all the same, but what they send is lost until this is fixed.
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
+## run 24: grep ^TELEMETRY_TOOL .env  [pipe, cwd a]
+rc: 0
+--- stdout
+TELEMETRY_TOOL_DETAILS=
+--- stderr
+(empty)
+## run 25: config --yes … --telemetry c2:off  (its tool details go too)  [pipe]
+rc: 0
+--- stdout
+nexus --config: setting up <A>
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  g1                              grok     docker   yes        the VM's             your agent
+  c2                              claude   docker   yes        the VM's             your agent
+  sends telemetry to https://127.0.0.1:1: c1, g1
+
+Start one from a project directory:  cd <P>/<project> && nexus c1
+c2: changed; `nexus c2 restart` applies it (that ends its tmux sessions)
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
+## run 26: grep telemetry|tool_details personas.json  [pipe, cwd a]
+rc: 0
+--- stdout
+      "telemetry": true
+      "telemetry": true
+--- stderr
+(empty)
+## run 27: config --yes … --tool-details all:on --telemetry-endpoint none  (refused: off comes first)  [pipe]
+rc: 1
+--- stdout
+nexus --config: setting up <A>
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: --tool-details all:on: nothing was written, because there is no collector, and tool details go only with telemetry. Give one with --telemetry-endpoint URL
+## run 28: config --yes … --tool-details all:on  [pipe]
+rc: 0
+--- stdout
+nexus --config: setting up <A>
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  g1                              grok     docker   yes        the VM's             your agent
+  c2                              claude   docker   yes        the VM's             your agent
+  sends telemetry to https://127.0.0.1:1: c1, g1
+  sends tool details too (the commands, file paths and other input the tools ran with): c1, g1
+
+Start one from a project directory:  cd <P>/<project> && nexus c1
+c1: its telemetry settings changed; `nexus c1 restart` applies them (that ends its tmux sessions)
+g1: its grok settings changed; the next grok started in it reads them
+telemetry: nothing answered at https://127.0.0.1:1 (is it down, or is the address wrong?). The personas work all the same, but what they send is lost until this is fixed.
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
+## run 29: config --yes … --telemetry-endpoint none  (all off)  [pipe]
+rc: 0
+--- stdout
+nexus --config: setting up <A>
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  g1                              grok     docker   yes        the VM's             your agent
+  c2                              claude   docker   yes        the VM's             your agent
+
+Start one from a project directory:  cd <P>/<project> && nexus c1
+telemetry: off; c1, g1 no longer send it
+c1: changed; `nexus c1 restart` applies it (that ends its tmux sessions)
+g1: changed; `nexus g1 restart` applies it (that ends its tmux sessions)
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
+## run 30: grep ^TELEMETRY_ .env  [pipe, cwd a]
+rc: 0
+--- stdout
+TELEMETRY_ENDPOINT=
+TELEMETRY_TOKEN=nxt-fake-tele-1
+TELEMETRY_CA=personas/telemetry-ca.pem
+TELEMETRY_TOOL_DETAILS=
+--- stderr
+(empty)
+## run 31: config --yes … --telemetry c1:on  (on again: no tool details)  [pipe]
+rc: 0
+--- stdout
+nexus --config: setting up <A>
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  g1                              grok     docker   yes        the VM's             your agent
+  c2                              claude   docker   yes        the VM's             your agent
+  sends telemetry to https://127.0.0.1:1: c1
+
+Start one from a project directory:  cd <P>/<project> && nexus c1
+c1: changed; `nexus c1 restart` applies it (that ends its tmux sessions)
+telemetry: nothing answered at https://127.0.0.1:1 (is it down, or is the address wrong?). The personas work all the same, but what they send is lost until this is fixed.
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
+## run 32: grep TOOL_DETAILS personas/c1.telemetry.json  (none)  [pipe, cwd a]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+(empty)

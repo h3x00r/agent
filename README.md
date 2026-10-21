@@ -250,7 +250,10 @@ attributes. Claude Code gets it all as managed settings, never through the conta
 else in the persona (docker compose has telemetry of its own) starts sending. grok takes its token from the
 environment only, so a grok persona's environment holds it, as the headers of metrics and events alone, which
 docker compose and tracing don't read. `nexus --config` tries the collector after a save and says what is wrong if
-it doesn't take the export. Details: runbook §5, [Telemetry](runbook.md#telemetry-opentelemetry).
+it doesn't take the export. Tool details (the commands, file paths and other input the tools ran with) stay off
+unless you turn them on in `nexus --config` too, for every persona or for the ones you pick. They are off by default
+because they can hold secrets, such as a password in a command ([Tool details](runbook.md#tool-details)). Details:
+runbook §5, [Telemetry](runbook.md#telemetry-opentelemetry).
 
 ## Headless / pipeline use
 

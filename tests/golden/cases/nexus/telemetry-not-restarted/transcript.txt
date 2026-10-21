@@ -52,3 +52,33 @@ rc: 0
 (empty)
 --- stderr
 (empty)
+## run 10: nexus c1 start  (sending, as made: nothing to say)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+(empty)
+## run 11: nexus c1 start  (tool details on since it was made)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+nexus: warning: c1's telemetry settings changed after its container was made, and it still sends with the old ones: `nexus c1 restart` applies the new ones (that ends its tmux sessions)
+## run 12: nexus c1  (an attach: the same)  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s app -c <P>/app]
+--- stderr
+nexus: warning: c1's telemetry settings changed after its container was made, and it still sends with the old ones: `nexus c1 restart` applies the new ones (that ends its tmux sessions)
+## run 13: nexus c1 restart  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-c1  Recreated
+## run 14: nexus c1 start  (restarted: nothing to say)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+(empty)

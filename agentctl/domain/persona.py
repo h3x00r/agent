@@ -5,7 +5,8 @@ on or off, its own projects root ("" for the VM's), its ssh: "" (your ssh-agent,
 or a key: personas/NAME.key (made by nexus --config) or an absolute path; and, for a claude persona, its
 permissions: bypass (personas/claude.managed.json's bypassPermissions; the default) or ask
 (personas/claude.ask.json's mode over it); and whether it sends telemetry (OpenTelemetry, to the collector
-TELEMETRY_ENDPOINT in .env names; domain/telemetry.py).
+TELEMETRY_ENDPOINT in .env names; domain/telemetry.py), and with it its tool details (the commands, file paths and
+other input its tools ran with), when TELEMETRY_TOOL_DETAILS in .env doesn't turn them on for every persona.
 
 Pitfalls (each pinned where named):
 - valid_name() is a fullmatch: a trailing newline is no name (test_domain.Rules.test_names)
@@ -26,6 +27,8 @@ Pitfalls (each pinned where named):
   (test_adapters.PersonasJson.test_what_it_refuses, golden config/perm-refused)
 - telemetry: written only when true, so a personas.json from before it reads the same; true or false, nothing else
   (test_adapters.PersonasJson.test_a_round_trip_keeps_order_and_bytes, test_adapters.PersonasJson.test_what_it_refuses)
+- tool_details: written only when true, true or false, and only for a persona that sends telemetry
+  (test_adapters.PersonasJson.test_what_it_refuses, golden config/telemetry-hand-edits)
 """
 import os
 import re
@@ -58,6 +61,7 @@ class Persona:
     ssh: str = ""
     permissions: str = "bypass"
     telemetry: bool = False
+    tool_details: bool = False
 
     @property
     def container(self):
@@ -156,7 +160,7 @@ def parse_meta_line(line):
     return Persona(name, f, c, col, sl == "yes", r, k)
 
 
-FIELDS = ("flavour", "context", "colour", "statusline", "root", "ssh", "permissions", "telemetry")
+FIELDS = ("flavour", "context", "colour", "statusline", "root", "ssh", "permissions", "telemetry", "tool_details")
 
 
 class BadRecord(ValueError):
@@ -176,7 +180,7 @@ def _text_ok(v):
 
 def to_record(p):
     """The persona as personas.json holds it under its name: root and ssh only when it has them, permissions
-    only when it asks, telemetry only when it sends."""
+    only when it asks, telemetry only when it sends, tool_details only when it sends them."""
     d = {"flavour": p.flavour, "context": p.context, "colour": p.colour, "statusline": p.statusline}
     if p.root:
         d["root"] = p.root
@@ -186,6 +190,8 @@ def to_record(p):
         d["permissions"] = p.permissions
     if p.telemetry:
         d["telemetry"] = True
+        if p.tool_details:
+            d["tool_details"] = True
     return d
 
 
@@ -209,6 +215,10 @@ def from_record(name, d):
         raise BadRecord("has a statusline that isn't true or false")
     if not isinstance(d.get("telemetry", False), bool):
         raise BadRecord("has a telemetry that isn't true or false")
+    if not isinstance(d.get("tool_details", False), bool):
+        raise BadRecord("has a tool_details that isn't true or false")
+    if d.get("tool_details", False) and not d.get("telemetry", False):
+        raise BadRecord('has "tool_details": true without "telemetry": true (tool details go only with telemetry)')
     if not valid_name(name):
         raise BadRecord("isn't a persona name: it takes %s" % NAME_RULE)
     f, c, col, r, k = d["flavour"], d["context"], d["colour"], d.get("root", ""), d.get("ssh", "")
@@ -228,7 +238,7 @@ def from_record(name, d):
         raise BadRecord("has permissions '%s', not bypass or ask" % perm)
     if perm == "ask" and f != "claude":
         raise BadRecord("has permissions 'ask', which only a claude persona takes (grok's come from personas/grok.toml)")
-    return Persona(name, f, c, col, d["statusline"], r, k, perm, d.get("telemetry", False))
+    return Persona(name, f, c, col, d["statusline"], r, k, perm, d.get("telemetry", False), d.get("tool_details", False))
 
 
 def key_file(p, checkout):

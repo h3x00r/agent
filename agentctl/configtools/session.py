@@ -48,6 +48,12 @@ Pitfalls (each pinned where named):
   config/telemetry-hand-edits)
 - a removed persona's telemetry files named among what stays only when they are there (golden
   config/telemetry-flags)
+- tool details: for every persona that sends (TELEMETRY_TOOL_DETAILS=on, set with all:on, which clears each
+  persona's own) or per persona ("tool_details": true, cleared when it stops sending); none once the collector is
+  off (emptied by hand too); the all:… flags before the NAME:… ones, whatever their order; --tool-details NAME:on
+  for one that doesn't send, all:on with no collector, NAME:off under all, and a
+  TELEMETRY_TOOL_DETAILS that isn't on or off: refused, nothing written (golden config/telemetry-details-flags,
+  golden config/telemetry-hand-edits)
 """
 import json
 import os
@@ -71,7 +77,8 @@ from agentctl.ui.prompts import Prompter
 
 PERSONAS_FILE = "compose.personas.yml"
 JSON_FILE = personas_store.JSON
-TELE_KEYS = (("endpoint", "TELEMETRY_ENDPOINT"), ("token", "TELEMETRY_TOKEN"), ("ca", "TELEMETRY_CA"))
+TELE_KEYS = (("endpoint", "TELEMETRY_ENDPOINT"), ("token", "TELEMETRY_TOKEN"), ("ca", "TELEMETRY_CA"),
+             ("details", "TELEMETRY_TOOL_DETAILS"))
 
 
 def die(msg):
@@ -181,6 +188,10 @@ class Session:
         if sending:
             self.say("  sends telemetry to %s: %s" % (self.tele["endpoint"] or "no collector (TELEMETRY_ENDPOINT is empty)",
                                                       ", ".join(sending)))
+        details = [p.name for p in self.personas if tele.details_on(p, self.details_all())]
+        if details:
+            self.say("  sends tool details too (the commands, file paths and other input the tools ran with): "
+                     + ", ".join(details))
 
     def moved_notes(self, old, kept):
         """After the move from the `# persona:` lines: where the old file is, and which persona's service
@@ -248,6 +259,10 @@ class Session:
             n, _, v = spec.partition(":")
             if not rules.valid_name(n) or v not in ("on", "off"):
                 die("--telemetry %s: it takes NAME:on or NAME:off" % spec)
+        for spec in o.tool_details:
+            n, _, v = spec.partition(":")
+            if not (n == "all" or rules.valid_name(n)) or v not in ("on", "off"):
+                die("--tool-details %s: it takes NAME:on, NAME:off, all:on or all:off" % spec)
         if o.tele_endpoint and o.tele_endpoint != "none":
             o.tele_endpoint = tele.norm_endpoint(o.tele_endpoint)
             if not tele.valid_endpoint(o.tele_endpoint):
@@ -308,8 +323,10 @@ class Session:
         if i is not None:
             old = self.personas[i]
             col, keep, key, sl, perm, tel = old.colour, old.root, old.ssh, old.statusline, old.permissions, old.telemetry
+            det = old.tool_details
         else:
             col, keep, key, sl, perm, tel = rules.next_colour(self.personas), "", "", True, "bypass", False
+            det = False
         if self.o.statusline:
             sl = self.o.statusline == "yes"
         if spec.count(":") >= 3:
@@ -321,7 +338,7 @@ class Session:
                     die("--persona %s: can't create the projects root '%s'" % (spec, r))
         else:
             r = keep
-        self.put(Persona(n, f, c, col, sl, r, key, perm if f == "claude" else "bypass", tel))
+        self.put(Persona(n, f, c, col, sl, r, key, perm if f == "claude" else "bypass", tel, det))
 
     def ssh_flag(self, spec):
         n, _, k = spec.partition(":")
@@ -346,14 +363,49 @@ class Session:
         i = self.idx(n)
         if i is None:
             die("--telemetry %s: no persona %s (add it with --persona)" % (spec, n))
-        self.personas[i].telemetry = v == "on"
+        p = self.personas[i]
+        p.telemetry = v == "on"
+        p.tool_details = p.tool_details and p.telemetry
+
+    def details_all(self):
+        """Whether every persona that sends telemetry sends its tool details too (TELEMETRY_TOOL_DETAILS=on)."""
+        return self.tele["details"] == "on"
+
+    def tool_details_flag(self, spec):
+        n, _, v = spec.partition(":")
+        if n == "all":
+            if v == "on" and not self.tele["endpoint"]:
+                die("--tool-details all:on: nothing was written, because there is no collector, and tool details go "
+                    "only with telemetry. Give one with --telemetry-endpoint URL")
+            self.tele["details"] = "on" if v == "on" else ""
+            for p in self.personas:      # all of them or none: a persona's own says nothing more
+                p.tool_details = False
+            return
+        i = self.idx(n)
+        if i is None:
+            die("--tool-details %s: no persona %s (add it with --persona)" % (spec, n))
+        p = self.personas[i]
+        if v == "on" and not p.telemetry:
+            die("--tool-details %s: nothing was written, because %s doesn't send telemetry, and tool details go only "
+                "with it. To send both:\n        nexus --config --yes --telemetry %s:on --tool-details %s:on"
+                % (spec, n, n, n))
+        if v == "off" and self.details_all():
+            rest = "".join(" --tool-details %s:on" % q.name for q in self.personas if q.telemetry and q.name != n)
+            die("--tool-details %s: nothing was written, because tool details are on for every persona that sends "
+                "telemetry (TELEMETRY_TOOL_DETAILS=on in %s/.env). To leave %s out, turn them off for all%s:\n"
+                "        nexus --config --yes --tool-details all:off%s"
+                % (spec, self.a, n, ", then on for each of the others" if rest else "", rest))
+        if v == "on" and self.details_all():
+            self.later.append("tool details: %s sends them already, as every persona that sends telemetry does "
+                              "(TELEMETRY_TOOL_DETAILS=on)" % n)
+        p.tool_details = v == "on" and not self.details_all()
 
     def tele_off(self):
-        """No collector any more: no persona sends, and the ones that did are named."""
-        self.tele["endpoint"] = ""
+        """No collector any more: no persona sends (nor tool details, for any), and the ones that did are named."""
+        self.tele["endpoint"], self.tele["details"] = "", ""
         off = [p.name for p in self.personas if p.telemetry]
         for p in self.personas:
-            p.telemetry = False
+            p.telemetry = p.tool_details = False
         if off:
             self.later.append("telemetry: off; %s no longer send%s it" % (", ".join(off), "s" if len(off) == 1 else ""))
 
@@ -385,6 +437,9 @@ class Session:
             self.tele["ca"], self.ca_from = tele.CA_FILE, o.tele_ca
         for spec in o.telemetry:
             self.telemetry_flag(spec)
+        # all:… first, then NAME:…, whatever their order: all:off then c2:on is c2 alone, either way round.
+        for spec in sorted(o.tool_details, key=lambda spec: not spec.startswith("all:")):
+            self.tool_details_flag(spec)
 
     # --- reading the checkout, and the VM ---
     def open(self):
@@ -421,6 +476,8 @@ class Session:
         self.tele = {k: dotenv.get(".env", var) for k, var in TELE_KEYS}
         self.tele_saved, self.ca_from = dict(self.tele), ""
         self.tele["endpoint"] = tele.norm_endpoint(self.tele["endpoint"])
+        if not self.tele["endpoint"] or self.tele["details"] == "off":   # off is empty; no collector (emptied by
+            self.tele["details"] = ""                                        # hand, say): none either, as with none
         if self.tele["ca"] and self.tele["ca"] != tele.CA_FILE:
             self.tele["ca"], self.ca_from = tele.CA_FILE, self.norm_dir(self.tele["ca"])
 
@@ -554,7 +611,8 @@ class Session:
             if p.statusline and not checks.grok_sets_statusline("personas/grok.toml"):
                 text += b"\n" + read_bytes("statusline/grok/settings.toml")
             if p.telemetry:
-                text += tele.grok_table(self.tele["endpoint"], bool(self.tele["ca"])).encode()
+                text += tele.grok_table(self.tele["endpoint"], bool(self.tele["ca"]),
+                                        tele.details_on(p, self.details_all())).encode()
             with open(tmp, "wb") as fh:
                 fh.write(text)
             why = self.settings_problem(tmp, "toml", "personas/grok.toml")
@@ -624,6 +682,9 @@ class Session:
         if why:
             die("TELEMETRY_CA in %s/.env names %s, which %s, %s: give the collector's CA file again (nexus --config, then "
                 "telemetry; or --telemetry-ca FILE)" % (self.a, self.tele["ca"], why, so))
+        if self.tele["details"] not in ("", "on", "off"):
+            die("TELEMETRY_TOOL_DETAILS in %s/.env is neither on nor off (nor empty), %s: set it with nexus --config, then "
+                "telemetry (or --tool-details all:on or all:off)" % (self.a, so))
         grok = [p.name for p in sending if p.flavour == "grok"]
         if grok and checks.grok_sets_telemetry("personas/grok.toml"):
             die("personas/grok.toml has a [telemetry] table of its own, and nexus --config writes one for %s, so nothing "
@@ -671,7 +732,7 @@ class Session:
             if not p.telemetry:
                 continue
             if p.flavour == "claude":
-                text = tele.claude_dropin(p.name, host, ep, tok, ca)
+                text = tele.claude_dropin(p.name, host, ep, tok, ca, tele.details_on(p, self.details_all()))
             else:
                 text = tele.grok_env(p.name, host, tok)
             self.tstaged[p.name] = staging.stage(keep)

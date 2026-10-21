@@ -51,6 +51,10 @@
     | # your own here is copied in at the next nexus --config. Which personas send is in personas.json.
     | TELEMETRY_ENDPOINT=https://127.0.0.1:1
     | TELEMETRY_TOKEN=nxt-fake-tele-1
+    | # on: every persona that sends telemetry also sends its tool details (the commands, file paths and other input its
+    | # tools ran with, which can hold secrets). Empty or off: only the personas marked "tool_details": true in
+    | # personas.json (none by default).
+    | #TELEMETRY_TOOL_DETAILS=
 - a/personas/c1.telemetry.json
 - a/personas/g1.telemetry.env
 + a/personas/telemetry-ca.ddev.pem  f 644

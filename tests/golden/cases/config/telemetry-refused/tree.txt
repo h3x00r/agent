@@ -52,6 +52,10 @@
     | TELEMETRY_ENDPOINT=https://127.0.0.1:1
     | TELEMETRY_TOKEN=nxt-fake-tele-1
     | TELEMETRY_CA=personas/telemetry-ca.pem
+    | # on: every persona that sends telemetry also sends its tool details (the commands, file paths and other input its
+    | # tools ran with, which can hold secrets). Empty or off: only the personas marked "tool_details": true in
+    | # personas.json (none by default).
+    | #TELEMETRY_TOOL_DETAILS=
 ~ a/personas.json  f 644 inode=new
     | {
     |   "version": 1,

@@ -175,6 +175,21 @@ class Telemetry(unittest.TestCase):
         self.assertNotIn("\nOTEL_EXPORTER_OTLP_HEADERS=", e)
         self.assertIn("\nOTEL_EXPORTER_OTLP_LOGS_HEADERS='X-Nexus-Persona=g1'\n", tele.grok_env("g1", "", ""))
 
+    def test_details(self):
+        off = tele.claude_dropin("c1", "vm1", "https://c.lan:4318", "tok", True)
+        self.assertNotIn("TOOL_DETAILS", off)
+        on = tele.claude_dropin("c1", "vm1", "https://c.lan:4318", "tok", True, True)
+        self.assertEqual(json.loads(on)["env"]["OTEL_LOG_TOOL_DETAILS"], "1")
+        self.assertEqual([l for l in on.split("\n") if "TOOL_DETAILS" not in l], off.split("\n"))   # nothing else
+        self.assertNotIn("tool_details", tele.grok_table("https://c.lan:4318", True))
+        t = tele.grok_table("https://c.lan:4318", True, True)
+        self.assertTrue(t.endswith('otel_certificate = "%s"\notel_log_tool_details = true\n' % tele.CA_TARGET))
+        sends, own = Persona("c1", "claude", "docker", "colour1", telemetry=True), \
+            Persona("c2", "claude", "docker", "colour1", telemetry=True, tool_details=True)
+        quiet = Persona("g1", "grok", "docker", "colour1", tool_details=True)
+        self.assertEqual([tele.details_on(p, False) for p in (sends, own, quiet)], [False, True, False])
+        self.assertEqual([tele.details_on(p, True) for p in (sends, own, quiet)], [True, True, False])
+
     def test_ca_source(self):
         self.assertEqual(tele.ca_source(Persona("c1", "claude", "ddev", "colour1"), True), tele.DDEV_BUNDLE)
         self.assertEqual(tele.ca_source(Persona("g1", "grok", "ddev", "colour1"), True), tele.CA_FILE)

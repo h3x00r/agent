@@ -7,7 +7,7 @@ import os
 
 from scen import case, set_field
 from scen.config_cli import YES, grep
-from scen.config_interactive import MENU, claude_env, persona, tty
+from scen.config_interactive import CONTEXT, FLAVOUR, MENU, PICK, claude_env, perm, persona, sl, tty
 
 EP = "https://127.0.0.1:1"
 CA = """-----BEGIN CERTIFICATE-----
@@ -31,6 +31,17 @@ def tele_q(name, default="y/N"):
     """Whether NAME sends telemetry, to the end of its prompt."""
     return "Send %s's telemetry (OpenTelemetry: tokens, cost, sessions, tool use; no prompts) to %s? [%s]: " \
            % (name, EP, default)
+
+
+def td(default="none"):
+    """The choice of whose tool details the collector gets, to the end of its prompt."""
+    return "choice [%s]: " % default
+
+
+def td_one(name, default="y/N"):
+    """Whether NAME sends its own tool details, to the end of its prompt."""
+    return "Send %s's tool details too (the commands, file paths and other input its tools ran with; they can hold " \
+           "secrets)? [%s]: " % (name, default)
 
 
 def ca_file(sb, rel="keys/ca.pem"):
@@ -119,21 +130,22 @@ def _(sb):
     # answered (the probe ignores the https_proxy every scenario has).
     tty(sb, [(MENU, "telemetry"), (EP_Q, "collector.lan:4318"), (EP_Q, EP + "/"), (TOKEN_Q, "nxt fake"),
              (TOKEN_Q, "nxt-fake-tele-1"), (CA_Q, "rel.pem"), (CA_Q, sb.path("keys/missing.pem")), (CA_Q, ca),
-             (tele_q("c1"), "y"), (tele_q("g1"), ""), (MENU, "list"), (MENU, "")],
+             (tele_q("c1"), "y"), (tele_q("g1"), ""), (td(), ""), (MENU, "list"), (MENU, "")],
         label="config --no-link --no-build  (telemetry: set up, c1 sends)")
     # The same answers again: nothing to save, and no check. Then a new persona is asked whether it sends.
     tty(sb, [(MENU, "telemetry"), (EP_Q, ""), (TOKEN_Q, ""), (CA_Q, ""), (tele_q("c1", "Y/n"), ""), (tele_q("g1"), ""),
-             (MENU, "add")] + persona("c2") + [(tele_q("c2"), "y")] + claude_env() + [(MENU, "")],
+             (td(), ""), (MENU, "add")] + persona("c2") + [(tele_q("c2"), "y"), (td_one("c2"), "")] + claude_env()
+        + [(MENU, "")],
         label="config --no-link --no-build  (telemetry as it was; c2 added, sending)")
     # The CA copied in is gone: the menu asks for it again.
     os.unlink(sb.path("a/personas/telemetry-ca.pem"))
     tty(sb, [(MENU, "telemetry"), (EP_Q, ""), (TOKEN_Q, ""), (CA_Q, ""), (CA_Q, ca), (tele_q("c1", "Y/n"), ""),
-             (tele_q("g1"), ""), (tele_q("c2", "Y/n"), "n"), (MENU, "")],
+             (tele_q("g1"), ""), (tele_q("c2", "Y/n"), "n"), (td(), ""), (MENU, "")],
         label="config --no-link --no-build  (the CA gone: refused, then given again; c2 stops)")
     # The token: - for none. The CA in place replaced by something else: asked for again.
     sb.write("a/personas/telemetry-ca.pem", "not a certificate\n")
     tty(sb, [(MENU, "telemetry"), (EP_Q, ""), (TOKEN_Q, "-"), (CA_Q, ""), (CA_Q, ca), (tele_q("c1", "Y/n"), ""),
-             (tele_q("g1"), ""), (tele_q("c2"), ""), (MENU, "list"), (MENU, "")],
+             (tele_q("g1"), ""), (tele_q("c2"), ""), (td(), ""), (MENU, "list"), (MENU, "")],
         label="config --no-link --no-build  (no token; the CA in place isn't one: given again)")
     tty(sb, [(MENU, "telemetry"), (EP_Q, "none"), (MENU, "list"), (MENU, "")],
         label="config --no-link --no-build  (telemetry off)")
@@ -187,3 +199,85 @@ def _(sb):
                   (MENU, "")],
            label="config --no-link --no-build --permissions c1:ask --telemetry-endpoint none  (refused; then remove g1)")
     grep(sb, "^TELEMETRY_ENDPOINT", ".env")
+    # Tool details by hand: TELEMETRY_TOOL_DETAILS neither on nor off, then off; personas.json's tool_details
+    # without telemetry.
+    env(TELEMETRY_TOOL_DETAILS="yes")
+    sb.run("config", *YES, label="config --yes …  (TELEMETRY_TOOL_DETAILS by hand: yes)")
+    env(TELEMETRY_TOOL_DETAILS="off")
+    sb.run("config", *YES, label="config --yes …  (TELEMETRY_TOOL_DETAILS by hand: off, as empty)")
+    set_field(sb, "c1", "tool_details", True)
+    set_field(sb, "c1", "telemetry", None)
+    sb.run("config", "--list", label="config --list  (c1: tool_details without telemetry)")
+
+
+@case("config/telemetry-details-flags")
+def _(sb):
+    """Tool details (OTEL_LOG_TOOL_DETAILS) with --tool-details: per persona, then all:on (TELEMETRY_TOOL_DETAILS in
+    .env, every persona that sends, one that sends later too), back to per persona, and what is refused."""
+    sb.personas("c1:claude:docker", "g1:grok:docker", "c2:claude:docker")
+    sb.setup("config", *YES, *on(sb, "c1", "g1"))
+    for args in (("--tool-details",), ("--tool-details", "c1"), ("--tool-details", "c1:yes"), ("--tool-details", "Bad!:on"),
+                 ("--tool-details", "all"), ("--tool-details", "nobody:on"), ("--tool-details", "c2:on")):
+        sb.run("config", *YES, *args)
+    sb.run("config", *YES, "--tool-details", "c1:on", label="config --yes … --tool-details c1:on  (its drop-in: a restart)")
+    grep(sb, ".", "personas/c1.telemetry.json")
+    grep(sb, "telemetry|tool_details", "personas.json")
+    sb.run("config", *YES, "--tool-details", "g1:on", label="config --yes … --tool-details g1:on  (its next grok reads it)")
+    grep(sb, "^\\[telemetry|^otel_", "personas/g1.grok.toml")
+    sb.run("config", "--list")
+    sb.run("config", *YES, "--tool-details", "g1:on", label="config --yes … --tool-details g1:on  (again: nothing new)")
+    sb.run("config", *YES, "--tool-details", "all:on",
+           label="config --yes … --tool-details all:on  (.env; the personas' own go; their files stay as they are)")
+    grep(sb, "^TELEMETRY_", ".env")
+    grep(sb, "telemetry|tool_details", "personas.json")
+    sb.run("config", *YES, "--tool-details", "c1:off", label="config --yes … --tool-details c1:off  (refused under all)")
+    sb.run("config", *YES, "--tool-details", "c1:on", label="config --yes … --tool-details c1:on  (under all: it does already)")
+    sb.run("config", *YES, "--telemetry", "c2:on", label="config --yes … --telemetry c2:on  (its tool details too)")
+    grep(sb, "TOOL_DETAILS", "personas/c2.telemetry.json")
+    sb.run("config", "--list")
+    sb.run("config", *YES, "--tool-details", "c2:on", "--tool-details", "all:off",
+           label="config --yes … --tool-details c2:on --tool-details all:off  (c2 alone: all:… comes first)")
+    grep(sb, "^TELEMETRY_TOOL", ".env")
+    sb.run("config", *YES, "--telemetry", "c2:off", label="config --yes … --telemetry c2:off  (its tool details go too)")
+    grep(sb, "telemetry|tool_details", "personas.json")
+    sb.run("config", *YES, "--tool-details", "all:on", "--telemetry-endpoint", "none",
+           label="config --yes … --tool-details all:on --telemetry-endpoint none  (refused: off comes first)")
+    sb.run("config", *YES, "--tool-details", "all:on", label="config --yes … --tool-details all:on")
+    sb.run("config", *YES, "--telemetry-endpoint", "none", label="config --yes … --telemetry-endpoint none  (all off)")
+    grep(sb, "^TELEMETRY_", ".env")
+    sb.run("config", *YES, *on(sb, "c1"), label="config --yes … --telemetry c1:on  (on again: no tool details)")
+    grep(sb, "TOOL_DETAILS", "personas/c1.telemetry.json", label="grep TOOL_DETAILS personas/c1.telemetry.json  (none)")
+
+
+@case("config/telemetry-details-menu")
+def _(sb):
+    """Tool details in the menu: none, some (each persona asked), all; add and change under all; as it was."""
+    sb.personas("c1:claude:docker", "g1:grok:docker")
+    sb.setup("config", *YES, *on(sb, "c1", "g1"))
+    sends = [(MENU, "telemetry"), (EP_Q, ""), (TOKEN_Q, ""), (CA_Q, ""), (tele_q("c1", "Y/n"), ""),
+             (tele_q("g1", "Y/n"), "")]
+    tty(sb, sends + [(td(), "some"), (td_one("c1"), "y"), (td_one("g1"), ""), (MENU, "list"), (MENU, "")],
+        label="config --no-link --no-build  (tool details: some; c1's)")
+    grep(sb, "TOOL_DETAILS", "personas/c1.telemetry.json")
+    tty(sb, sends + [(td("some"), ""), (td_one("c1", "Y/n"), ""), (td_one("g1"), ""), (MENU, "")],
+        label="config --no-link --no-build  (the same answers: as it was)")
+    tty(sb, sends + [(td("some"), ""), (td_one("c1", "Y/n"), "n"), (td_one("g1"), "y"), (MENU, "")],
+        label="config --no-link --no-build  (g1's instead: its next grok reads them; c1 restarts)")
+    tty(sb, sends + [(td("some"), "all"), (MENU, "list"), (MENU, "")],
+        label="config --no-link --no-build  (all: every persona that sends)")
+    grep(sb, "^TELEMETRY_TOOL", ".env")
+    grep(sb, "telemetry|tool_details", "personas.json")
+    tty(sb, [(MENU, "add")] + persona("c2") + [(tele_q("c2"), "y")] + claude_env()
+        + [(MENU, "change"), (PICK, "g1"), ("choice [grok]: ", ""), (CONTEXT, ""), (sl("g1"), ""),
+           ("Projects root for g1", ""), ("choice [agent]: ", ""), (tele_q("g1", "Y/n"), ""), (MENU, "")],
+        label="config --no-link --no-build  (under all: c2 added, g1 changed; neither asked)")
+    grep(sb, "TOOL_DETAILS", "personas/c2.telemetry.json")
+    tty(sb, sends + [(tele_q("c2", "Y/n"), ""), (td("all"), "some"), (td_one("c1", "Y/n"), "n"), (td_one("g1", "Y/n"), "n"),
+                     (td_one("c2", "Y/n"), ""), (MENU, "")],
+        label="config --no-link --no-build  (some again: c2 alone)")
+    tty(sb, [(MENU, "change"), (PICK, "c2"), (FLAVOUR, ""), (CONTEXT, ""), (sl("c2"), ""), ("Projects root for c2", ""),
+             ("choice [agent]: ", ""), (perm("c2"), ""), (tele_q("c2", "Y/n"), ""), (td_one("c2", "Y/n"), "n"),
+             (MENU, "list"), (MENU, "")],
+        label="config --no-link --no-build  (change c2: no tool details)")
+    tty(sb, sends + [(tele_q("c2", "Y/n"), ""), (td(), ""), (MENU, "")],
+        label="config --no-link --no-build  (none: as it was)")

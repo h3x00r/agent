@@ -217,12 +217,16 @@ class PersonasJson(unittest.TestCase):
         ps = [Persona("z9", "grok", "ddev", "colour28", False, "/srv/caf\udce9", "personas/z9.key"),
               Persona("a1", "claude", "docker", "colour25", True, "", "none"),
               Persona("k2", "claude", "docker", "colour90", permissions="ask"),
-              Persona("t1", "grok", "docker", "colour1", telemetry=True)]
+              Persona("t1", "grok", "docker", "colour1", telemetry=True),
+              Persona("d1", "claude", "docker", "colour1", telemetry=True, tool_details=True)]
         text = self.store.dumps(ps)
         self.assertTrue(text.endswith("}\n") and text.index('"z9"') < text.index('"a1"'))
         self.assertEqual(text.count('"permissions"'), 1)   # the default isn't written
-        self.assertEqual(text.count('"telemetry": true'), 1)
+        self.assertEqual(text.count('"telemetry": true'), 2)
+        self.assertEqual(text.count('"tool_details": true'), 1)
         self.assertEqual(self.load(text), ps)
+        # tool details go with telemetry: a persona that doesn't send has none written
+        self.assertNotIn("tool_details", self.store.dumps([Persona("q1", "grok", "docker", "colour1", tool_details=True)]))
 
     def test_what_it_refuses(self):
         ok = '"flavour": "claude", "context": "docker", "colour": "colour25", "statusline": true'
@@ -244,6 +248,11 @@ class PersonasJson(unittest.TestCase):
                  "only a claude persona takes"),
                 ('{"version": 1, "personas": {"c1": {%s, "telemetry": "yes"}}}' % ok, "telemetry that isn't true or false"),
                 ('{"version": 1, "personas": {"c1": {%s, "telemetry": 1}}}' % ok, "telemetry that isn't true or false"),
+                ('{"version": 1, "personas": {"c1": {%s, "telemetry": true, "tool_details": "on"}}}' % ok,
+                 "tool_details that isn't true or false"),
+                ('{"version": 1, "personas": {"c1": {%s, "tool_details": true}}}' % ok, 'without "telemetry": true'),
+                ('{"version": 1, "personas": {"c1": {%s, "telemetry": false, "tool_details": true}}}' % ok,
+                 'without "telemetry": true'),
                 ("{nope", "isn't valid JSON")):
             with self.assertRaises(self.store.BadPersonasJson) as c:
                 self.load(text)

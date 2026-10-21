@@ -1,7 +1,7 @@
 """nexus --config's questions, each kind in one place, asked through the Prompter (on a terminal, by piped lines,
 or answered by their defaults under --yes): the VM settings, a persona's flavour, context, name, statusline,
-projects root, ssh, permissions and telemetry, its sign-in and git identity, the telemetry collector, and the
-launcher, mkcert and image questions.
+projects root, ssh, permissions, telemetry and tool details, its sign-in and git identity, the telemetry
+collector and whose tool details it gets, and the launcher, mkcert and image questions.
 
 They change the Session (its personas, its staged files) and return what was decided; saving is the
 Session's, and what happens after a save is after.py's.
@@ -31,6 +31,14 @@ PERM_Q = "Let %s run its tools without asking (bypassPermissions; no: it asks fi
 TELE_Q = "Send %s's telemetry (OpenTelemetry: tokens, cost, sessions, tool use; no prompts) to %s?"
 TELE_EP_Q = "The collector's OTLP/HTTP address, e.g. https://collector.lan:4318 (none: no telemetry)"
 TELE_CA_Q = "The CA file its certificate is signed by, PEM (-: none, a publicly trusted certificate)"
+TD_Q = ("Tool details too (the commands, file paths and other input the tools ran with; they can hold secrets): from "
+        "which personas?")
+TD_HOW = ["none     from no persona",
+          "all      every persona that sends telemetry, and any that sends later",
+          "some     the personas you pick next"]
+TD_ONE_Q = "Send %s's tool details too (the commands, file paths and other input its tools ran with; they can hold secrets)?"
+TD_ALL = ("  tool details: on, as for every persona that sends telemetry. To leave one out: telemetry in the menu, "
+          "then some")
 SSH_HOW = ["agent    your ssh-agent, forwarded: your own keys; starting it then needs an agent in your shell",
            "none     no ssh: it commits, and you pull and push from the VM, in the same directory",
            "new      a key of its own, made as personas/NAME.key: add its public half as a deploy key",
@@ -165,6 +173,15 @@ class Questions:
             return False
         return self.ask.yesno(TELE_Q % (name, ep), "y" if current else "n")
 
+    def details_for(self, name, sends, current):
+        """Whether NAME sends its own tool details, asked only while it sends telemetry and they aren't on for all."""
+        if not sends:
+            return False
+        if self.s.details_all():
+            self.s.say(TD_ALL)
+            return False
+        return self.ask.yesno(TD_ONE_Q % name, "y" if current else "n")
+
     def add(self):
         s = self.s
         f, c = self.flavour_context("claude", s.default_context)
@@ -178,7 +195,8 @@ class Questions:
         k = self.ssh(n, "")
         perm = self.permissions(n, f, "bypass")
         tel = self.telemetry_for(n, False)
-        s.put(Persona(n, f, c, rules.next_colour(s.personas), sl, r, k, perm, tel))
+        det = self.details_for(n, tel, False)
+        s.put(Persona(n, f, c, rules.next_colour(s.personas), sl, r, k, perm, tel, det))
         return n
 
     def change(self, name):
@@ -190,12 +208,13 @@ class Questions:
         k = self.ssh(name, p.ssh)
         perm = self.permissions(name, f, p.permissions)
         tel = self.telemetry_for(name, p.telemetry)
-        s.put(Persona(name, f, c, p.colour, sl, r, k, perm, tel))
+        det = self.details_for(name, tel, p.tool_details)
+        s.put(Persona(name, f, c, p.colour, sl, r, k, perm, tel, det))
 
     # --- telemetry: the collector, and who sends to it ---
     def telemetry(self):
         """The collector (its address, token and CA) into the Session, then, for each persona, whether it sends to
-        it; none for the address turns telemetry off for all."""
+        it, and whose tool details it gets; none for the address turns telemetry off for all."""
         s, t = self.s, self.s.tele
         while True:
             ep = self.ask.ask(TELE_EP_Q, t["endpoint"] or "none")
@@ -242,6 +261,21 @@ class Questions:
             s.say("  %s %s" % (a, why))
         for p in s.personas:
             p.telemetry = self.ask.yesno(TELE_Q % (p.name, ep), "y" if p.telemetry else "n")
+            p.tool_details = p.tool_details and p.telemetry
+        sending = [p for p in s.personas if p.telemetry]
+        if sending:
+            self.tool_details(sending)
+
+    def tool_details(self, sending):
+        """Whose tool details the collector gets: none, all (every persona that sends, TELEMETRY_TOOL_DETAILS=on), or
+        some (each of SENDING asked; its own "tool_details")."""
+        s = self.s
+        now = "all" if s.details_all() else "some" if any(p.tool_details for p in sending) else "none"
+        how = self.ask.choose(TD_Q, now, TD_HOW)
+        s.tele["details"] = "on" if how == "all" else ""
+        for p in sending:
+            p.tool_details = how == "some" and self.ask.yesno(TD_ONE_Q % p.name, "y" if p.tool_details or now == "all"
+                                                              else "n")
 
     def pick(self, verb):
         s = self.s
