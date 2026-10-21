@@ -1,7 +1,7 @@
 """nexus --config's questions, each kind in one place, asked through the Prompter (on a terminal, by piped lines,
 or answered by their defaults under --yes): the VM settings, a persona's flavour, context, name, statusline,
-projects root, ssh, permissions and telemetry, its sign-in and git identity, the telemetry collector, and the
-launcher, mkcert and image questions.
+projects root, ssh, permissions, telemetry, tool details and tool content, its sign-in and git identity, the
+telemetry collector and whose tool details and content it gets, and the launcher, mkcert and image questions.
 
 They change the Session (its personas, its staged files) and return what was decided; saving is the
 Session's, and what happens after a save is after.py's.
@@ -31,6 +31,14 @@ PERM_Q = "Let %s run its tools without asking (bypassPermissions; no: it asks fi
 TELE_Q = "Send %s's telemetry (OpenTelemetry: tokens, cost, sessions, tool use; no prompts) to %s?"
 TELE_EP_Q = "The collector's OTLP/HTTP address, e.g. https://collector.lan:4318 (none: no telemetry)"
 TELE_CA_Q = "The CA file its certificate is signed by, PEM (-: none, a publicly trusted certificate)"
+# Tool details and tool content (tele.EXTRAS): whose the collector gets, then (some) each persona's own.
+EXTRA_Q = "%s too (%s, which can hold secrets): from which personas?"
+EXTRA_HOW = ["none     from no persona",
+             "all      every persona that sends telemetry, and any that sends later",
+             "some     the personas you pick next"]
+EXTRA_ONE_Q = "Send %s's %s too (%s, which can hold secrets)?"
+EXTRA_ALL = ("  %s: on, as for every persona that sends telemetry. To leave one out: telemetry in the menu, then some at "
+             "\"%s too\"")
 SSH_HOW = ["agent    your ssh-agent, forwarded: your own keys; starting it then needs an agent in your shell",
            "none     no ssh: it commits, and you pull and push from the VM, in the same directory",
            "new      a key of its own, made as personas/NAME.key: add its public half as a deploy key",
@@ -165,6 +173,16 @@ class Questions:
             return False
         return self.ask.yesno(TELE_Q % (name, ep), "y" if current else "n")
 
+    def extra_for(self, x, name, sends, current):
+        """Whether NAME sends its own extra X (tool details or content), asked only while it sends telemetry and X isn't
+        on for all."""
+        if not sends:
+            return False
+        if self.s.all_on(x):
+            self.s.say(EXTRA_ALL % (x.name, x.name.capitalize()))
+            return False
+        return self.ask.yesno(EXTRA_ONE_Q % (name, x.name, x.what), "y" if current else "n")
+
     def add(self):
         s = self.s
         f, c = self.flavour_context("claude", s.default_context)
@@ -178,7 +196,8 @@ class Questions:
         k = self.ssh(n, "")
         perm = self.permissions(n, f, "bypass")
         tel = self.telemetry_for(n, False)
-        s.put(Persona(n, f, c, rules.next_colour(s.personas), sl, r, k, perm, tel))
+        det, con = (self.extra_for(x, n, tel, False) for x in tele.EXTRAS)
+        s.put(Persona(n, f, c, rules.next_colour(s.personas), sl, r, k, perm, tel, det, con))
         return n
 
     def change(self, name):
@@ -190,12 +209,13 @@ class Questions:
         k = self.ssh(name, p.ssh)
         perm = self.permissions(name, f, p.permissions)
         tel = self.telemetry_for(name, p.telemetry)
-        s.put(Persona(name, f, c, p.colour, sl, r, k, perm, tel))
+        det, con = (self.extra_for(x, name, tel, getattr(p, x.field)) for x in tele.EXTRAS)
+        s.put(Persona(name, f, c, p.colour, sl, r, k, perm, tel, det, con))
 
     # --- telemetry: the collector, and who sends to it ---
     def telemetry(self):
         """The collector (its address, token and CA) into the Session, then, for each persona, whether it sends to
-        it; none for the address turns telemetry off for all."""
+        it, and whose tool details and content it gets; none for the address turns telemetry off for all."""
         s, t = self.s, self.s.tele
         while True:
             ep = self.ask.ask(TELE_EP_Q, t["endpoint"] or "none")
@@ -242,6 +262,22 @@ class Questions:
             s.say("  %s %s" % (a, why))
         for p in s.personas:
             p.telemetry = self.ask.yesno(TELE_Q % (p.name, ep), "y" if p.telemetry else "n")
+            for x in tele.EXTRAS:
+                setattr(p, x.field, getattr(p, x.field) and p.telemetry)
+        sending = [p for p in s.personas if p.telemetry]
+        for x in tele.EXTRAS if sending else ():
+            self.extra(x, sending)
+
+    def extra(self, x, sending):
+        """Whose extra X (tool details or content) the collector gets: none, all (every persona that sends,
+        TELEMETRY_TOOL_DETAILS=on, say), or some (each of SENDING asked; its own "tool_details", say)."""
+        s = self.s
+        now = "all" if s.all_on(x) else "some" if any(getattr(p, x.field) for p in sending) else "none"
+        how = self.ask.choose(EXTRA_Q % (x.name.capitalize(), x.what), now, EXTRA_HOW)
+        s.tele[x.key] = "on" if how == "all" else ""
+        for p in sending:
+            setattr(p, x.field, how == "some" and self.ask.yesno(EXTRA_ONE_Q % (p.name, x.name, x.what),
+                                                                 "y" if getattr(p, x.field) or now == "all" else "n"))
 
     def pick(self, verb):
         s = self.s

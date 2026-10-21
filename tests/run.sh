@@ -25,9 +25,9 @@
 #              its own) and a grok persona with a stand-in grok (tests/fake-grok), both on that one
 #              image: headless runs (prompt, piped input, flags, directories, exit codes, Ctrl-C, TERM,
 #              hangup, detached daemons, concurrent runs), telemetry to a stand-in collector
-#              (tests/fake-otlp.py, over TLS, with a CA made by openssl), sessions, ls, top, start and stop; the grok
-#              persona has an ssh key of its own, the Claude one this run's (empty) ssh-agent, and a
-#              third one, on the grok persona's image, no ssh at all
+#              (tests/fake-otlp.py, over TLS, with a CA made by openssl; tool details and content on and off),
+#              sessions, ls, top, start and stop; the grok persona has an ssh key of its own, the Claude
+#              one this run's (empty) ssh-agent, and a third one, on the grok persona's image, no ssh at all
 #
 # What it makes is named after its pid: personas nxt-<pid>-c, -g and -n, image tags
 # nxt-<pid>.invalid/…, their home volumes, the API's container nxt-<pid>-api and a throwaway ssh-agent;
@@ -875,7 +875,8 @@ else
     -extensions srv -out "$TD/srv.pem" >/dev/null 2>&1
   VM="$(hostname -s)"
   if ! docker run -d --name "$OTLP" --network host --user "$(id -u):$(id -g)" -v "$T:$T" --entrypoint python3 "$IMAGE" \
-         "$A/tests/fake-otlp.py" "$TD/port" "$TD/log" "$TD/srv.pem" "$TD/srv.key" "$PC" "$PG" "$VM" >/dev/null \
+         "$A/tests/fake-otlp.py" "$TD/port" "$TD/log" "$TD/srv.pem" "$TD/srv.key" "$PC" "$PG" "$VM" \
+         nxt-tool-ran NXT_TOOL_RAN toolu_nxt1 bash_command_class >/dev/null \
      || ! wait_for 20 '[[ -s $TD/port ]]'; then
     fail "the stand-in collector" "$(docker logs "$OTLP" 2>&1 | tail -n 20)"; summary
   fi
@@ -901,6 +902,49 @@ else
          && out_line "OTEL_EXPORTER_OTLP_LOGS_HEADERS=Authorization=Bearer nxt-tele-token,X-Nexus-Persona=$PG,X-Nexus-Host=$VM" \
          && ! out_has "OTEL_EXPORTER_OTLP_ENDPOINT" && ! out_has "OTEL_EXPORTER_OTLP_HEADERS=" \
          && out_line "otel_endpoint = \"$EP\"" && out_line "-----BEGIN CERTIFICATE-----"'
+  # Tool details and tool content: a run whose stand-in model calls Bash (NXT-TOOL) sends the command it ran
+  # (nxt-tool-ran) only with tool details on, and what it printed (NXT_TOOL_RAN) only with tool content on.
+  t cfg --yes --no-link --no-build --tool-details "$PC:on" --tool-details "$PG:on" </dev/null
+  check "--tool-details: $PC is asked to restart; $PG's next grok reads them" \
+        'rc 0 && out_has "nexus $PC restart" && out_has "$PG: its grok settings changed; the next grok started in it reads them"'
+  t docker exec "agent-$PG" sed -n '/^\[telemetry\]/,$p' /etc/grok/managed_config.toml
+  check "  $PG's managed config, as its running container sees it, turns them on" 'rc 0 && out_line "otel_log_tool_details = true"'
+  t nx "$PC" restart </dev/null
+  : > "$TD/log"
+  t nx "$PC" headless "nxt telemetry NXT-TOOL" </dev/null
+  check "a headless run in $PC that runs a command answers as ever" 'rc 0 && out_is FAKE-REPLY'
+  # The command on /v1/traces means the tool span is in, and what it printed would be an event on that span.
+  check "  the command reaches the collector, on its tool event and its span; what it printed doesn't" \
+        'wait_for 30 "otlp_got /v1/logs nxt-tool-ran && otlp_got /v1/traces nxt-tool-ran" && ! grep -qF NXT_TOOL_RAN "$TD/log"'
+  t cfg --yes --no-link --no-build --tool-details all:off </dev/null
+  t nx "$PC" restart </dev/null
+  : > "$TD/log"
+  t nx "$PC" headless "nxt telemetry NXT-TOOL" </dev/null
+  # The tool call's id (on its event) and the command's class (on its span, where the command and its output would be)
+  # come either way: once both are in, an absence counts.
+  check "--tool-details all:off: the same run sends its tool event and span, without the command" \
+        'rc 0 && out_is FAKE-REPLY && wait_for 30 "otlp_got /v1/logs toolu_nxt1 && otlp_got /v1/traces bash_command_class" \
+         && ! grep -qF nxt-tool-ran "$TD/log"'
+  t cfg --yes --no-link --no-build --tool-content "$PC:on" --tool-content "$PG:on" </dev/null
+  check "--tool-content: $PC is asked to restart and told what stays out without tool details; $PG reads it at its next grok" \
+        'rc 0 && out_has "nexus $PC restart" && out_has "$PC: it sends tool content but not tool details" \
+         && out_has "$PG: its grok settings changed; the next grok started in it reads them"'
+  t docker exec "agent-$PG" sed -n '/^\[telemetry\]/,$p' /etc/grok/managed_config.toml
+  check "  $PG's managed config, as its running container sees it, turns tool content on and tool details off" \
+        'rc 0 && out_line "otel_log_tool_content = true" && ! out_has "otel_log_tool_details"'
+  t nx "$PC" restart </dev/null
+  : > "$TD/log"
+  t nx "$PC" headless "nxt telemetry NXT-TOOL" </dev/null
+  check "  the same run in $PC sends what the command printed, on its tool span only, and not the command" \
+        'rc 0 && out_is FAKE-REPLY && wait_for 30 "otlp_got /v1/logs toolu_nxt1 && otlp_got /v1/traces NXT_TOOL_RAN" \
+         && ! otlp_got /v1/logs NXT_TOOL_RAN && ! grep -qF nxt-tool-ran "$TD/log"'
+  t cfg --yes --no-link --no-build --tool-content all:off </dev/null
+  t nx "$PC" restart </dev/null
+  : > "$TD/log"
+  t nx "$PC" headless "nxt telemetry NXT-TOOL" </dev/null
+  check "--tool-content all:off: the same run sends its tool event and span, with neither the command nor its output" \
+        'rc 0 && out_is FAKE-REPLY && wait_for 30 "otlp_got /v1/logs toolu_nxt1 && otlp_got /v1/traces bash_command_class" \
+         && ! grep -qF NXT_TOOL_RAN "$TD/log" && ! grep -qF nxt-tool-ran "$TD/log"'
   t cfg --yes --no-link --no-build --telemetry-endpoint none </dev/null
   t nx "$PC" start </dev/null
   check "--telemetry-endpoint none: a start of $PC, still running as it was made, says it still sends" \

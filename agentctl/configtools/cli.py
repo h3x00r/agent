@@ -45,6 +45,13 @@ nexus --config — set this checkout up for one dev VM: which personas it runs, 
     --telemetry-token-file FILE      a file holding the collector's bearer token (an empty one: none)
     --telemetry-ca FILE|none         the CA file (PEM) the collector's certificate is signed by, copied in
                                      as personas/telemetry-ca.pem; none: a publicly trusted certificate
+    --tool-details NAME|all:on|off   whether that persona's telemetry includes its tool details: the
+                                     commands, file paths and other input its tools ran with, which can
+                                     hold secrets (default: off). all:on: every persona that sends, now or
+                                     later. all:off: none. Repeatable
+    --tool-content NAME|all:on|off   the same for its tool content: what its tools read, wrote and
+                                     printed, such as whole files and command output, which can hold
+                                     secrets (default: off). all:on and all:off as above. Repeatable
     --remove NAME                    drop a persona (its env file and home volume stay); repeatable
     --projects-root DIR              default: $HOME/projects
     --registry HOST                  local (build on this VM; the default) or host[:port][/path]
@@ -68,7 +75,9 @@ personas/<name>.grok.toml, its grok managed config: personas/grok.toml (the grok
 grok persona, committed) and, with the statusline on, statusline/grok/settings.toml. A persona that
 sends telemetry gets its settings written from .env's TELEMETRY_* (they hold the token, mode 600):
 personas/<name>.telemetry.json, a managed drop-in, for claude; a [telemetry] table in its grok config
-and personas/<name>.telemetry.env for grok.
+and personas/<name>.telemetry.env for grok. Its tool details are sent too when TELEMETRY_TOOL_DETAILS
+in .env is on (all:on), or personas.json says so for it; its tool content the same way
+(TELEMETRY_TOOL_CONTENT).
 """
 
 
@@ -90,6 +99,8 @@ class Options:
         self.tele_token_file = ""
         self.tele_token = None        # the token in that file, once read (check_flags)
         self.tele_ca = ""
+        self.tool_details = []
+        self.tool_content = []
         self.remove = []
         self.help = False
 
@@ -102,6 +113,8 @@ VALUED = {
     "--telemetry-endpoint": ("a URL or none", "tele_endpoint"),
     "--telemetry-token-file": ("a FILE", "tele_token_file"),
     "--telemetry-ca": ("a FILE or none", "tele_ca"),
+    "--tool-details": ("NAME:on, NAME:off, all:on or all:off", "tool_details"),
+    "--tool-content": ("NAME:on, NAME:off, all:on or all:off", "tool_content"),
     "--remove": ("a NAME", "remove"),
     "--projects-root": ("a DIR", "root"),
     "--registry": ("local or a HOST", "registry"),

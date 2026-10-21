@@ -1,3 +1,3 @@
 {
-  "provenance": "accepted: telemetry M1: the menu's telemetry action (and the renumbered menu), the overview's telemetry row, .env.example's TELEMETRY_* lines, the --telemetry options in the help"
+  "provenance": "accepted: telemetry M3: TELEMETRY_TOOL_CONTENT in .env.example and --tool-content in --help, reworded after review"
 }

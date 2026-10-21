@@ -165,6 +165,12 @@ def env_keys(container):
     return {l.split("=", 1)[0] for l in r.out.split("\n") if l} if r.rc == 0 else set()
 
 
+def read_file(container, path):
+    """What PATH holds in the running container (`docker exec C cat PATH`), or None if it can't be read."""
+    r = proc.run(["docker", "exec", container, "cat", path], timeout=10)
+    return r.out if r.rc == 0 else None
+
+
 def exec_probe(container, script, *args, timeout=10, pipe_stdin=False):
     """`timeout T docker exec C sh -c SCRIPT sh ARGS…`, stderr dropped: (rc, stdout). pipe_stdin: an empty
     pipe for stdin, as a call inside bash's `while read …; done < <(…)` got (docker exec without -i

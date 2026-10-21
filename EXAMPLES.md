@@ -323,6 +323,23 @@ cost, tool use, errors). In Grafana, `claude_code_cost_usage_USD_total` by `pers
 `nexus --config`, `telemetry`, and `none` for the address. Details, and what to do if nothing arrives: runbook §5,
 [Telemetry](runbook.md#telemetry-opentelemetry).
 
+To see the commands, file paths and other input each tool ran with, not only that it ran, answer the next
+question, "Tool details too", with `all` (every persona that sends) or `some` (then `y` or `n` for each persona),
+then restart as above. They can hold secrets, such as a password typed into a command, so have the collector mask them
+([Tool details](runbook.md#tool-details)). For scripts, all personas or one:
+
+```bash
+nexus --config --yes --tool-details all:on
+nexus --config --yes --tool-details claude-team:on
+```
+
+The question after it, "Tool content too", also sends what the tools read, wrote and printed, so whole files can
+reach the collector. Read [Tool content](runbook.md#tool-content) before you turn it on. For scripts:
+
+```bash
+nexus --config --yes --tool-content claude-team:on
+```
+
 ## When something goes wrong
 
 | You see | What it means | What to do |
@@ -356,6 +373,8 @@ Anything else: the message usually says what to run. The full list is in
 | let one session act without asking, in a persona that asks | `nexus <persona> --bypass-permissions -- claude` |
 | make a whole persona ask | `nexus --config` → `change` → the persona → `n` at "Let … run its tools without asking", then `nexus <persona> restart` |
 | send tokens and cost to an OpenTelemetry collector | `nexus --config` → `telemetry`, then `nexus <persona> restart` |
+| send tool details too (the commands, file paths and other input the tools ran with) | `nexus --config` → `telemetry` → `all` or `some` at "Tool details too", then `nexus <persona> restart` for a Claude persona (grok needs none) |
+| send tool content too (what the tools read, wrote and printed) | `nexus --config` → `telemetry` → `all` or `some` at "Tool content too", then `nexus <persona> restart` for a Claude persona (grok needs none) |
 | upgrade Claude Code | `nexus <persona> upgrade` |
 | apply a change to a running persona | `nexus <persona> restart` |
 

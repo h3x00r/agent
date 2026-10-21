@@ -202,6 +202,12 @@ def compose(world, args):
         }
         if mounts:
             w["containers"][name]["mounts"] = mounts
+        if DROPIN_TARGET in mounts:   # the telemetry drop-in as it is now: the container keeps it until it is made again
+            try:
+                with open(os.path.join(os.path.dirname(files[0]) or ".", "personas", service + ".telemetry.json")) as f:
+                    w["containers"][name]["dropin"] = f.read()
+            except OSError:
+                pass
         world.save()
         err(" Container %s  %s\n" % (name, "Recreated" if "--force-recreate" in rest else "Started"))
         return 0
@@ -305,6 +311,12 @@ def docker_exec(world, args):
                 return 0
             return fake_kill(world, ctr["kill"], cmd)
         return unknown()
+    if prog == "cat" and cmd[1:] == [DROPIN_TARGET]:
+        if "dropin" not in ctr:
+            err("cat: %s: No such file or directory\n" % DROPIN_TARGET)
+            return 1
+        out(ctr["dropin"])
+        return 0
     if prog == "infocmp":
         return 0 if cmd[1] in ctr.get("terms", ["xterm-256color", "xterm", "screen-256color"]) else 1
     if prog == "tmux":

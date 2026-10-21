@@ -50,8 +50,9 @@ Pitfalls (each pinned where named):
   -install` and a restart reach it; once the container is made, a telemetry file its service no longer names (a
   neutral drop-in left for the old container) removed (golden nexus/telemetry-start)
 - telemetry, running in a container made before it changed: a warning at a start, an attach and a headless run, as
-  for one that asks: a claude one by its drop-in's mount, a grok one by its token header in the container's
-  environment (golden nexus/telemetry-not-restarted)
+  for one that asks: a claude one by its drop-in's mount, and by what that drop-in holds there against the one in
+  the checkout (tool details turned off, say: it would go on sending them), a grok one by its token header in the
+  container's environment (golden nexus/telemetry-not-restarted)
 """
 import os
 import shutil
@@ -336,8 +337,9 @@ class Run:
 
     def tele_made_before(self):
         """A running container made before the persona's telemetry changed: said, with the restart that applies it. A
-        claude one sends while its container mounts the drop-in; a grok one has the token header in its environment
-        (with no table in its managed config, which is rewritten in place, a grok stops sending at once)."""
+        claude one sends while its container mounts the drop-in, as that drop-in was when the container was made (a new
+        one is written by a rename: other settings, tool details on or off); a grok one has the token header in its
+        environment (with no table in its managed config, which is rewritten in place, a grok stops sending at once)."""
         p, a = self.p, self.ctx.agents_dir
         if p.flavour == "claude" and (p.telemetry or os.path.isfile(os.path.join(a, tele.dropin_file(p.name)))):
             made = tele.DROPIN_TARGET in docker.mounts(p.container)
@@ -348,9 +350,24 @@ class Run:
         if p.telemetry and not made:
             self.out.warn("%s sends telemetry now, but its container was made before that and doesn't: `nexus %s restart` "
                           "applies it (that ends its tmux sessions)" % (p.name, p.name))
+        elif p.telemetry and p.flavour == "claude" and self.dropin_stale():
+            self.out.warn("%s's telemetry settings changed after its container was made, and it still sends with the old "
+                          "ones: `nexus %s restart` applies the new ones (that ends its tmux sessions)" % (p.name, p.name))
         elif made and not p.telemetry:
             self.out.warn("%s no longer sends telemetry, but its container was made while it did and still sends it: `nexus "
                           "%s restart` stops it (that ends its tmux sessions)" % (p.name, p.name))
+
+    def dropin_stale(self):
+        """Whether the running container's telemetry drop-in isn't the one in the checkout (a read that fails: not)."""
+        p = self.p
+        try:
+            with open(os.path.join(self.ctx.agents_dir, tele.dropin_file(p.name)), encoding="utf-8",
+                      errors="surrogateescape") as f:
+                mine = f.read()
+        except OSError:
+            return False
+        theirs = docker.read_file(p.container, tele.DROPIN_TARGET)
+        return theirs is not None and theirs != mine
 
     def attach(self, pl, old, args):
         p, a = self.p, self.ctx.agents_dir

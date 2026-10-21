@@ -25,6 +25,11 @@
     |       # so a change to statusline/claude/settings.json needs `nexus <persona> restart`.
     |       - ./statusline/claude:/etc/claude-code/statusline:ro
     |       - ./statusline/claude/settings.json:/etc/claude-code/managed-settings.d/20-statusline.json:ro
+    |       # Telemetry (nexus --config, telemetry): Claude Code's OpenTelemetry to the collector in .env, as a managed
+    |       # drop-in nexus --config writes from it (it holds the token). A single-file mount: a change needs a restart.
+    |       - { type: bind, source: ./personas/c1.telemetry.json, target: /etc/claude-code/managed-settings.d/50-telemetry.json, read_only: true, bind: { create_host_path: false } }
+    |       # The CA the telemetry collector's certificate is signed by (TELEMETRY_CA in .env).
+    |       - { type: bind, source: ./personas/telemetry-ca.pem, target: /etc/nexus/telemetry-ca.pem, read_only: true, bind: { create_host_path: false } }
     | 
     |   "g1":
     |     extends: { file: compose.yml, service: _agent }
@@ -54,7 +59,9 @@
     |       "flavour": "claude",
     |       "context": "docker",
     |       "colour": "colour25",
-    |       "statusline": true
+    |       "statusline": true,
+    |       "telemetry": true,
+    |       "tool_details": true
     |     },
     |     "g1": {
     |       "flavour": "grok",
@@ -79,12 +86,26 @@
     |       "flavour": "grok",
     |       "context": "docker",
     |       "colour": "colour28",
-    |       "statusline": true,
-    |       "telemetry": true
+    |       "statusline": true
     |     }
     |   }
     | }
-- a/personas/c1.telemetry.json
+~ a/personas/c1.telemetry.json  f 600 inode=new
+    | {
+    |   "env": {
+    |     "CLAUDE_CODE_ENABLE_TELEMETRY": "1",
+    |     "OTEL_METRICS_EXPORTER": "otlp",
+    |     "OTEL_LOGS_EXPORTER": "otlp",
+    |     "OTEL_TRACES_EXPORTER": "otlp",
+    |     "CLAUDE_CODE_ENHANCED_TELEMETRY_BETA": "1",
+    |     "OTEL_LOG_TOOL_DETAILS": "1",
+    |     "OTEL_EXPORTER_OTLP_PROTOCOL": "http/protobuf",
+    |     "OTEL_EXPORTER_OTLP_ENDPOINT": "https://127.0.0.1:1",
+    |     "OTEL_EXPORTER_OTLP_HEADERS": "Authorization=Bearer nxt-fake-tele-1",
+    |     "OTEL_RESOURCE_ATTRIBUTES": "host.name=<HOST>,persona=c1",
+    |     "NODE_EXTRA_CA_CERTS": "/etc/nexus/telemetry-ca.pem"
+    |   }
+    | }
 ~ a/personas/g1.grok.toml  f 600 inode=same
     | # /etc/grok/managed_config.toml in grok persona g1, written by nexus --config from personas/grok.toml
     | # (grok settings for every grok persona here) and, with the statusline on, statusline/grok/settings.toml.

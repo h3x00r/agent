@@ -52,6 +52,14 @@
     | #TELEMETRY_ENDPOINT=
     | #TELEMETRY_TOKEN=
     | #TELEMETRY_CA=
+    | # on: every persona that sends telemetry also sends its tool details (the commands, file paths and other input its
+    | # tools ran with, which can hold secrets). Empty or off: only the personas marked "tool_details": true in
+    | # personas.json (none by default).
+    | #TELEMETRY_TOOL_DETAILS=
+    | # on: every persona that sends telemetry also sends its tool content (what its tools read, wrote and printed, such as
+    | # whole files and command output, which can hold secrets). Empty or off: only the personas marked "tool_content":
+    | # true in personas.json (none by default).
+    | #TELEMETRY_TOOL_CONTENT=
 + home/.ddev  d 755
 + home/.local  d 755
 + home/.local/share  d 755

@@ -48,6 +48,15 @@ Pitfalls (each pinned where named):
   config/telemetry-hand-edits)
 - a removed persona's telemetry files named among what stays only when they are there (golden
   config/telemetry-flags)
+- tool details and tool content (tele.EXTRAS), each on its own: for every persona that sends
+  (TELEMETRY_TOOL_DETAILS=on, set with all:on, which clears each persona's own) or per persona ("tool_details":
+  true, cleared when it stops sending); none once the collector is off (emptied by hand too); the all:… flags before
+  the NAME:… ones, whatever their order; --tool-details NAME:on for one that doesn't send, all:on with no collector,
+  NAME:off under all, and a TELEMETRY_TOOL_DETAILS that isn't on or off: refused, nothing written (golden
+  config/telemetry-details-flags, golden config/telemetry-content-flags, golden config/telemetry-hand-edits)
+- a persona that comes to send tool content without tool details is told so once: a claude one that what Claude
+  Code writes to files then stays out, a grok one that grok sends its commands all the same (golden
+  config/telemetry-content-flags)
 """
 import json
 import os
@@ -71,7 +80,8 @@ from agentctl.ui.prompts import Prompter
 
 PERSONAS_FILE = "compose.personas.yml"
 JSON_FILE = personas_store.JSON
-TELE_KEYS = (("endpoint", "TELEMETRY_ENDPOINT"), ("token", "TELEMETRY_TOKEN"), ("ca", "TELEMETRY_CA"))
+TELE_KEYS = (("endpoint", "TELEMETRY_ENDPOINT"), ("token", "TELEMETRY_TOKEN"), ("ca", "TELEMETRY_CA")) \
+    + tuple((x.key, x.env) for x in tele.EXTRAS)
 
 
 def die(msg):
@@ -115,6 +125,7 @@ class Session:
         self.tgone = []           # the grok telemetry env files no persona uses any more: removed at the commit
         self.tele_newly = False   # whether a persona sends now that didn't when it was read
         self.tele_check = False   # whether to try the collector after the save: what it is sent with changed
+        self.extras_saved = {}    # name → (flavour, the extras it sends) as last saved: a note when that changes
         self.ca_new = None        # the CA's copy, staged
 
     # --- small helpers ---
@@ -181,6 +192,10 @@ class Session:
         if sending:
             self.say("  sends telemetry to %s: %s" % (self.tele["endpoint"] or "no collector (TELEMETRY_ENDPOINT is empty)",
                                                       ", ".join(sending)))
+        for x in tele.EXTRAS:
+            names = [p.name for p in self.personas if tele.extra_on(p, x, self.all_on(x))]
+            if names:
+                self.say("  sends %s too (%s): %s" % (x.name, x.what, ", ".join(names)))
 
     def moved_notes(self, old, kept):
         """After the move from the `# persona:` lines: where the old file is, and which persona's service
@@ -248,6 +263,11 @@ class Session:
             n, _, v = spec.partition(":")
             if not rules.valid_name(n) or v not in ("on", "off"):
                 die("--telemetry %s: it takes NAME:on or NAME:off" % spec)
+        for x in tele.EXTRAS:
+            for spec in getattr(o, x.field):
+                n, _, v = spec.partition(":")
+                if not (n == "all" or rules.valid_name(n)) or v not in ("on", "off"):
+                    die("%s %s: it takes NAME:on, NAME:off, all:on or all:off" % (x.flag, spec))
         if o.tele_endpoint and o.tele_endpoint != "none":
             o.tele_endpoint = tele.norm_endpoint(o.tele_endpoint)
             if not tele.valid_endpoint(o.tele_endpoint):
@@ -308,8 +328,10 @@ class Session:
         if i is not None:
             old = self.personas[i]
             col, keep, key, sl, perm, tel = old.colour, old.root, old.ssh, old.statusline, old.permissions, old.telemetry
+            det, con = old.tool_details, old.tool_content
         else:
             col, keep, key, sl, perm, tel = rules.next_colour(self.personas), "", "", True, "bypass", False
+            det = con = False
         if self.o.statusline:
             sl = self.o.statusline == "yes"
         if spec.count(":") >= 3:
@@ -321,7 +343,7 @@ class Session:
                     die("--persona %s: can't create the projects root '%s'" % (spec, r))
         else:
             r = keep
-        self.put(Persona(n, f, c, col, sl, r, key, perm if f == "claude" else "bypass", tel))
+        self.put(Persona(n, f, c, col, sl, r, key, perm if f == "claude" else "bypass", tel, det, con))
 
     def ssh_flag(self, spec):
         n, _, k = spec.partition(":")
@@ -346,14 +368,58 @@ class Session:
         i = self.idx(n)
         if i is None:
             die("--telemetry %s: no persona %s (add it with --persona)" % (spec, n))
-        self.personas[i].telemetry = v == "on"
+        p = self.personas[i]
+        p.telemetry = v == "on"
+        for x in tele.EXTRAS:
+            setattr(p, x.field, getattr(p, x.field) and p.telemetry)
+
+    def all_on(self, x):
+        """Whether every persona that sends telemetry sends the extra X too (TELEMETRY_TOOL_DETAILS=on, say)."""
+        return self.tele[x.key] == "on"
+
+    def extras_on(self, p):
+        """The extras persona P sends, in tele.EXTRAS order."""
+        return tuple(x for x in tele.EXTRAS if tele.extra_on(p, x, self.all_on(x)))
+
+    def extra_flag(self, x, spec):
+        """--tool-details SPEC (or --tool-content: X), checked against the personas as the flags before it left them."""
+        n, _, v = spec.partition(":")
+        if n == "all":
+            if v == "on" and not self.tele["endpoint"]:
+                die("%s all:on: nothing was written, because there is no collector, so no persona can send %s. To set "
+                    "one up:\n        nexus --config --yes --telemetry-endpoint URL %s all:on" % (x.flag, x.name, x.flag))
+            self.tele[x.key] = "on" if v == "on" else ""
+            for p in self.personas:      # all of them or none: a persona's own says nothing more
+                setattr(p, x.field, False)
+            return
+        i = self.idx(n)
+        if i is None:
+            die("%s %s: no persona %s (add it with --persona)" % (x.flag, spec, n))
+        p = self.personas[i]
+        if v == "on" and not p.telemetry:
+            die("%s %s: nothing was written, because %s doesn't send telemetry, so it can't send %s. To send both:\n"
+                "        nexus --config --yes --telemetry %s:on %s %s:on" % (x.flag, spec, n, x.name, n, x.flag, n))
+        if v == "off" and self.all_on(x):
+            rest = "".join(" %s %s:on" % (x.flag, q.name) for q in self.personas if q.telemetry and q.name != n)
+            die("%s %s: nothing was written, because every persona that sends telemetry sends %s now (%s=on in %s/.env). "
+                "To leave %s out, turn it off for all%s:\n        nexus --config --yes %s all:off%s"
+                % (x.flag, spec, x.name, x.env, self.a, n,
+                   ", then turn %s on for each of the others" % x.name if rest else "", x.flag, rest))
+        if v == "on" and self.all_on(x):
+            self.later.append("%s: it sends %s already, as every persona that sends telemetry does (%s=on)"
+                              % (n, x.name, x.env))
+        setattr(p, x.field, v == "on" and not self.all_on(x))
 
     def tele_off(self):
-        """No collector any more: no persona sends, and the ones that did are named."""
+        """No collector any more: no persona sends (nor any extra), and the ones that did are named."""
         self.tele["endpoint"] = ""
+        for x in tele.EXTRAS:
+            self.tele[x.key] = ""
         off = [p.name for p in self.personas if p.telemetry]
         for p in self.personas:
             p.telemetry = False
+            for x in tele.EXTRAS:
+                setattr(p, x.field, False)
         if off:
             self.later.append("telemetry: off; %s no longer send%s it" % (", ".join(off), "s" if len(off) == 1 else ""))
 
@@ -385,6 +451,10 @@ class Session:
             self.tele["ca"], self.ca_from = tele.CA_FILE, o.tele_ca
         for spec in o.telemetry:
             self.telemetry_flag(spec)
+        # all:… first, then NAME:…, whatever their order: all:off then c2:on is c2 alone, either way round.
+        for x in tele.EXTRAS:
+            for spec in sorted(getattr(o, x.field), key=lambda spec: not spec.startswith("all:")):
+                self.extra_flag(x, spec)
 
     # --- reading the checkout, and the VM ---
     def open(self):
@@ -414,6 +484,7 @@ class Session:
                 % (PERSONAS_FILE, e.name, e.line))
         self.loaded = {p.name: self.state(p) for p in self.personas}
         self.read_tele()
+        self.extras_saved = {p.name: (p.flavour, self.extras_on(p)) for p in self.personas}
 
     def read_tele(self):
         """The telemetry settings as .env has them, and so what is saved, for the restart notes. A TELEMETRY_CA that
@@ -421,6 +492,9 @@ class Session:
         self.tele = {k: dotenv.get(".env", var) for k, var in TELE_KEYS}
         self.tele_saved, self.ca_from = dict(self.tele), ""
         self.tele["endpoint"] = tele.norm_endpoint(self.tele["endpoint"])
+        for x in tele.EXTRAS:     # off is empty; no collector (emptied by hand, say): none either, as with none
+            if not self.tele["endpoint"] or self.tele[x.key] == "off":
+                self.tele[x.key] = ""
         if self.tele["ca"] and self.tele["ca"] != tele.CA_FILE:
             self.tele["ca"], self.ca_from = tele.CA_FILE, self.norm_dir(self.tele["ca"])
 
@@ -554,7 +628,7 @@ class Session:
             if p.statusline and not checks.grok_sets_statusline("personas/grok.toml"):
                 text += b"\n" + read_bytes("statusline/grok/settings.toml")
             if p.telemetry:
-                text += tele.grok_table(self.tele["endpoint"], bool(self.tele["ca"])).encode()
+                text += tele.grok_table(self.tele["endpoint"], bool(self.tele["ca"]), self.extras_on(p)).encode()
             with open(tmp, "wb") as fh:
                 fh.write(text)
             why = self.settings_problem(tmp, "toml", "personas/grok.toml")
@@ -624,6 +698,10 @@ class Session:
         if why:
             die("TELEMETRY_CA in %s/.env names %s, which %s, %s: give the collector's CA file again (nexus --config, then "
                 "telemetry; or --telemetry-ca FILE)" % (self.a, self.tele["ca"], why, so))
+        for x in tele.EXTRAS:
+            if self.tele[x.key] not in ("", "on", "off"):
+                die("%s in %s/.env is neither on nor off (nor empty), %s: set it with nexus --config, then telemetry "
+                    "(or %s all:on or all:off)" % (x.env, self.a, so, x.flag))
         grok = [p.name for p in sending if p.flavour == "grok"]
         if grok and checks.grok_sets_telemetry("personas/grok.toml"):
             die("personas/grok.toml has a [telemetry] table of its own, and nexus --config writes one for %s, so nothing "
@@ -671,7 +749,7 @@ class Session:
             if not p.telemetry:
                 continue
             if p.flavour == "claude":
-                text = tele.claude_dropin(p.name, host, ep, tok, ca)
+                text = tele.claude_dropin(p.name, host, ep, tok, ca, self.extras_on(p))
             else:
                 text = tele.grok_env(p.name, host, tok)
             self.tstaged[p.name] = staging.stage(keep)
@@ -788,10 +866,23 @@ class Session:
                                   "sessions)" % (p.name, p.name))
         self.tele_check = bool(self.tele["endpoint"]) and bool(self.tele_newly or changed or ca_new or mount
                                                                or self.tele != self.tele_saved)
+        for p in self.personas:     # tool content without tool details: what that leaves out, or doesn't
+            on = self.extras_on(p)
+            if on != (tele.CONTENT,) or self.extras_saved.get(p.name) == (p.flavour, on):
+                continue
+            if p.flavour == "claude":
+                self.later.append("%s: it sends tool content but not tool details, so what Claude Code writes to files "
+                                  "(with Write and Edit) isn't sent. Tool details would send it, along with every "
+                                  "command, file path and URL:" % p.name)
+                self.later.append("    nexus --config --yes --tool-details %s:on" % p.name)
+            else:
+                self.later.append("%s: grok sends each tool's full command and input with its tool content, so its "
+                                  "commands are sent even without tool details" % p.name)
 
     def saved(self):
         """After a commit: what is saved is what the next save compares with."""
         self.loaded = {p.name: self.state(p) for p in self.personas}
+        self.extras_saved = {p.name: (p.flavour, self.extras_on(p)) for p in self.personas}
         self.tele_saved, self.ca_from = dict(self.tele), ""
         self.where = "json" if self.personas else "none"
         self.migrating = self.first = False

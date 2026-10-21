@@ -175,6 +175,32 @@ class Telemetry(unittest.TestCase):
         self.assertNotIn("\nOTEL_EXPORTER_OTLP_HEADERS=", e)
         self.assertIn("\nOTEL_EXPORTER_OTLP_LOGS_HEADERS='X-Nexus-Persona=g1'\n", tele.grok_env("g1", "", ""))
 
+    def test_details(self):
+        off = tele.claude_dropin("c1", "vm1", "https://c.lan:4318", "tok", True)
+        self.assertNotIn("OTEL_LOG_TOOL", off)
+        on = tele.claude_dropin("c1", "vm1", "https://c.lan:4318", "tok", True, (tele.DETAILS,))
+        self.assertEqual(json.loads(on)["env"]["OTEL_LOG_TOOL_DETAILS"], "1")
+        self.assertEqual([l for l in on.split("\n") if "TOOL_DETAILS" not in l], off.split("\n"))   # nothing else
+        both = tele.claude_dropin("c1", "vm1", "https://c.lan:4318", "tok", True, (tele.CONTENT, tele.DETAILS))
+        keys = list(json.loads(both)["env"])
+        self.assertEqual(keys[keys.index("CLAUDE_CODE_ENHANCED_TELEMETRY_BETA") + 1:][:2],
+                         ["OTEL_LOG_TOOL_DETAILS", "OTEL_LOG_TOOL_CONTENT"])      # in EXTRAS order, whatever was given
+        self.assertNotIn("TOOL_DETAILS", tele.claude_dropin("c1", "", "https://c.lan:4318", "", False, (tele.CONTENT,)))
+        self.assertNotIn("otel_log_tool", tele.grok_table("https://c.lan:4318", True))
+        t = tele.grok_table("https://c.lan:4318", True, (tele.DETAILS,))
+        self.assertTrue(t.endswith('otel_certificate = "%s"\notel_log_tool_details = true\n' % tele.CA_TARGET))
+        self.assertTrue(tele.grok_table("https://c.lan:4318", False, (tele.CONTENT, tele.DETAILS))
+                        .endswith("\notel_log_tool_details = true\notel_log_tool_content = true\n"))
+        self.assertEqual([(x.field, x.env, x.flag) for x in tele.EXTRAS],
+                         [("tool_details", "TELEMETRY_TOOL_DETAILS", "--tool-details"),
+                          ("tool_content", "TELEMETRY_TOOL_CONTENT", "--tool-content")])
+        sends, own = Persona("c1", "claude", "docker", "colour1", telemetry=True), \
+            Persona("c2", "claude", "docker", "colour1", telemetry=True, tool_details=True)
+        quiet = Persona("g1", "grok", "docker", "colour1", tool_details=True, tool_content=True)
+        for x, shared, want in ((tele.DETAILS, False, [False, True, False]), (tele.DETAILS, True, [True, True, False]),
+                                (tele.CONTENT, False, [False, False, False]), (tele.CONTENT, True, [True, True, False])):
+            self.assertEqual([tele.extra_on(p, x, shared) for p in (sends, own, quiet)], want, (x.key, shared))
+
     def test_ca_source(self):
         self.assertEqual(tele.ca_source(Persona("c1", "claude", "ddev", "colour1"), True), tele.DDEV_BUNDLE)
         self.assertEqual(tele.ca_source(Persona("g1", "grok", "ddev", "colour1"), True), tele.CA_FILE)
