@@ -22,6 +22,7 @@ A **persona** is one long-lived container with its own login, settings and histo
 - [ ] An ssh-agent holding your key: `ssh-add -l` lists it (connect with `ssh -A`, or run an agent on the VM).
       A persona with an ssh key of its own, or no ssh, doesn't need it ([§5](#no-ssh-commit-inside-push-from-the-vm)).
 - [ ] For ddev-context personas: ddev from pkg.ddev.com on the VM (it also provides `mkcert`).
+- [ ] git: `git --version` (if it's missing: `sudo apt-get install git`).
 - [ ] Python 3.8 or newer: `python3 --version` (Ubuntu 20.04 has 3.8). nexus, and so `nexus --config`, runs on it, with its
       standard library only: nothing else to install.
 - [ ] About 3 GB free for Docker for the first build: `df -h /var/lib/docker` (`nexus --config` checks it too).
@@ -33,17 +34,34 @@ A **persona** is one long-lived container with its own login, settings and histo
 
 ## 1. First-time setup on a VM
 
-**Step 1: clone**
+**Step 1: install**
 ```bash
-sudo git clone <this repo> /opt/agents && sudo chown -R "$USER" /opt/agents
+curl -fsSL https://nexus.light-and-dark.io/install.sh | bash
 ```
-**Expected:** `/opt/agents` exists and is owned by you. It defines no personas yet.
+Run it as yourself, not with sudo. The address redirects to `install.sh` on the default branch
+(`raw.githubusercontent.com/h3x00r/agent/HEAD/install.sh`). It clones `https://github.com/h3x00r/agent.git` to
+`/opt/agents`, owned by you; it uses sudo only to create that directory when `/opt` isn't yours. It then runs
+step 2's `nexus --config`, which reads its answers from your terminal even though the script came through a
+pipe. Whatever follows `bash -s --` goes to `nexus --config`, for example
+`curl … | bash -s -- --yes --persona claude-docker:claude:docker`. With no terminal (a script, CI) and nothing to
+pass on, it stops after the clone and says what to run next.
+- `AGENTS_DIR=/srv/agents` before `bash` clones there instead; `AGENTS_REPO` clones a fork.
+- A directory there already that isn't a clone of this repo is refused, and nothing in it changes.
+- To read the script first: `curl -fsSL https://nexus.light-and-dark.io/install.sh -o install.sh`,
+  `less install.sh`, then `bash install.sh`.
+- Without it:
+  `sudo git clone https://github.com/h3x00r/agent.git /opt/agents && sudo chown -R "$USER" /opt/agents`, then
+  step 2.
+
+**Expected:** `install: cloning … into /opt/agents`, `install: /opt/agents is at <commit> (<date>)`, then step 2's
+questions.
 
 **Step 2: run the setup**
 ```bash
 /opt/agents/nexus --config
 ```
-(`nexus` isn't on your PATH yet: the setup links it.) It checks Docker and your ssh-agent, then, the first time
+The installer runs this for you. Run it yourself after a manual clone, or whenever you want to change something.
+`nexus` isn't on your PATH yet: the setup links it. It checks Docker and your ssh-agent, then, the first time
 (no `.env` yet), asks in this order, saving each part as soon as it is answered:
 
 1. **The settings every persona shares**, asked once (`shared` in the menu changes them later): the projects
@@ -119,7 +137,9 @@ off for the personas given with `--persona` (Claude or grok); without either, a 
 existing one keeps its setting. Given without `--yes`, the options are saved first, and the menu follows.
 
 **The setup tool used to be `install.sh`, then `config.sh`, then `config-tools`;** it is `nexus --config` now,
-with the same flags. Coming from `config.sh`, run `/opt/agents/nexus --config --yes --no-build` once, right after
+with the same flags. Today's `install.sh` is a different script: the one-line install of step 1. In a checkout
+you already have, it pulls, then runs `nexus --config`. Coming from `config.sh`, run
+`/opt/agents/nexus --config --yes --no-build` once, right after
 the `git pull`: it moves the personas into `personas.json` ([section 10](#10-update-a-vm)).
 
 **The launcher used to be called `agent`.** After `git pull`, run `/opt/agents/nexus --config --yes --no-build`
@@ -923,6 +943,10 @@ What to do with a finding, and how to keep the scan up to date:
 git -C /opt/agents pull
 /opt/agents/nexus --config --yes --no-build     # right away, while no persona is being started
 ```
+Running the installer again does both steps:
+`curl -fsSL https://nexus.light-and-dark.io/install.sh | bash -s -- --yes --no-build`. It pulls with
+`--ff-only`, so it stops if the checkout has changes of your own or isn't on a branch (after a rollback, say).
+It works on any clone of this repo, over https or ssh.
 `--yes` asks nothing and keeps every setting, what `.env` and `personas.json` have. `nexus --config` writes the files
 it generates from them again, and its closing lines name any persona that needs `nexus <persona> restart` for what
 it wrote: a setting changed, a mount added, or a service in `compose.personas.yml` that wasn't what `personas.json`
@@ -1028,7 +1052,9 @@ Back on the Python tools (`git checkout main`), `# persona:` lines in `compose.p
 | `range of CPUs is from 0.01 to N` | `AGENT_CPUS` above the VM's vCPUs | set `AGENT_CPUS` ≤ `nproc` (`nexus --config` caps it) |
 | `pull access denied for local/agent-…` | `REGISTRY=local` means "build here" | `nexus <persona> build`, or set `REGISTRY` |
 | `At least one invalid signature was encountered` (apt, during a build) | Docker's disk is full | `docker system df`; free space with `docker builder prune` / `docker image prune`, then build again |
-| After `git pull`: `install.sh: No such file or directory`, or `config.sh: …`, or `config-tools: …` | the setup tool was renamed `install.sh` → `config.sh` → `config-tools` → `nexus --config` | run `nexus --config` (same flags); coming from `config.sh`, `nexus --config --yes --no-build` first ([section 10](#10-update-a-vm)) |
+| After `git pull`: `config.sh: No such file or directory`, or `config-tools: …` | the setup tool was renamed `install.sh` → `config.sh` → `config-tools` → `nexus --config` (`install.sh` is now the one-line install: in a checkout, it pulls and runs `nexus --config`) | run `nexus --config` (same flags); coming from `config.sh`, `nexus --config --yes --no-build` first ([section 10](#10-update-a-vm)) |
+| `install: /opt/agents is there already, and isn't a checkout of …` (or `is a checkout of …, not of …`) | the installer found a directory it didn't make, or a clone of another repo; it changed nothing | move it away, or put the checkout elsewhere: `curl … \| AGENTS_DIR=/srv/agents bash` |
+| `install: run this as the VM user who will use the personas, not as root or with sudo …` | `curl … \| sudo bash`, or a root shell | run it as yourself: `curl … \| bash` (it uses sudo only to create `/opt/agents`) |
 | After `git pull`: `nexus: command not found`, or `…/agent: No such file or directory` | the launcher was renamed `agent` → `nexus` | run `<checkout>/nexus --config --yes --no-build` by its path (it links `nexus`, and removes the old link); or run `<checkout>/nexus` |
 | `nexus: the personas are still in …/compose.personas.yml, from before personas.json: run …/nexus --config --yes (it keeps every setting)` | a `git pull` brought the tools that read `personas.json`, and the personas haven't been moved yet; or `# persona:` lines are back after a rollback | `…/nexus --config --yes --no-build` ([section 10](#from-before-personasjson)), then `nexus <persona> restart` for each persona it names |
 | `nexus --config`: `compose.personas.yml: persona '<name>' has a bad line (edited by hand?): …` | a `# persona:` line the move won't take | fix that line as the message says (it lists what a line takes), and run it again; nothing was written |
@@ -1115,7 +1141,7 @@ both. `.env` feeds compose, and the launcher reads `PROJECTS_ROOT`, `REGISTRY` a
 | `DOCKER_GID` | gid of `/var/run/docker.sock` | never |
 | `SSH_AUTH_SOCK` | your shell's agent, else `/run/user/<uid>/ssh-agent.sock`, `$XDG_RUNTIME_DIR/openssh_agent`, gnome-keyring, gpg-agent; unused by a persona with an ssh key of its own or no ssh | you want a specific agent |
 | `AGENT_CA_CERTS` | ddev context: `~/.local/share/mkcert/rootCA.pem` if it exists, else empty | never |
-| `AGENTS_DIR` | the directory the `nexus` script lives in | the repo is somewhere unusual |
+| `AGENTS_DIR` | the directory the `nexus` script lives in | the repo is somewhere unusual (`install.sh` also clones there, instead of `/opt/agents`) |
 | `HOME` | your VM home; ddev context mounts `~/.ddev` and the mkcert CA from there | never |
 
 Without the launcher, export them yourself and use both compose files, e.g. from /opt/agents:

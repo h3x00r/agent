@@ -42,15 +42,17 @@ You talk to all of it through one command: `nexus`.
 
 ## Example 1: set up a VM for the first time
 
-Someone has to do this once per VM. If `nexus ls` (or `~/agents/nexus ls`) already lists personas, skip to
+Someone has to do this once per VM. If `nexus ls` (or `/opt/agents/nexus ls`) already lists personas, skip to
 example 2.
 
-Get the repo's address from your team (the same kind of address you'd give any `git clone`), then:
+Type this, as yourself (not with sudo):
 
 ```bash
-git clone https://example.com/your-team/agents.git ~/agents
-~/agents/nexus --config
+curl -fsSL https://nexus.light-and-dark.io/install.sh | bash
 ```
+
+It downloads Nexus to `/opt/agents` (it may ask for your password, to create that folder), then starts the
+setup, `/opt/agents/nexus --config`, in the same window.
 
 It asks a few questions. For each one, the default is shown in `[brackets]`, and pressing Enter takes it:
 
@@ -261,7 +263,7 @@ Only this session asks. The persona's other sessions work as before.
   so finish your work first.
 - If the bar at the bottom shows the session as `--skip-bypass-permissions` instead of `billing`, this VM's
   Nexus is older than this page and took the word for a session name, so that Claude doesn't ask. End that
-  session, update Nexus (`git -C ~/agents pull`, then `~/agents/nexus --config --yes --no-build`), and try again.
+  session, update Nexus (`git -C /opt/agents pull`, then `/opt/agents/nexus --config --yes --no-build`), and try again.
 
 **For the whole persona.** Run `nexus --config`, type `change` and pick the persona. Press Enter to keep each
 answer as it is, until this question:
@@ -344,7 +346,7 @@ nexus --config --yes --tool-content claude-team:on
 
 | You see | What it means | What to do |
 |---|---|---|
-| `nexus: command not found` | The `nexus` command isn't linked yet. | Type the full path for now, e.g. `~/agents/nexus ls`. To fix it for good: run `~/agents/nexus --config`, type `launcher`, and press Enter for `/usr/local/bin` (it may ask for your password). |
+| `nexus: command not found` | The `nexus` command isn't linked yet. | Type the full path for now, e.g. `/opt/agents/nexus ls`. To fix it for good: run `/opt/agents/nexus --config`, type `launcher`, and press Enter for `/usr/local/bin` (it may ask for your password). |
 | `no personas set up yet: run …/nexus --config` | This VM has no personas yet. | Example 1. |
 | `no persona 'x' (set up: …)` | A typo, or that persona doesn't exist. | Use one of the names it lists, or add it (example 9). |
 | `claude-docker isn't running; start it with: nexus claude-docker` | You asked for its sessions, but it is stopped. | Run what it says. |

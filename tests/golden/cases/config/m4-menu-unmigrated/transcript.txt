@@ -51,6 +51,7 @@ compose.personas.yml
 compose.personas.yml.bak
 compose.yml
 entrypoint.sh
+install.sh
 nexus
 personas
 personas.json

@@ -27,6 +27,7 @@ claude-mode.sh
 compose.personas.yml
 compose.yml
 entrypoint.sh
+install.sh
 nexus
 personas
 runbook.md
