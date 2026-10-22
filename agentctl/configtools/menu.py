@@ -81,6 +81,8 @@ class Menu:
         before = set(p.name for p in s.personas)
         read = copy.deepcopy(s.personas)
         s.apply_flags()
+        if s.tele_unsaid:
+            self.q.collector(s.tele_unsaid)
         if first:
             s.stage_env()
             self.q.shared(SHARED_FIRST, claude=True)

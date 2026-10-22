@@ -51,7 +51,7 @@
     | # your own here is copied in at the next nexus --config. Which personas send is in personas.json.
     | TELEMETRY_ENDPOINT=
     | TELEMETRY_TOKEN=
-    | TELEMETRY_CA=personas/telemetry-ca.pem
+    | TELEMETRY_CA=
     | # on: every persona that sends telemetry also sends its tool details (the commands, file paths and other input its
     | # tools ran with, which can hold secrets). Empty or off: only the personas marked "tool_details": true in
     | # personas.json (none by default).

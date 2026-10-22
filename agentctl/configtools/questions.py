@@ -226,7 +226,32 @@ class Questions:
             if tele.valid_endpoint(ep):
                 break
             s.say("  it takes " + tele.ENDPOINT_RULE)
+        same = ep == t["endpoint"]      # a new collector: the old one's token and CA aren't the defaults
         t["endpoint"] = ep
+        self.token(keep=same)
+        self.ca(keep=same)
+        for p in s.personas:
+            p.telemetry = self.ask.yesno(TELE_Q % (p.name, ep), "y" if p.telemetry else "n")
+            for x in tele.EXTRAS:
+                setattr(p, x.field, getattr(p, x.field) and p.telemetry)
+        sending = [p for p in s.personas if p.telemetry]
+        for x in tele.EXTRAS if sending else ():
+            self.extra(x, sending)
+
+    def collector(self, which):
+        """A new collector from --telemetry-endpoint, without a terminal's run giving its token or CA (WHICH: those
+        left unsaid, "token" and "ca"): asked as the telemetry action asks them, so the old collector's don't stay."""
+        self.s.section("The new collector's token and CA")
+        if "token" in which:
+            self.token(keep=False)
+        if "ca" in which:
+            self.ca(keep=False)
+
+    def token(self, keep=True):
+        """The collector's bearer token into the Session: empty keeps the one in .env (KEEP), - is none."""
+        s, t = self.s, self.s.tele
+        if not keep:
+            t["token"] = ""
         while True:
             tok = self.ask.secret("Its bearer token (sent as Authorization: Bearer …; %s- for none)"
                                   % ("empty keeps the one in .env, " if t["token"] else ""))
@@ -241,6 +266,12 @@ class Questions:
                     t["token"] = tok
                 break
             s.say("  a token takes " + tele.TOKEN_RULE)
+
+    def ca(self, keep=True):
+        """The CA file its certificate is signed by, into the Session: the current one is the default (KEEP), - none."""
+        s, t = self.s, self.s.tele
+        if not keep:
+            t["ca"], s.ca_from = "", ""
         cur = t["ca"]
         while True:
             a = self.ask.ask(TELE_CA_Q, cur or "-")
@@ -260,13 +291,6 @@ class Questions:
                 t["ca"], s.ca_from = tele.CA_FILE, path
                 break
             s.say("  %s %s" % (a, why))
-        for p in s.personas:
-            p.telemetry = self.ask.yesno(TELE_Q % (p.name, ep), "y" if p.telemetry else "n")
-            for x in tele.EXTRAS:
-                setattr(p, x.field, getattr(p, x.field) and p.telemetry)
-        sending = [p for p in s.personas if p.telemetry]
-        for x in tele.EXTRAS if sending else ():
-            self.extra(x, sending)
 
     def extra(self, x, sending):
         """Whose extra X (tool details or content) the collector gets: none, all (every persona that sends,

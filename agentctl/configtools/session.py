@@ -42,6 +42,9 @@ Pitfalls (each pinned where named):
   drop-in rather than none, as its container still mounts the file (nexus removes it when it next creates the
   container); a grok persona's env file removed; .env made 600 once it holds the token (golden
   config/telemetry-flags)
+- a new collector from --telemetry-endpoint: under --yes its token and CA come with it, or nothing is written; on a
+  terminal they are asked, with the old collector's not offered (golden config/telemetry-flags, golden
+  config/telemetry-menu)
 - a restart asked of a persona that sends when a file its container reads at creation changed (its drop-in, its env
   file, the CA's mount, a ddev one's CA), and only then: settings changed by hand in .env too; a grok one whose
   [telemetry] table alone changed reads it at its next grok (golden config/telemetry-flags, golden
@@ -120,6 +123,7 @@ class Session:
         self.tele = {k: "" for k, _ in TELE_KEYS}   # the telemetry settings: as .env has them, or as given
         self.tele_saved = {}      # … as last saved: a change asks the personas that send for a restart
         self.ca_from = ""         # a CA file to copy in as personas/telemetry-ca.pem at the next save
+        self.tele_unsaid = []     # a new collector's token and CA, when the options didn't give them: asked, or refused
         self.tstaged = {}         # name → its staged telemetry file (a claude drop-in, or a grok env file)
         self.tneutral = {}        # a drop-in no persona sends with any more → its neutral replacement, staged
         self.tgone = []           # the grok telemetry env files no persona uses any more: removed at the commit
@@ -392,7 +396,8 @@ class Session:
         if n == "all":
             if v == "on" and not self.tele["endpoint"]:
                 die("%s all:on: nothing was written, because there is no collector, so no persona can send %s. To set "
-                    "one up:\n        nexus --config --yes --telemetry-endpoint URL %s all:on" % (x.flag, x.name, x.flag))
+                    "one up:\n        nexus --config --yes --telemetry-endpoint URL --telemetry-token-file FILE "
+                    "--telemetry-ca FILE|none %s all:on" % (x.flag, x.name, x.flag))
             self.tele[x.key] = "on" if v == "on" else ""
             for p in self.personas:      # all of them or none: a persona's own says nothing more
                 setattr(p, x.field, False)
@@ -444,9 +449,20 @@ class Session:
         for spec in self.o.permissions:
             self.permissions_flag(spec)
         o = self.o
+        self.tele_unsaid = []
         if o.tele_endpoint == "none":
             self.tele_off()
         elif o.tele_endpoint:
+            if o.tele_endpoint != self.tele["endpoint"]:     # a new collector: the old one's token and CA aren't its
+                self.tele_unsaid = [k for k, given in (("token", o.tele_token is not None), ("ca", bool(o.tele_ca)))
+                                    if not given]
+            if self.tele_unsaid and o.yes:
+                flags = [f for k, f in (("token", "--telemetry-token-file FILE"), ("ca", "--telemetry-ca FILE|none"))
+                         if k in self.tele_unsaid]
+                die("--telemetry-endpoint %s is a new collector, so nothing was written: give its %s with it (an empty "
+                    "token file, /dev/null say, for none; none for a publicly trusted certificate):\n        nexus "
+                    "--config --yes --telemetry-endpoint %s %s" % (o.tele_endpoint, " and ".join(
+                        {"token": "token", "ca": "CA"}[k] for k in self.tele_unsaid), o.tele_endpoint, " ".join(flags)))
             self.tele["endpoint"] = o.tele_endpoint
         if o.tele_token is not None:
             self.tele["token"] = o.tele_token

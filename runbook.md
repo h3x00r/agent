@@ -535,7 +535,14 @@ nexus --config --yes --telemetry-endpoint https://collector.lan:4318 \
   --telemetry claude-team:on --telemetry grok:on
 ```
 (`--telemetry-endpoint none` turns it off; `--telemetry NAME:off` stops one persona; the files take absolute paths;
-an empty token file sets none. Tool details: `--tool-details all:on` for every persona that sends, or
+an empty token file sets none.
+
+A new endpoint takes its token and CA with it, so the old collector's token is never sent to a new one:
+- Under `--yes`, `--telemetry-token-file` and `--telemetry-ca` must come with it, or nothing is written and the
+  message gives the command. Use `--telemetry-token-file /dev/null` for no token, and `--telemetry-ca none` for a
+  publicly trusted certificate.
+- Without `--yes`, `nexus --config` asks for the token and CA.
+- The menu's `telemetry` action doesn't offer the old ones when the address changes. Tool details: `--tool-details all:on` for every persona that sends, or
 `--tool-details NAME:on` for one; `all:off` for none. Tool content: `--tool-content`, the same way.)
 
 What it writes:
