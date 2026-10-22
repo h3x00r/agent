@@ -18,6 +18,8 @@
 #              (questions on a terminal, upgrade, top), against fakes; compared with the recorded cases
 #   config     nexus --config --yes: refused names, specs and ssh keys, a setup, --list, --remove, kept env
 #              files and keys
+#   install.sh the one-line install, as `curl … | bash` runs it, from a repo made of this checkout: a clone, an
+#              update, the hand-over to nexus --config, and a directory it won't touch
 #   the move   nexus --config moving a checkout's `# persona:` lines into personas.json, in a second scratch
 #              checkout: as config.sh left one, and one from before the statusline and settings splits
 #   nexus      before any persona runs: usage, errors, ls, top, upgrade's argument checks
@@ -154,7 +156,7 @@ compose_t() {
 
 # --- lint ------------------------------------------------------------------------------------------
 stage "lint"
-for f in nexus entrypoint.sh statusline/claude/statusline.sh statusline/grok/statusline.sh tests/run.sh tests/secrets.sh; do
+for f in nexus install.sh entrypoint.sh statusline/claude/statusline.sh statusline/grok/statusline.sh tests/run.sh tests/secrets.sh; do
   if out="$(bash -n "$REPO/$f" 2>&1)"; then ok "bash -n $f"; else fail "bash -n $f" "$out"; fi
 done
 for f in tests/fake-grok claude-mode.sh; do
@@ -190,7 +192,7 @@ elif (( docker_ok )) && docker image inspect koalaman/shellcheck:stable >/dev/nu
   SC=(docker run --rm -v "$REPO:/mnt:ro" -w /mnt koalaman/shellcheck:stable)
 fi
 if (( ${#SC[@]} )); then
-  for f in nexus entrypoint.sh claude-mode.sh statusline/grok/statusline.sh tests/run.sh tests/secrets.sh tests/fake-grok; do
+  for f in nexus install.sh entrypoint.sh claude-mode.sh statusline/grok/statusline.sh tests/run.sh tests/secrets.sh tests/fake-grok; do
     if out="$(cd "$REPO" && "${SC[@]}" "$f" 2>&1)"; then ok "shellcheck $f"; else fail "shellcheck $f" "$out"; fi
   done
   # Claude's statusline.sh keeps its colours in printf formats (SC2059).
@@ -419,11 +421,58 @@ check "  --telemetry-endpoint none: both stop; the grok one's file goes, the Cla
       'rc 0 && out_has "no longer send" && [[ $(cat "$A/personas/$PC.telemetry.json") == "{}" && ! -e $A/personas/$PG.telemetry.env ]] \
        && ! grep -q telemetry "$P"'
 rm -f "$A/personas/$PC.telemetry.json"
+# --- install.sh ------------------------------------------------------------------------------------
+stage "install.sh, as curl | bash runs it"
+# Its repo, $O, is made here of the checkout as it stands (uncommitted changes included, as $A), so a second
+# commit can show the update. It runs as `curl … | bash` does, the script on bash's stdin, and in a session of
+# its own (setsid): no terminal to hand nexus --config, as in CI.
+O="$T/origin" I="$T/opt/agents"
+inst() { setsid -w env "${NX_ENV[@]}" AGENTS_REPO="$O" AGENTS_DIR="$I" bash -s -- "$@" < "$A/install.sh"; }
+commit() { git -C "$O" -c user.name=nxt -c user.email=nxt@invalid commit -q "$@"; }
+if ! command -v setsid >/dev/null; then
+  skip "install.sh: no setsid (util-linux) to run it without a terminal"
+elif ! { mkdir -p "$O" && git -C "$REPO" ls-files -z --cached --others --exclude-standard \
+           | while IFS= read -r -d '' f; do if [[ -e "$REPO/$f" ]]; then printf '%s\0' "$f"; fi; done \
+           | tar -C "$REPO" --null -T - -cf - | tar -C "$O" -xf - \
+           && git -C "$O" init -q && git -C "$O" add -A && commit -m one; }; then
+  fail "install.sh: a repo of the checkout in $O"
+else
+  t inst
+  check "a fresh VM: cloned, owned by you, and with no terminal and nothing to pass on, it says what to run" \
+        'rc 0 && [[ -x $I/nexus && -O $I && $(git -C "$I" rev-parse HEAD) == "$(git -C "$O" rev-parse HEAD)" ]] \
+         && out_has "cloning $O into $I" && out_has "no terminal to ask in: set it up with $I/nexus --config"'
+  echo "# a second commit" >> "$O/README.md"; commit -am two
+  t inst --list
+  check "  again: the update (git pull --ff-only), then nexus --config with what it was given" \
+        'rc 0 && out_has "updating $I" && [[ $(git -C "$I" rev-parse HEAD) == "$(git -C "$O" rev-parse HEAD)" ]] \
+         && out_has "(none yet)" && [[ ! -e $I/.env ]]'
+  if command -v script >/dev/null; then   # a terminal of its own, the script still on bash's stdin
+    t script -qec "$(printf '%q ' env "${NX_ENV[@]}" AGENTS_REPO="$O" AGENTS_DIR="$I" bash -s -- --help) < $(printf '%q' "$A/install.sh")" \
+      /dev/null </dev/null
+    check "  in a terminal (curl | bash typed in one): handed over to nexus --config, which reads it" \
+          'rc 0 && out_has "--persona NAME:FLAVOUR:CONTEXT" && ! out_has "no terminal"'
+  else
+    skip "install.sh in a terminal: no script (util-linux) to give it one"
+  fi
+  head_was="$(git -C "$I" rev-parse HEAD)"
+  t setsid -w env "${NX_ENV[@]}" AGENTS_REPO=https://github.com/h3x00r/agent.git AGENTS_DIR="$I" bash -s < "$A/install.sh"
+  check "  a checkout of another repo: refused, untouched" \
+        'rc 1 && err_has "$I is a checkout of $O, not of https://github.com/h3x00r/agent.git" \
+         && [[ $(git -C "$I" rev-parse HEAD) == "$head_was" ]]'
+  mkdir -p "$T/opt/other"; echo keep > "$T/opt/other/f"
+  t setsid -w env "${NX_ENV[@]}" AGENTS_REPO="$O" AGENTS_DIR="$T/opt/other" bash -s < "$A/install.sh"
+  check "  a directory that isn't a checkout: refused, untouched" \
+        'rc 1 && err_has "$T/opt/other is there already, and isn'"'"'t a checkout of $O" \
+         && [[ $(ls -A "$T/opt/other") == f && $(cat "$T/opt/other/f") == keep ]]'
+  t env "${NX_ENV[@]}" AGENTS_DIR=opt/agents bash "$A/install.sh" </dev/null
+  check "  a relative AGENTS_DIR: refused" 'rc 1 && err_has "it takes an absolute path"'
+fi
 # --- the move into personas.json ------------------------------------------------------------------
 stage "nexus --config: the move from # persona: lines into personas.json"
 # A second scratch checkout, $T/legacy, with this one's personas as config.sh left them: the `# persona:` lines
 # in compose.personas.yml and no personas.json. Two fixtures: as config.sh wrote it, and one from before the
-# statusline and Claude settings splits (install.sh's day). Generic names only, as everywhere here.
+# statusline and Claude settings splits (the day of install.sh, the setup tool before config.sh). Generic names
+# only, as everywhere here.
 L="$T/legacy" LP="$T/legacy/compose.personas.yml" LJ="$T/legacy/personas.json"
 OLD_HEADER='# compose.personas.yml — written by ./config-tools; re-run it to add, change or remove personas.
 # config-tools and the nexus launcher read the "# persona:" lines back: keep them in step with

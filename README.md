@@ -7,7 +7,7 @@ the VM's Docker daemon, so `docker compose …` (and `ddev …`) typed inside it
 ## Quick start
 
 ```bash
-./nexus --config               # once, in this checkout: the shared settings, then a persona, e.g. claude-team
+curl -fsSL https://nexus.light-and-dark.io/install.sh | bash   # once per VM: clones to /opt/agents, then nexus --config
 cd ~/projects/billing          # a project under the projects root
 nexus claude-team -- claude    # first time: session "billing", straight into Claude Code (log in once)
 ```
@@ -46,6 +46,7 @@ entrypoint.sh           keeps the tmux server alive, paints the persona into the
 claude-mode.sh          the image's `claude`: Claude Code (/usr/local/libexec/claude) in a session's permission mode,
                         if nexus gave it one (--skip-bypass-permissions | --bypass-permissions); else unchanged
 tmux.conf               session-per-project ergonomics
+install.sh              the one-line install (curl … | bash): clones this repo to /opt/agents, then nexus --config
 nexus                   launcher: `nexus <persona>` from any project dir; `nexus --config`: the setup (personas,
                         flavours, contexts, .env, launcher link, images)
 agentctl/               the Python behind nexus, which is a shim (3.8+, standard library only)
@@ -106,15 +107,27 @@ they are.
 
 ## Install on a VM
 
-Needs on the VM: Docker Engine with the compose plugin (your user in the `docker` group), Python 3.8 or
+Needs on the VM: Docker Engine with the compose plugin (your user in the `docker` group), git, Python 3.8 or
 newer (Ubuntu 20.04 has 3.8; nothing else to install), and an ssh-agent holding your key (`ssh-add -l`) for
 the personas that use it. For ddev-context personas also ddev from pkg.ddev.com (it provides `mkcert`). Step
 by step: [runbook.md](runbook.md).
 
 ```bash
-sudo git clone <this repo> /opt/agents && sudo chown -R "$USER" /opt/agents
+curl -fsSL https://nexus.light-and-dark.io/install.sh | bash   # clones to /opt/agents; then nexus --config asks
+cd ~/projects/billing && nexus claude-ddev                     # e.g. a persona named claude-ddev: opens session "billing"
+```
+
+The address redirects to `install.sh` as the default branch has it
+(`https://raw.githubusercontent.com/h3x00r/agent/HEAD/install.sh`). Run it as yourself, not with sudo. It clones
+the repo to `/opt/agents`, owned by you; it uses sudo only to create that directory. It then hands over to
+`nexus --config`, which asks its questions in your terminal. Whatever follows `bash -s --` goes to
+`nexus --config`, so `curl … | bash -s -- --yes --persona claude-docker:claude:docker` sets up without
+questions. Run it again to update: it pulls (`git pull --ff-only`) and hands over again. `AGENTS_DIR` puts the
+checkout somewhere else. To read the script first, or to install without it:
+
+```bash
+sudo git clone https://github.com/h3x00r/agent.git /opt/agents && sudo chown -R "$USER" /opt/agents
 /opt/agents/nexus --config                 # asks: the shared settings, the launcher, a first persona; then a menu
-cd ~/projects/billing && nexus claude-ddev # e.g. a persona named claude-ddev: opens session "billing"
 ```
 
 The first time, `nexus --config` asks the settings every persona shares (the projects root, the image
