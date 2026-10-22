@@ -390,6 +390,7 @@ Anything else: the message usually says what to run. The full list is in
 | send tool content too (what the tools read, wrote and printed) | `nexus --config` → `telemetry` → `all` or `some` at "Tool content too", then `nexus <persona> restart` for a Claude persona (grok needs none) |
 | upgrade Claude Code | `nexus <persona> upgrade` |
 | update Nexus itself | `nexus --update` |
+| see which Nexus this VM runs | `nexus --version` |
 | apply a change to a running persona | `nexus <persona> restart` |
 
 The persona names on this page (`claude-docker`, `claude-team`, `claude-max`, `grok-docker`), the repo address

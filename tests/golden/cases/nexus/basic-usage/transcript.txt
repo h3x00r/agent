@@ -29,6 +29,8 @@ e.g. to /usr/local/bin/nexus.
                                            persona of that flavour (asks first; -y doesn't), drop the old ones
   nexus --config [--list | --yes …]        set this VM up: the settings every persona shares, the personas,
                                            the launcher link, the images (nexus --config --help says more)
+  nexus --version                          the commit this checkout is at (git), and whether it has changes of
+                                           your own
   nexus --update [-y]                      update this checkout from its branch (git fetch, a fast-forward),
                                            then apply it: the images to build and the personas to restart,
                                            asked first (-y doesn't ask; nexus --update --help says more)
@@ -72,6 +74,8 @@ e.g. to /usr/local/bin/nexus.
                                            persona of that flavour (asks first; -y doesn't), drop the old ones
   nexus --config [--list | --yes …]        set this VM up: the settings every persona shares, the personas,
                                            the launcher link, the images (nexus --config --help says more)
+  nexus --version                          the commit this checkout is at (git), and whether it has changes of
+                                           your own
   nexus --update [-y]                      update this checkout from its branch (git fetch, a fast-forward),
                                            then apply it: the images to build and the personas to restart,
                                            asked first (-y doesn't ask; nexus --update --help says more)
@@ -115,6 +119,8 @@ e.g. to /usr/local/bin/nexus.
                                            persona of that flavour (asks first; -y doesn't), drop the old ones
   nexus --config [--list | --yes …]        set this VM up: the settings every persona shares, the personas,
                                            the launcher link, the images (nexus --config --help says more)
+  nexus --version                          the commit this checkout is at (git), and whether it has changes of
+                                           your own
   nexus --update [-y]                      update this checkout from its branch (git fetch, a fast-forward),
                                            then apply it: the images to build and the personas to restart,
                                            asked first (-y doesn't ask; nexus --update --help says more)
@@ -158,6 +164,8 @@ e.g. to /usr/local/bin/nexus.
                                            persona of that flavour (asks first; -y doesn't), drop the old ones
   nexus --config [--list | --yes …]        set this VM up: the settings every persona shares, the personas,
                                            the launcher link, the images (nexus --config --help says more)
+  nexus --version                          the commit this checkout is at (git), and whether it has changes of
+                                           your own
   nexus --update [-y]                      update this checkout from its branch (git fetch, a fast-forward),
                                            then apply it: the images to build and the personas to restart,
                                            asked first (-y doesn't ask; nexus --update --help says more)

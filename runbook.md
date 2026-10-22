@@ -939,6 +939,9 @@ What to do with a finding, and how to keep the scan up to date:
 
 ## 10. Update a VM
 
+`nexus --version` prints the commit this checkout is at, its date and branch, and whether it has changes of its
+own, for example `nexus 8398321 (2026-10-22, main)`.
+
 ```bash
 nexus --update        # pull, rewrite what nexus --config generates, then offer the builds and restarts it needs
 ```
