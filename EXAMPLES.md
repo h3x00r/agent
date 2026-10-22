@@ -232,6 +232,17 @@ It finds the newest version, builds it and checks it. If Claude personas are run
 and asks `Recreate them now? [y/N]` before it restarts them on the new version: answer `y` when nobody is in the
 middle of something. Your logins, settings and history are kept.
 
+When Nexus itself has changed, rather than Claude Code, type:
+
+```bash
+nexus --update
+```
+
+It downloads the new Nexus and lists the new changes. Then it says what applying them takes: images to build,
+and personas to restart, with the sessions each restart would close. Then it asks `Apply it now? [y/N]`. If you
+answer `n`, it keeps what's left to do, and the next `nexus --update` asks again. Answer `y` when nobody is
+in the middle of something.
+
 ## Example 11: make the agent ask before it acts
 
 By default, Claude **runs its tools without asking**: it edits files and runs commands (the tests, `git commit`,
@@ -263,7 +274,7 @@ Only this session asks. The persona's other sessions work as before.
   so finish your work first.
 - If the bar at the bottom shows the session as `--skip-bypass-permissions` instead of `billing`, this VM's
   Nexus is older than this page and took the word for a session name, so that Claude doesn't ask. End that
-  session, update Nexus (`git -C /opt/agents pull`, then `/opt/agents/nexus --config --yes --no-build`), and try again.
+  session, update Nexus (`git -C /opt/agents pull`, then `/opt/agents/nexus --config --yes --no-build`; a Nexus that has `nexus --update` does both), and try again.
 
 **For the whole persona.** Run `nexus --config`, type `change` and pick the persona. Press Enter to keep each
 answer as it is, until this question:
@@ -378,6 +389,7 @@ Anything else: the message usually says what to run. The full list is in
 | send tool details too (the commands, file paths and other input the tools ran with) | `nexus --config` → `telemetry` → `all` or `some` at "Tool details too", then `nexus <persona> restart` for a Claude persona (grok needs none) |
 | send tool content too (what the tools read, wrote and printed) | `nexus --config` → `telemetry` → `all` or `some` at "Tool content too", then `nexus <persona> restart` for a Claude persona (grok needs none) |
 | upgrade Claude Code | `nexus <persona> upgrade` |
+| update Nexus itself | `nexus --update` |
 | apply a change to a running persona | `nexus <persona> restart` |
 
 The persona names on this page (`claude-docker`, `claude-team`, `claude-max`, `grok-docker`), the repo address

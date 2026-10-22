@@ -940,13 +940,66 @@ What to do with a finding, and how to keep the scan up to date:
 ## 10. Update a VM
 
 ```bash
+nexus --update        # pull, rewrite what nexus --config generates, then offer the builds and restarts it needs
+```
+It does three things, in this order:
+1. **Pull.** `git fetch`, then a fast-forward of the checkout's branch, after listing the new commits. It stops,
+   changing nothing, if:
+   - the branch has commits of its own;
+   - you've changed files that the update also changes;
+   - the checkout isn't on a branch (after a rollback, say).
+
+   Each message says what to do.
+2. **Rewrite the generated files.** The newly pulled code runs `nexus --config --yes --no-build --no-link`, which
+   keeps every setting.
+3. **Offer to apply it.** It lists what applying the update takes and asks once:
+   - the images to build (or pull, with a registry), when the Dockerfile, `compose.yml` or a file the Dockerfile
+     copies in changed;
+   - the running personas to restart, each with its reason (its service, its image, or a settings file it reads
+     at start such as `personas/claude.managed.json`) and the tmux sessions the restart ends;
+   - the stopped personas, which pick the change up at their next start.
+```text
+nexus: to apply c261ba8..bf5590c to the personas:
+  build agent-claude-ddev: Dockerfile changed
+  build agent-claude-docker: Dockerfile changed
+  restart claude-ddev: its image, if the build changes it  (ends its sessions: billing review)
+  claude-docker isn't running: its next start picks it up, once its image is built
+Apply it now? [y/N]
+```
+`-y` applies without asking. With no terminal it applies nothing, and lists each build and restart on its own.
+
+**What isn't applied is kept** in `update.json` in the checkout (git ignores it), with the commit the personas
+were brought up to. Every later `nexus --update` offers it again, even when there's nothing new to pull, until it
+is done:
+```text
+nexus: /opt/agents is up to date: bf5590c (2026-10-22) …
+nexus: not applied yet, from an earlier nexus --update: c261ba8..bf5590c. To apply it to the personas:
+```
+Each step comes off the record as soon as it's done, so a run that fails halfway offers only the rest.
+
+The record follows what the personas actually do in the meantime:
+- A persona you restart yourself (`nexus <persona> restart`, or a stop and start) drops off for every reason
+  given before that restart.
+- A persona that's stopped drops off, because its next start picks the change up.
+- A restart for its image is offered only while the container runs an older image than the one its image name
+  now points to. While a build is still to do, that restart is offered as "if the build changes it", and the
+  check comes after the build, so a build that changed nothing restarts nobody.
+- A build you run yourself (`nexus <persona> build`, or an `upgrade`) doesn't come off the record. The next
+  `nexus --update` offers it again, which takes seconds when nothing changed, then restarts only the personas
+  whose image did change.
+
+A `git pull` of your own is covered too: the next `nexus --update` applies everything from the recorded commit to
+the current one. The record starts at the first `nexus --update` on a VM. For a pull made before that, run
+`nexus --update --since ORIG_HEAD` once.
+
+By hand, the same pull and rewrite are:
+```bash
 git -C /opt/agents pull
 /opt/agents/nexus --config --yes --no-build     # right away, while no persona is being started
 ```
-Running the installer again does both steps:
-`curl -fsSL https://nexus.light-and-dark.io/install.sh | bash -s -- --yes --no-build`. It pulls with
-`--ff-only`, so it stops if the checkout has changes of your own or isn't on a branch (after a rollback, say).
-It works on any clone of this repo, over https or ssh.
+Running the installer again works too:
+`curl -fsSL https://nexus.light-and-dark.io/install.sh | bash -s -- --yes --no-build`. It pulls with `--ff-only`,
+on any clone of this repo over https or ssh, but it doesn't offer the builds and restarts.
 `--yes` asks nothing and keeps every setting, what `.env` and `personas.json` have. `nexus --config` writes the files
 it generates from them again, and its closing lines name any persona that needs `nexus <persona> restart` for what
 it wrote: a setting changed, a mount added, or a service in `compose.personas.yml` that wasn't what `personas.json`

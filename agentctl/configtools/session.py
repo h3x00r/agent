@@ -197,6 +197,11 @@ class Session:
             if names:
                 self.say("  sends %s too (%s): %s" % (x.name, x.what, ", ".join(names)))
 
+    def restarts(self):
+        """The personas this run's notes tell to restart: `nexus NAME restart` is the mark the notes go by."""
+        told = "\n".join(self.later)
+        return [p.name for p in self.personas if "`nexus %s restart`" % p.name in told]
+
     def moved_notes(self, old, kept):
         """After the move from the `# persona:` lines: where the old file is, and which persona's service
         came out different (an older layout), so that it needs a restart; one already told to, isn't. A service

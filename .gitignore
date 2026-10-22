@@ -18,6 +18,9 @@ personas.json
 personas.json.*
 compose.personas.yml
 compose.personas.yml.*
+# written by nexus --update: the commit the personas were last brought to, and what it still has to apply
+update.json
+update.json.*
 # Python's own caches: the tools and tests run with -B, but a stray run without it mustn't add files
 __pycache__/
 *.pyc

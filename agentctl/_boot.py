@@ -11,7 +11,7 @@
   nexus/edge-persona-sigint-ignored)
 - SIGPIPE back at its default: a closed pipe ends the run as it ended bash (golden nexus/basic-sigpipe)
 - nexus: SIGINT at SIG_DFL, never KeyboardInterrupt and its traceback (golden nexus/edge-headless-sig-spool)
-- nexus --config: INT, TERM and HUP exit 130, the staged files removed (golden config/ask-int-tty)
+- nexus --config and nexus --update: INT, TERM and HUP exit 130, the staged files removed (golden config/ask-int-tty)
 - text is measured by the locale the shim saw (AGENTCTL_LOCALE), not by Python's view of it (golden
   nexus/edge-ls-bad-locale, golden nexus/edge-top-locale-missing)
 - LC_CTYPE goes back to the shim's for every child, PEP 538's coercion undone
@@ -100,15 +100,21 @@ def main():
     tool, argv = (sys.argv[1], sys.argv[2:]) if len(sys.argv) > 1 else ("", [])
     if tool == "nexus" and argv[:1] == ["--config"]:   # the setup tool: its own signals and prefix, from the start
         tool, argv = "config", argv[1:]
-    if tool == "config":
-        out = Output("config")
+    if tool == "nexus" and argv[:1] == ["--update"]:   # it runs the setup tool too: its signals, nexus's prefix
+        tool, argv = "update", argv[1:]
+    if tool in ("config", "update"):
+        out = Output("config" if tool == "config" else "nexus")
 
         def interrupted(signum, frame):
             raise Interrupted(130)
         # As the bash tool's `trap 'exit 130' INT TERM HUP`: staged files are removed on the way out.
         sigs.trap((signal.SIGINT, signal.SIGTERM, signal.SIGHUP), interrupted)
-        from agentctl.configtools import setup
-        run = lambda: setup.main(REPO, argv, out)  # noqa: E731
+        if tool == "config":
+            from agentctl.configtools import setup
+            run = lambda: setup.main(REPO, argv, out)  # noqa: E731
+        else:
+            from agentctl.nexus import update
+            run = lambda: update.main(REPO, argv, out)  # noqa: E731
     elif tool == "nexus":
         out = Output("nexus")
         sigs.trap((signal.SIGINT,), signal.SIG_DFL)   # bash's default: Ctrl-C ends the run where no trap says otherwise
