@@ -252,3 +252,17 @@ personas.json, --tool-content NAME|all:on|off. Both are one shape in the code no
   all the same.
 - **New cases**: config/telemetry-content-flags and config/telemetry-content-menu; config/telemetry-hand-edits has
   TELEMETRY_TOOL_CONTENT neither on nor off, and "tool_content" without telemetry.
+
+## Changed on purpose: a new collector's token and CA
+A new --telemetry-endpoint (one that isn't .env's TELEMETRY_ENDPOINT) no longer keeps the old collector's token and CA,
+which would send the old token to the new address:
+- **Under --yes**, --telemetry-token-file and --telemetry-ca come with it, or it is refused and nothing is written;
+  the message names what is missing and the command. config/telemetry-flags: run 14 (was the endpoint alone, saved
+  with the old token and CA) is now that refusal, run 15 the one without the CA, and run 16 the endpoint with its
+  token and CA (the outcome run 14 had). config/telemetry-hand-edits gives its setup's CA.
+- **Without --yes**, the token and CA are asked after the options, the old ones not offered: config/telemetry-flags
+  run 17 (Enter: none for both). The telemetry action doesn't offer them either when the address changes:
+  config/telemetry-menu runs 5 and 6 are new.
+- **all:on with no collector** gives the whole command, with --telemetry-token-file FILE --telemetry-ca FILE|none
+  (config/telemetry-details-flags).
+- **--help** says so under --telemetry-endpoint, accepted in the four cases that show it.

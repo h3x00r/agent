@@ -29,7 +29,8 @@ nexus --config — set this checkout up for one dev VM: which personas it runs, 
                                      sessions, tool use; no prompts) to the collector below (default: off);
                                      repeatable
     --telemetry-endpoint URL|none    the collector's OTLP/HTTP address, e.g. https://collector.lan:4318;
-                                     none: no telemetry at all (the default)
+                                     none: no telemetry at all (the default). A new one takes the two below
+                                     with it under --yes, and asks them without
     --telemetry-token-file FILE      a file holding the collector's bearer token (an empty one: none)
     --telemetry-ca FILE|none         the CA file (PEM) the collector's certificate is signed by, copied in
                                      as personas/telemetry-ca.pem; none: a publicly trusted certificate

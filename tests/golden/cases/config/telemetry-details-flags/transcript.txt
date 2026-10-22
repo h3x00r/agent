@@ -310,7 +310,7 @@ nexus --config: setting up <A>
 --- stderr
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
 config: --tool-details all:on: nothing was written, because there is no collector, so no persona can send tool details. To set one up:
-        nexus --config --yes --telemetry-endpoint URL --tool-details all:on
+        nexus --config --yes --telemetry-endpoint URL --telemetry-token-file FILE --telemetry-ca FILE|none --tool-details all:on
 ## run 28: config --yes … --tool-details all:on  [pipe]
 rc: 0
 --- stdout

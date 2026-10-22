@@ -225,7 +225,23 @@ Day-to-day use, upgrades and troubleshooting: runbook.md
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
 config: warning: ddev isn't installed on this VM: the ddev personas get the newest ddev; install the same on the VM (pkg.ddev.com) so both agree, and for mkcert
 config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
-## run 14: config --yes … --telemetry-endpoint https://127.0.0.2:1  (d1: a restart; g1: its next grok reads it)  [pipe]
+## run 14: config --yes … --telemetry-endpoint https://127.0.0.2:1  (a new collector without its token and CA: refused)  [pipe]
+rc: 1
+--- stdout
+nexus --config: setting up <A>
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: --telemetry-endpoint https://127.0.0.2:1 is a new collector, so nothing was written: give its token and CA with it (an empty token file, /dev/null say, for none; none for a publicly trusted certificate):
+        nexus --config --yes --telemetry-endpoint https://127.0.0.2:1 --telemetry-token-file FILE --telemetry-ca FILE|none
+## run 15: config --yes … --telemetry-endpoint https://127.0.0.2:1 --telemetry-token-file …  (without its CA: refused)  [pipe]
+rc: 1
+--- stdout
+nexus --config: setting up <A>
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: --telemetry-endpoint https://127.0.0.2:1 is a new collector, so nothing was written: give its CA with it (an empty token file, /dev/null say, for none; none for a publicly trusted certificate):
+        nexus --config --yes --telemetry-endpoint https://127.0.0.2:1 --telemetry-ca FILE|none
+## run 16: config --yes … --telemetry-endpoint https://127.0.0.2:1, its token and CA  (d1: a restart; g1: its next grok reads it)  [pipe]
 rc: 0
 --- stdout
 nexus --config: setting up <A>
@@ -247,7 +263,83 @@ Day-to-day use, upgrades and troubleshooting: runbook.md
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
 config: warning: ddev isn't installed on this VM: the ddev personas get the newest ddev; install the same on the VM (pkg.ddev.com) so both agree, and for mkcert
 config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
-## run 15: config --yes … --telemetry c1:on --persona c1:grok:docker  (claude, then grok: its drop-in neutral)  [pipe]
+## run 17: config --no-link --no-build --telemetry-endpoint https://127.0.0.3:1  (on a terminal: its token and CA asked, the old ones not offered; none for both)  [tty-in]
+rc: 0
+--- stdout
+nexus --config: <A>
+
+== The new collector's token and CA
+-- saved: what the options said
+g1: its telemetry settings changed; `nexus g1 restart` applies them (that ends its tmux sessions)
+d1: its telemetry settings changed; `nexus d1 restart` applies them (that ends its tmux sessions)
+telemetry: nothing answered at https://127.0.0.3:1 (is it down, or is the address wrong?). The personas work all the same, but what they send is lost until this is fixed.
+
+Shared by every persona
+  projects root   <P>
+  image registry  local (images built on this VM)
+  Claude Code     latest
+  telemetry       https://127.0.0.3:1 (no token, a publicly trusted certificate)
+  launcher        not on your PATH: link it with launcher, or run <A>/nexus
+Personas
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  g1                              grok     docker   yes        the VM's             your agent
+  d1                              claude   ddev     yes        the VM's             your agent
+  sends telemetry to https://127.0.0.3:1: g1, d1
+
+What next?
+  1) list      the shared settings and the personas, again
+  2) add       a new persona
+  3) change    one persona's flavour, context, statusline, projects root, ssh, permissions or telemetry
+  4) remove    one persona (its env file and home volume stay)
+  5) shared    the settings every persona shares: projects root, image registry, Claude Code version
+  6) telemetry send OpenTelemetry to a collector: its address, token and CA, and which personas send
+  7) launcher  link nexus into a directory on your PATH
+  8) images    build (or pull) the image of every persona
+  9) quit
+
+Start one from a project directory:  cd <P>/<project> && nexus c1
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr (no newline at the end)
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+Its bearer token (sent as Authorization: Bearer …; - for none) (hidden; empty to skip): 
+The CA file its certificate is signed by, PEM (-: none, a publicly trusted certificate) [-]: config: warning: ddev isn't installed on this VM: the ddev personas get the newest ddev; install the same on the VM (pkg.ddev.com) so both agree, and for mkcert
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
+choice [quit]: 
+--- echo
+\r
+\r
+## run 18: grep ^TELEMETRY_ .env  [pipe, cwd a]
+rc: 0
+--- stdout
+TELEMETRY_ENDPOINT=https://127.0.0.3:1
+TELEMETRY_TOKEN=
+TELEMETRY_CA=
+--- stderr
+(empty)
+## run 19: config --yes … --telemetry-endpoint https://127.0.0.2:1, its token and CA  (back)  [pipe]
+rc: 0
+--- stdout
+nexus --config: setting up <A>
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  g1                              grok     docker   yes        the VM's             your agent
+  d1                              claude   ddev     yes        the VM's             your agent
+  sends telemetry to https://127.0.0.2:1: g1, d1
+
+Start one from a project directory:  cd <P>/<project> && nexus c1
+ddev: run `mkcert -install` on this VM (it comes with ddev), then `nexus <persona> restart`, or https://*.ddev.site stays untrusted inside
+g1: its telemetry settings changed; `nexus g1 restart` applies them (that ends its tmux sessions)
+d1: its telemetry settings changed; `nexus d1 restart` applies them (that ends its tmux sessions)
+telemetry: nothing answered at https://127.0.0.2:1 (is it down, or is the address wrong?). The personas work all the same, but what they send is lost until this is fixed.
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: warning: ddev isn't installed on this VM: the ddev personas get the newest ddev; install the same on the VM (pkg.ddev.com) so both agree, and for mkcert
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
+## run 20: config --yes … --telemetry c1:on --persona c1:grok:docker  (claude, then grok: its drop-in neutral)  [pipe]
 rc: 0
 --- stdout
 nexus --config: setting up <A>
@@ -272,13 +364,13 @@ Day-to-day use, upgrades and troubleshooting: runbook.md
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
 config: warning: ddev isn't installed on this VM: the ddev personas get the newest ddev; install the same on the VM (pkg.ddev.com) so both agree, and for mkcert
 config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
-## run 16: grep . personas/c1.telemetry.json  [pipe, cwd a]
+## run 21: grep . personas/c1.telemetry.json  [pipe, cwd a]
 rc: 0
 --- stdout
 {}
 --- stderr
 (empty)
-## run 17: config --yes … --persona c1:claude:docker  (and back)  [pipe]
+## run 22: config --yes … --persona c1:claude:docker  (and back)  [pipe]
 rc: 0
 --- stdout
 nexus --config: setting up <A>
@@ -301,7 +393,7 @@ Day-to-day use, upgrades and troubleshooting: runbook.md
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
 config: warning: ddev isn't installed on this VM: the ddev personas get the newest ddev; install the same on the VM (pkg.ddev.com) so both agree, and for mkcert
 config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
-## run 18: config --yes … --remove g1  (its telemetry file stays)  [pipe]
+## run 23: config --yes … --remove g1  (its telemetry file stays)  [pipe]
 rc: 0
 --- stdout
 nexus --config: setting up <A>
@@ -320,7 +412,7 @@ Day-to-day use, upgrades and troubleshooting: runbook.md
 --- stderr
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
 config: warning: ddev isn't installed on this VM: the ddev personas get the newest ddev; install the same on the VM (pkg.ddev.com) so both agree, and for mkcert
-## run 19: config --yes … --telemetry-ca none  (a public certificate)  [pipe]
+## run 24: config --yes … --telemetry-ca none  (a public certificate)  [pipe]
 rc: 0
 --- stdout
 nexus --config: setting up <A>
@@ -340,7 +432,7 @@ Day-to-day use, upgrades and troubleshooting: runbook.md
 --- stderr
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
 config: warning: ddev isn't installed on this VM: the ddev personas get the newest ddev; install the same on the VM (pkg.ddev.com) so both agree, and for mkcert
-## run 20: config --yes … --telemetry-token-file <S>/keys/empty  (no token)  [pipe]
+## run 25: config --yes … --telemetry-token-file <S>/keys/empty  (no token)  [pipe]
 rc: 0
 --- stdout
 nexus --config: setting up <A>
@@ -360,13 +452,13 @@ Day-to-day use, upgrades and troubleshooting: runbook.md
 --- stderr
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
 config: warning: ddev isn't installed on this VM: the ddev personas get the newest ddev; install the same on the VM (pkg.ddev.com) so both agree, and for mkcert
-## run 21: grep HEADERS personas/d1.telemetry.json  (none)  [pipe, cwd a]
+## run 26: grep HEADERS personas/d1.telemetry.json  (none)  [pipe, cwd a]
 rc: 1
 --- stdout
 (empty)
 --- stderr
 (empty)
-## run 22: config --yes … --telemetry-endpoint none  (c1 and d1 stop)  [pipe]
+## run 27: config --yes … --telemetry-endpoint none  (c1 and d1 stop)  [pipe]
 rc: 0
 --- stdout
 nexus --config: setting up <A>
@@ -385,7 +477,7 @@ Day-to-day use, upgrades and troubleshooting: runbook.md
 --- stderr
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
 config: warning: ddev isn't installed on this VM: the ddev personas get the newest ddev; install the same on the VM (pkg.ddev.com) so both agree, and for mkcert
-## run 23: config --list  [pipe]
+## run 28: config --list  [pipe]
 rc: 0
 --- stdout
   NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
@@ -393,7 +485,7 @@ rc: 0
   d1                              claude   ddev     yes        the VM's             your agent
 --- stderr
 (empty)
-## run 24: grep . personas/d1.telemetry.json  (neutral, until it is restarted)  [pipe, cwd a]
+## run 29: grep . personas/d1.telemetry.json  (neutral, until it is restarted)  [pipe, cwd a]
 rc: 0
 --- stdout
 {}

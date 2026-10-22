@@ -27,10 +27,10 @@ TOKEN_Q = "Its bearer token"
 CA_Q = "The CA file its certificate is signed by"
 
 
-def tele_q(name, default="y/N"):
-    """Whether NAME sends telemetry, to the end of its prompt."""
+def tele_q(name, default="y/N", ep=EP):
+    """Whether NAME sends telemetry (to EP), to the end of its prompt."""
     return "Send %s's telemetry (OpenTelemetry: tokens, cost, sessions, tool use; no prompts) to %s? [%s]: " \
-           % (name, EP, default)
+           % (name, ep, default)
 
 
 def td(default="none"):
@@ -90,7 +90,18 @@ def _(sb):
            label="config --yes … --telemetry-token-file <S>/keys/token  (a new token: g1 and d1 restart)")
     sb.run("config", *YES, "--persona", "g1:grok:docker", label="config --yes … --persona g1:grok:docker  (it still sends)")
     sb.run("config", *YES, "--telemetry-endpoint", "https://127.0.0.2:1",
-           label="config --yes … --telemetry-endpoint https://127.0.0.2:1  (d1: a restart; g1: its next grok reads it)")
+           label="config --yes … --telemetry-endpoint https://127.0.0.2:1  (a new collector without its token and CA: refused)")
+    sb.run("config", *YES, "--telemetry-endpoint", "https://127.0.0.2:1", "--telemetry-token-file", sb.path("keys/token"),
+           label="config --yes … --telemetry-endpoint https://127.0.0.2:1 --telemetry-token-file …  (without its CA: refused)")
+    sb.run("config", *YES, "--telemetry-endpoint", "https://127.0.0.2:1", "--telemetry-token-file", sb.path("keys/token"),
+           "--telemetry-ca", ca_file(sb),
+           label="config --yes … --telemetry-endpoint https://127.0.0.2:1, its token and CA  (d1: a restart; g1: its next grok reads it)")
+    tty(sb, [(TOKEN_Q, ""), (CA_Q, ""), (MENU, "")], "--no-link", "--no-build", "--telemetry-endpoint", "https://127.0.0.3:1",
+        label="config --no-link --no-build --telemetry-endpoint https://127.0.0.3:1  (on a terminal: its token and CA asked, "
+              "the old ones not offered; none for both)")
+    grep(sb, "^TELEMETRY_", ".env")
+    sb.run("config", *YES, "--telemetry-endpoint", "https://127.0.0.2:1", "--telemetry-token-file", sb.path("keys/token"),
+           "--telemetry-ca", ca_file(sb), label="config --yes … --telemetry-endpoint https://127.0.0.2:1, its token and CA  (back)")
     sb.run("config", *YES, "--telemetry", "c1:on", "--persona", "c1:grok:docker",
            label="config --yes … --telemetry c1:on --persona c1:grok:docker  (claude, then grok: its drop-in neutral)")
     grep(sb, ".", "personas/c1.telemetry.json")
@@ -158,6 +169,14 @@ def _(sb):
     tty(sb, [(MENU, "telemetry"), (EP_Q, ""), (TOKEN_Q, "-"), (CA_Q, ""), (CA_Q, ca), (tele_q("c1", "Y/n"), ""),
              (tele_q("g1"), ""), (tele_q("c2"), ""), (td(), ""), (tc(), ""), (MENU, "list"), (MENU, "")],
         label="config --no-link --no-build  (no token; the CA in place isn't one: given again)")
+    # A new collector: the old one's token and CA aren't offered, so Enter leaves it with none.
+    tty(sb, [(MENU, "telemetry"), (EP_Q, ""), (TOKEN_Q, "nxt-fake-tele-1"), (CA_Q, ""), (tele_q("c1", "Y/n"), ""),
+             (tele_q("g1"), ""), (tele_q("c2"), ""), (td(), ""), (tc(), ""), (MENU, "")],
+        label="config --no-link --no-build  (the token again)")
+    ep4 = "https://127.0.0.4:1"
+    tty(sb, [(MENU, "telemetry"), (EP_Q, ep4), (TOKEN_Q, ""), (CA_Q, ""), (tele_q("c1", "Y/n", ep4), ""),
+             (tele_q("g1", ep=ep4), ""), (tele_q("c2", ep=ep4), ""), (td(), ""), (tc(), ""), (MENU, "list"), (MENU, "")],
+        label="config --no-link --no-build  (a new collector: the old token and CA not offered; Enter: none for both)")
     tty(sb, [(MENU, "telemetry"), (EP_Q, "none"), (MENU, "list"), (MENU, "")],
         label="config --no-link --no-build  (telemetry off)")
 
@@ -186,8 +205,8 @@ def _(sb):
     env(TELEMETRY_CA=sb.path("keys/ca.pem"))
     sb.run("config", *YES, label="config --yes …  (TELEMETRY_CA by hand: a certificate, copied in)")
     grep(sb, "^TELEMETRY_", ".env")
-    sb.setup("config", *YES, "--telemetry-endpoint", EP, "--telemetry-token-file", token_file(sb), "--telemetry", "c1:on",
-             "--telemetry", "g1:on")
+    sb.setup("config", *YES, "--telemetry-endpoint", EP, "--telemetry-token-file", token_file(sb), "--telemetry-ca",
+             ca_file(sb), "--telemetry", "c1:on", "--telemetry", "g1:on")
     env(TELEMETRY_TOKEN="nxt-fake-tele-hand")
     sb.run("config", *YES, label="config --yes …  (TELEMETRY_TOKEN changed by hand: restarts, and the check)")
     env(TELEMETRY_TOKEN="nxt fake")
