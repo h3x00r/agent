@@ -246,6 +246,9 @@ t cfg --help </dev/null
 check "--help: the usage" 'rc 0 && out_has "--persona NAME:FLAVOUR:CONTEXT"'
 t nx --help </dev/null
 check "  and nexus's own names it" 'rc 0 && out_has "nexus --config [--list | --yes"'
+t nx --version </dev/null
+check "--version in a checkout that isn't a git clone: refused, saying why" \
+      'rc 1 && err_has "can'"'"'t tell the version: $A isn'"'"'t a git clone of its own"'
 check "  the setup tool's old script is gone" '[[ ! -e $A/config-tools ]]'
 # The tools are Python behind a bash shim: python3 -I (no PYTHON* settings reach them), 3.8 or newer, and
 # no bytecode written into the checkout.
@@ -483,6 +486,13 @@ else
   head_is() { [[ $(git -C "$I" rev-parse HEAD) == "$(git -C "$1" rev-parse HEAD)" ]]; }
   t upd </dev/null
   check "up to date: said, and nothing else" 'rc 0 && out_has "$I is up to date: " && ! out_has "nexus --config"'
+  t env "${NX_ENV[@]}" "$I/nexus" --version </dev/null
+  check "--version: the commit, its date and the branch" \
+        'rc 0 && out_re "^nexus $(git -C "$I" rev-parse --short HEAD) \([0-9]{4}-[0-9]{2}-[0-9]{2}, $(git -C "$I" symbolic-ref --short HEAD)\)$"'
+  echo "# mine" >> "$I/README.md"
+  t env "${NX_ENV[@]}" "$I/nexus" --version </dev/null
+  check "  with a change of your own: said" 'rc 0 && out_re "^nexus [0-9a-f]+ \(.*\), with changes of your own$"'
+  git -C "$I" checkout -q -- README.md
   echo "# three" >> "$O/README.md"; commit -am three
   t upd </dev/null
   check "a new commit: listed, pulled; no personas set up, so nothing to apply" \
