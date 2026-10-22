@@ -29,6 +29,9 @@ e.g. to /usr/local/bin/nexus.
                                            persona of that flavour (asks first; -y doesn't), drop the old ones
   nexus --config [--list | --yes …]        set this VM up: the settings every persona shares, the personas,
                                            the launcher link, the images (nexus --config --help says more)
+  nexus --update [-y]                      update this checkout from its branch (git fetch, a fast-forward),
+                                           then apply it: the images to build and the personas to restart,
+                                           asked first (-y doesn't ask; nexus --update --help says more)
 
 Examples, with personas named claude-ddev and grok-docker (the names nexus --config suggests):
   cd ~/projects/billing && nexus claude-ddev            # session "billing", shell at that dir

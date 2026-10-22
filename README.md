@@ -20,7 +20,9 @@ nexus claude-team              # back into the same session
 
 Quitting Claude (`/exit`) ends the session instead; start it again with `-- claude`. A grok persona works
 the same way with `-- grok`. When a new Claude Code (or grok) comes out, `nexus claude-team upgrade` pins it,
-rebuilds, and recreates every persona of that flavour once you confirm.
+rebuilds, and recreates every persona of that flavour once you confirm. When Nexus itself changes,
+`nexus --update` pulls it, then offers the image builds and persona restarts it needs. What you don't apply
+yet is offered again by the next `nexus --update` (runbook §10).
 As committed, Claude runs its tools without asking; `nexus claude-team --skip-bypass-permissions review -- claude`
 opens a session whose Claude asks first ([Settings for every persona](#settings-for-every-persona)).
 How the pieces fit together, as diagrams: [Annex: how it works](#annex-how-it-works).
@@ -41,6 +43,8 @@ The checkout is generic. `nexus --config` decides which personas a VM runs, the 
 compose.yml             templates only: _agent (context docker) and _agent-ddev
 personas.json           the personas, written by nexus --config (gitignored)
 compose.personas.yml    their services, generated from personas.json by nexus --config; don't edit it (gitignored)
+update.json             written by nexus --update: the commit the personas were brought to, and what it still
+                        has to apply to them (gitignored)
 Dockerfile              targets claude | grok, build arg CONTEXT=docker | ddev; no project toolchains on purpose
 entrypoint.sh           keeps the tmux server alive, paints the persona into the status bar
 claude-mode.sh          the image's `claude`: Claude Code (/usr/local/libexec/claude) in a session's permission mode,
@@ -48,7 +52,7 @@ claude-mode.sh          the image's `claude`: Claude Code (/usr/local/libexec/cl
 tmux.conf               session-per-project ergonomics
 install.sh              the one-line install (curl … | bash): clones this repo to /opt/agents, then nexus --config
 nexus                   launcher: `nexus <persona>` from any project dir; `nexus --config`: the setup (personas,
-                        flavours, contexts, .env, launcher link, images)
+                        flavours, contexts, .env, launcher link, images); `nexus --update`: pull, then apply
 agentctl/               the Python behind nexus, which is a shim (3.8+, standard library only)
 statusline/claude/      Claude Code's statusline + its setting, for Claude personas with it on; feeds `nexus top`
 statusline/grok/        grok's statusline + its [ui.status_line], for grok personas with it on; feeds `nexus top`
@@ -122,7 +126,7 @@ The address redirects to `install.sh` as the default branch has it
 the repo to `/opt/agents`, owned by you; it uses sudo only to create that directory. It then hands over to
 `nexus --config`, which asks its questions in your terminal. Whatever follows `bash -s --` goes to
 `nexus --config`, so `curl … | bash -s -- --yes --persona claude-docker:claude:docker` sets up without
-questions. Run it again to update: it pulls (`git pull --ff-only`) and hands over again. `AGENTS_DIR` puts the
+questions. To update later, run `nexus --update` (running this one-liner again works too). `AGENTS_DIR` puts the
 checkout somewhere else. To read the script first, or to install without it:
 
 ```bash

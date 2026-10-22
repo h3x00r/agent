@@ -20,6 +20,8 @@
 #              files and keys
 #   install.sh the one-line install, as `curl … | bash` runs it, from a repo made of this checkout: a clone, an
 #              update, the hand-over to nexus --config, and a directory it won't touch
+#   update     nexus --update on the checkout install.sh made: pulled from its origin, refused where it should
+#              be (a commit of its own, a change of its own, no branch), and applied by the code just pulled
 #   the move   nexus --config moving a checkout's `# persona:` lines into personas.json, in a second scratch
 #              checkout: as config.sh left one, and one from before the statusline and settings splits
 #   nexus      before any persona runs: usage, errors, ls, top, upgrade's argument checks
@@ -175,6 +177,11 @@ if git -C "$REPO" -c core.excludesFile=/dev/null check-ignore -q personas.json \
    && git -C "$REPO" -c core.excludesFile=/dev/null check-ignore -q personas.json.bak; then
   ok ".gitignore: personas.json and its backups"
 else fail ".gitignore: personas.json and its backups" "git check-ignore doesn't ignore them"; fi
+# Nor what nexus --update keeps of what it still has to apply there.
+if git -C "$REPO" -c core.excludesFile=/dev/null check-ignore -q --no-index update.json \
+   && git -C "$REPO" -c core.excludesFile=/dev/null check-ignore -q --no-index update.json.tmp; then
+  ok ".gitignore: update.json and its temp file"
+else fail ".gitignore: update.json and its temp file" "git check-ignore doesn't ignore them"; fi
 # Nor the telemetry files: they hold the collector's token, or are this VM's copy of its CA.
 if git -C "$REPO" -c core.excludesFile=/dev/null check-ignore -q --no-index personas/x.telemetry.json \
    && git -C "$REPO" -c core.excludesFile=/dev/null check-ignore -q --no-index personas/x.telemetry.env \
@@ -466,6 +473,77 @@ else
          && [[ $(ls -A "$T/opt/other") == f && $(cat "$T/opt/other/f") == keep ]]'
   t env "${NX_ENV[@]}" AGENTS_DIR=opt/agents bash "$A/install.sh" </dev/null
   check "  a relative AGENTS_DIR: refused" 'rc 1 && err_has "it takes an absolute path"'
+fi
+# --- nexus --update ---------------------------------------------------------------------------------
+stage "nexus --update: the checkout install.sh made, from \$O, updated and applied"
+if [[ ! -d $I/.git ]]; then
+  skip "nexus --update: no checkout from the install.sh stage"
+else
+  upd() { env "${NX_ENV[@]}" "$I/nexus" --update "$@"; }
+  head_is() { [[ $(git -C "$I" rev-parse HEAD) == "$(git -C "$1" rev-parse HEAD)" ]]; }
+  t upd </dev/null
+  check "up to date: said, and nothing else" 'rc 0 && out_has "$I is up to date: " && ! out_has "nexus --config"'
+  echo "# three" >> "$O/README.md"; commit -am three
+  t upd </dev/null
+  check "a new commit: listed, pulled; no personas set up, so nothing to apply" \
+        'rc 0 && out_has "1 new commit on origin/" && out_has "three" && out_has "updated $I to " && head_is "$O" \
+         && out_has "no personas set up here yet"'
+  git -C "$I" -c user.name=nxt -c user.email=nxt@invalid commit -q --allow-empty -m mine
+  echo "# four" >> "$O/README.md"; commit -am four
+  mine="$(git -C "$I" rev-parse HEAD)"
+  t upd </dev/null
+  check "  a commit of its own: refused, nothing changed" \
+        'rc 1 && err_has "1 commit of its own" && [[ $(git -C "$I" rev-parse HEAD) == "$mine" ]]'
+  git -C "$I" reset -q --hard HEAD~1
+  echo "# mine" >> "$I/README.md"
+  t upd </dev/null
+  check "  a change of its own to a file the update changes: refused by the merge, the change kept" \
+        'rc 1 && err_has "changes of your own" && ! head_is "$O" && [[ $(tail -n 1 "$I/README.md") == "# mine" ]]'
+  git -C "$I" checkout -q -- README.md
+  git -C "$I" checkout -q --detach
+  t upd </dev/null
+  check "  not on a branch: refused" 'rc 1 && err_has "$I isn'"'"'t on a branch"'
+  git -C "$I" checkout -q -
+  t upd --since nxt-no-such-rev </dev/null
+  check "  --since what isn't a commit: refused" 'rc 1 && err_has "--since nxt-no-such-rev isn'"'"'t a commit"'
+  # The personas the config stage set up (no containers), and an update that changes their image and their
+  # Claude settings, and the update code itself: what applies it says a word the old code doesn't have.
+  cp "$A/.env" "$A/personas.json" "$I/" && cp "$A"/personas/*.env "$A"/personas/*.key* "$I/personas/"
+  echo "# five" >> "$O/Dockerfile"; printf '\n' >> "$O/personas/claude.managed.json"
+  sed -i 's/^\(        build, restart = merged(\)/        self.say("nexus: nxt-the-new-code")\n\1/' "$O/agentctl/nexus/update.py"
+  grep -q nxt-the-new-code "$O/agentctl/nexus/update.py" || fail "nexus --update: the marker put into \$O's update.py"
+  commit -am five
+  t upd </dev/null
+  check "a change to apply: pulled, then applied by the code just pulled (nexus --config in it, then the plan)" \
+        'rc 0 && head_is "$O" && out_has "nexus: nxt-the-new-code" && out_has "nexus --config: setting up $I" \
+         && out_re "^  (build|pull) agent-claude-docker: Dockerfile changed$" && out_re "^  (build|pull) agent-grok-docker: Dockerfile changed$" \
+         && out_re "^  $PC isn'"'"'t running: its next start picks it up, once its image is (built|pulled)$"'
+  check "  no terminal: not applied, kept for the next run, and the steps listed" \
+        'out_has "nexus: not applied. It'"'"'s kept: the next nexus --update offers it again" \
+         && out_re "^  nexus $PC (build|pull)$" && ! out_has "Apply it now" \
+         && [[ -f $I/update.json && -z $(git -C "$I" status --porcelain) ]]'
+  t upd </dev/null
+  check "  declined, then nexus --update again: nothing new, and the same plan offered again" \
+        'rc 0 && out_has "$I is up to date" && out_has "nexus: not applied yet, from an earlier nexus --update: " \
+         && out_re "^  (build|pull) agent-claude-docker: Dockerfile changed$" && ! out_has "nexus --config: setting up"'
+  if command -v script >/dev/null; then
+    t script -qec "$(printf '%q ' env "${NX_ENV[@]}" "$I/nexus" --update)" /dev/null <<< "n"
+    check "  on a terminal: asked; n is not applied, and kept" \
+          'rc 0 && out_has "Apply it now? [y/N]" && out_has "nexus: not applied. It'"'"'s kept"'
+  else
+    skip "nexus --update on a terminal: no script (util-linux) to give it one"
+  fi
+  rm -f "$I/update.json"; cp "$I/personas.json" "$T/pj.good"; echo '{' > "$I/personas.json"
+  was="$(git -C "$I" rev-parse HEAD)"
+  echo "# six" >> "$O/Dockerfile"; commit -am six
+  t upd </dev/null
+  check "a first run that stops halfway (a personas.json that isn't JSON): pulled, the record left at what was there before" \
+        'rc 1 && head_is "$O" && grep -qF "\"rev\": \"$was\"" "$I/update.json"'
+  cp "$T/pj.good" "$I/personas.json"
+  t upd </dev/null
+  check "  fixed, then nexus --update again: what that pull brought is offered" \
+        'rc 0 && out_has "$I is up to date" && out_has "nexus --config: setting up $I" \
+         && out_re "^  (build|pull) agent-claude-docker: Dockerfile changed$"'
 fi
 # --- the move into personas.json ------------------------------------------------------------------
 stage "nexus --config: the move from # persona: lines into personas.json"

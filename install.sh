@@ -8,8 +8,9 @@
 # install.sh). It clones that branch into /opt/agents, owned by you (sudo only to make the directory when /opt
 # isn't yours), then hands over to nexus --config with what it was given: a first setup's questions, or none
 # with --yes (nexus --config --help says what it takes). Run again, it updates the checkout it made (git pull
-# --ff-only) and hands over again, which is runbook section 10's update. A directory there already that isn't
-# a checkout of this repo is refused, and nothing in it is touched.
+# --ff-only) and hands over again; nexus --update does that too, and then offers the builds and restarts the
+# update needs (runbook section 10). A directory there already that isn't a checkout of this repo is refused,
+# and nothing in it is touched.
 #
 # Under `curl | bash` bash reads this script from stdin, so nexus --config reads its answers from the terminal
 # (/dev/tty) instead. With no terminal (a script, CI), it is given /dev/null, so pass --yes; given nothing to
