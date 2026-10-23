@@ -805,6 +805,12 @@ a managed setting, so it wins over a `statusLine` in a persona's own settings; a
 
 - The line stays blank in a project until you accept Claude Code's workspace trust prompt there (once per
   project per persona).
+- `Ctx used/size`: the size is the auto-compact window, which Claude Code doesn't send, so the script resolves it
+  as Claude Code does: `CLAUDE_CODE_AUTO_COMPACT_WINDOW`, then `autoCompactWindow` in the settings files (where
+  `/autocompact` saves it: the persona's `~/.claude/settings.json`, `modelSettings.<model>`). With none, or
+  auto-compact off, it is the model's window. It can't see `--settings`, `--setting-sources` or a window
+  Anthropic's servers set. grok sends the window it uses (`/context-window`), and compacts at
+  `[session] auto_compact_threshold_percent` of it.
 - The script needs python3 (it has no jq path, whatever its message says). The image installs python3 itself, for
   the statusline and APM; without it the line reads "Claude Code — statusline needs python3 (or jq)".
 - Per Anthropic's docs, if a persona's account belongs to an organisation that pushes server-managed settings,
@@ -835,7 +841,8 @@ claude-team  web:1.2  Sonnet 5.5   21k/200k  41%  18%  $0.40    9m
 grok         api      Grok 4.7     64k/500k    -    -  $0.42    1m
 ```
 
-- **CONTEXT** is used/size, coloured as on the statusline (yellow from 50%, red from 80%). **5H** and **7D** are
+- **CONTEXT** is used/size, coloured as on the statusline (yellow from 50%, red from 80%). For Claude Code the
+  size is the auto-compact window where one is set ([section 7](#7-statusline)), else the model's. **5H** and **7D** are
   the plan's limits used: per account, so personas on one account show the same. They are `-` with an API key.
 - **COST** is the session's at API prices, as Claude Code reports it; on a plan it isn't a bill.
 - **SEEN** is the time since the CLI last drew the statusline. It draws as the session works, so an idle

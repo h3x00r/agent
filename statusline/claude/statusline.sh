@@ -12,6 +12,10 @@
 #     Ctx <used>k/<size>k  Limit <5h used>% / <7d used>%
 #   ────────────
 #
+# <size> is the auto-compact window (/autocompact, CLAUDE_CODE_AUTO_COMPACT_WINDOW), or the model's window when
+# none is set or auto-compact is off. Claude Code sends only the model's, so the script resolves the setting
+# itself, the way Claude Code 2.1.306 does (autocompact_window below).
+#
 # Inside tmux it also saves those figures to ~/.cache/nexus/status/<pane>, for `nexus top`.
 #
 # JSON is parsed with python3 (jq is not installed on this host; python3 is, and is
@@ -59,7 +63,7 @@ fk() { awk "BEGIN {printf \"%.1f\", ${1:-0}/1000}" | sed 's/\.0$//'; }
 
 # --- Extract every field in one python pass (robust to missing/null values) ---
 read -r -d '' PROG <<'PYEOF'
-import json, sys, os
+import json, sys, os, re
 
 try:
     data = json.load(sys.stdin)
@@ -81,6 +85,99 @@ def num(x, d=0):
     except Exception:
         return d
 
+def load(path):
+    try:
+        with open(path) as f:
+            d = json.load(f)
+        return d if isinstance(d, dict) else {}
+    except Exception:
+        return {}
+
+# --- The auto-compact window, as Claude Code 2.1.306 resolves it ---
+# 1. CLAUDE_CODE_AUTO_COMPACT_WINDOW: 400k, 1M or 400000, clamped to 100k-1M; one that isn't a size is ignored.
+# 2. autoCompactWindow in the settings files, user, project, local, then managed, a later one winning: the
+#    model's own under modelSettings (keyed by its name without [1m] or a date, or by its alias), else the
+#    top-level one. A file that sets the top-level one drops the per-model ones of the files before it.
+#    "auto" (or the model's own "auto") is no setting.
+# None: none set, or auto-compact off (DISABLE_AUTO_COMPACT, DISABLE_COMPACT, autoCompactEnabled false); the
+# model's window stands. Not seen from here: --settings, --setting-sources, and a window the server sends.
+AC_MIN, AC_MAX = 100000, 1000000
+ALIASES = ('opus', 'sonnet', 'haiku', 'fable')
+
+def ac_tokens(v):
+    if isinstance(v, bool) or not isinstance(v, (int, float)) or not v >= 1:
+        return None
+    return int(min(max(round(v), AC_MIN), AC_MAX))
+
+def ac_env(s):
+    s = s.strip()
+    unit = {'k': 1000, 'm': 1000000}.get(s[-1:].lower())
+    try:
+        v = float(s[:-1]) * unit if unit else float(s)
+    except ValueError:
+        return None
+    return ac_tokens(v)
+
+def model_key(m):
+    m = re.sub(r'\[.*\]$', '', str(m).strip().lower())
+    m = re.sub(r'^(?:[a-z]+\.)?anthropic\.', '', m)       # Bedrock: us.anthropic.claude-…-v1:0
+    m = re.sub(r'-v\d+(?::\d+)?$', '', m)
+    return re.sub(r'[-@]\d{8}$', '', m)                   # dated, and Vertex's @date
+
+def model_value(settings, key):
+    own = alias = None
+    for k, v in (settings.get('modelSettings') or {}).items():
+        if not isinstance(v, dict) or v.get('autoCompactWindow') is None:
+            continue
+        if str(k) == key:
+            return v['autoCompactWindow']
+        if model_key(k) == key and own is None:
+            own = v['autoCompactWindow']
+        elif str(k).lower() in ALIASES and '-%s-' % str(k).lower() in key + '-' and alias is None:
+            alias = v['autoCompactWindow']
+    return own if own is not None else alias
+
+def autocompact_window(model, project):
+    cfg = os.environ.get('CLAUDE_CONFIG_DIR') or os.path.join(os.path.expanduser('~'), '.claude')
+    paths = [os.path.join(cfg, 'settings.json')]
+    if project:
+        paths += [os.path.join(project, '.claude', 'settings.json'), os.path.join(project, '.claude', 'settings.local.json')]
+    managed = '/etc/claude-code'
+    try:
+        drops = sorted(f for f in os.listdir(os.path.join(managed, 'managed-settings.d')) if f.endswith('.json'))
+    except OSError:
+        drops = []
+    paths += [os.path.join(managed, 'managed-settings.json')] + [os.path.join(managed, 'managed-settings.d', f) for f in drops]
+    seen, sources = set(), []
+    for p in paths:
+        r = os.path.realpath(p)
+        if r not in seen:
+            seen.add(r)
+            sources.append(load(p))
+
+    off = lambda v: str(v or '').strip().lower() in ('1', 'true', 'yes', 'on')
+    glob = os.path.join(os.environ.get('CLAUDE_CONFIG_DIR') or os.path.expanduser('~'), '.claude.json')
+    enabled = load(glob).get('autoCompactEnabled', True)
+    for s in sources:
+        if isinstance(s.get('autoCompactEnabled'), bool):
+            enabled = s['autoCompactEnabled']
+    if off(os.environ.get('DISABLE_AUTO_COMPACT')) or off(os.environ.get('DISABLE_COMPACT')) or enabled is False:
+        return None
+
+    env = os.environ.get('CLAUDE_CODE_AUTO_COMPACT_WINDOW')
+    if env is not None and ac_env(env) is not None:
+        return ac_env(env)
+    key = model_key(model)
+    default = own = None
+    for s in sources:
+        v = model_value(s, key)
+        if s.get('autoCompactWindow') is not None:
+            default, own = s['autoCompactWindow'], v
+        elif v is not None:
+            own = v
+    v = own if own is not None else default
+    return None if v is None or v == 'auto' else ac_tokens(v)
+
 model_id   = g(data, 'model', 'id', default='') or ''
 model_name = g(data, 'model', 'display_name', default='?') or '?'
 cwd        = g(data, 'workspace', 'current_dir') or g(data, 'cwd', default='') or ''
@@ -90,7 +187,13 @@ adds       = int(num(g(data, 'cost', 'total_lines_added', default=0)))
 dels       = int(num(g(data, 'cost', 'total_lines_removed', default=0)))
 
 ctx_size = int(num(g(data, 'context_window', 'context_window_size', default=0)))
-cr = int(num(g(data, 'context_window', 'current_usage', 'cache_read_input_tokens', default=0)))
+try:
+    ac = autocompact_window(model_id, g(data, 'workspace', 'project_dir') or cwd)
+except Exception:
+    ac = None
+if ac:
+    ctx_size = min(ctx_size, ac) if ctx_size > 0 else ac
+cr =int(num(g(data, 'context_window', 'current_usage', 'cache_read_input_tokens', default=0)))
 cc = int(num(g(data, 'context_window', 'current_usage', 'cache_creation_input_tokens', default=0)))
 it = int(num(g(data, 'context_window', 'current_usage', 'input_tokens', default=0)))
 used = cr + cc + it

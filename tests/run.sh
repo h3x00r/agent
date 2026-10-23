@@ -1125,6 +1125,24 @@ t nx top --once </dev/null
 re="^$PC"' +billing +Opus 5\.5 +38k/200k +12% +40% +\$1\.23 +[0-9]+s$'
 check "top: a Claude Code pane, with its statusline's figures" \
       'rc 0 && out_re "^PERSONA +SESSION +MODEL +CONTEXT +5H +7D +COST +SEEN$" && out_re "$re" && out_re "^$PC +(starting|healthy|running) +.* +1 claude$"'
+# The size is the auto-compact window where one is set, which Claude Code doesn't send: from its variable, and
+# from the settings /autocompact writes (a home of its own here, so the persona's settings stay as they are).
+docker exec -i -e TMUX_PANE="$pane" -e CLAUDE_CODE_AUTO_COMPACT_WINDOW=150k "agent-$PC" \
+  bash /etc/claude-code/statusline/statusline.sh >/dev/null <<EOF
+{"model": {"id": "claude-opus-5-5", "display_name": "Opus"}, "workspace": {"current_dir": "$ROOT/app"},
+ "cost": {"total_cost_usd": 1.2345}, "context_window": {"context_window_size": 200000,
+ "current_usage": {"input_tokens": 38000, "cache_read_input_tokens": 0, "cache_creation_input_tokens": 0}},
+ "rate_limits": {"five_hour": {"used_percentage": 12}, "seven_day": {"used_percentage": 40}}}
+EOF
+t nx top --once </dev/null
+check "  with CLAUDE_CODE_AUTO_COMPACT_WINDOW: that window, in top too" 'rc 0 && out_re "^$PC +billing +Opus 5\.5 +38k/150k +12% "'
+docker exec "agent-$PC" sh -c 'mkdir -p /tmp/acw/.claude && printf "%s" "{\"modelSettings\": {\"claude-opus-5-5\": {\"autoCompactWindow\": 120000}}}" > /tmp/acw/.claude/settings.json'
+OUT="$(docker exec -i -e HOME=/tmp/acw "agent-$PC" bash /etc/claude-code/statusline/statusline.sh <<EOF | sed 's/\x1b\[[0-9;]*m//g'
+{"model": {"id": "claude-opus-5-5[1m]", "display_name": "Opus"}, "workspace": {"current_dir": "$ROOT/app"},
+ "context_window": {"context_window_size": 1000000, "current_usage": {"input_tokens": 38000}}}
+EOF
+)" RC=0 ERR=""
+check "  with /autocompact's setting for the model: that window" 'out_has "Ctx 38k/120k"'
 check "  a grok persona: state, CPU, memory; no grok running, statusline off" \
       'out_re "^$PN +(starting|healthy|running) +[0-9.]+% +[0-9.]+[kKMG]i?B +no grok running, statusline off$"'
 # A pane started as grok in the grok persona, and one status line draw in it, with the payload grok
