@@ -212,10 +212,18 @@
     | default = "grok-4.7"
     | default_reasoning_effort = "xhigh"
     | 
+    | # Claude Code's files, in a project's .claude/ and in ~/.claude, are for the Claude personas: grok reads none
+    | # it has a switch for (CLAUDE.md and rules in .claude, skills and commands, hooks, ~/.claude.json's MCP
+    | # servers). Grok 1.0.67 has none for the rest, so it still reads the permissions in .claude/settings.json and
+    | # settings.local.json, the subagents in .claude/agents and the plugins in .claude/plugins; and a top-level
+    | # CLAUDE.md, whatever these say. `grok inspect` in a persona shows what it took.
     | [compat.claude]
     | rules = false
     | skills = false
     | agents = false
+    | mcps = false
+    | hooks = false
+    | sessions = false
     | 
     | [tools]
     | respect_gitignore = false
