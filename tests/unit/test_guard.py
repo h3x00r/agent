@@ -495,11 +495,12 @@ class Policy(_Rig):
                 ("/v1.56/containers/create", b'{"Image":"x","Env":["X=caf\xe9"]}', "isn't UTF-8"),
                 ("/v1.56/volumes/create", b'{"Name":"v"}}', "more after its JSON"),
                 ("/v1.56/containers/create", b'{"Image":"x"} {"Labels":{}}', "more after its JSON"),
-                ("/v1.56/containers/create", b'{"Image":"x","Env":' + b"[" * 5000 + b"]" * 5000 + b"}",
+                # deeper than any Python reads (3.11 about 1000 levels, 3.12 on about as deep as Go's 10000)
+                ("/v1.56/containers/create", b'{"Image":"x","Env":' + b"[" * 100000 + b"]" * 100000 + b"}",
                  "nested deeper")):
             self.fake.got = []
             code, _, _, answer = self.ask(_req("POST", target, body))
-            self.assertEqual(code, 400, body)
+            self.assertEqual(code, 400, body[:80])
             msg = json.loads(answer.decode())["message"]
             self.assertTrue(msg.startswith("nexus guard: a request body "), msg)
             self.assertIn(words, msg)

@@ -108,10 +108,13 @@ COPY --chmod=0755 image/docker-guard.py /usr/local/libexec/nexus/docker-guard
 COPY --chmod=0755 image/docker-compose-persona.py /usr/local/lib/docker/cli-plugins/docker-compose
 COPY --chmod=0755 image/nexus-apm /usr/local/bin/nexus-apm
 COPY --chmod=0755 image/glab-credential /usr/local/libexec/nexus/glab-credential
-# The shim works with the compose just installed: its probe's flags are still taken (else every persona's projects
-# would go unprefixed, silently).
-RUN d="$(mktemp -d)" && mkdir "$d/nxprobe" && printf 'services: {s: {image: x}}\n' > "$d/nxprobe/compose.yaml" \
- && AGENT_PERSONA=p docker compose -f "$d/nxprobe/compose.yaml" config --format json > "$d/out" \
+# The shim works with the compose just installed: its probe's flags are still taken, and a missing env_file or an
+# undefined network still don't fail the probe (Compose 2.x fails it on the first); else projects go unprefixed,
+# silently.
+RUN d="$(mktemp -d)" && mkdir "$d/nxprobe" \
+ && printf 'services: {s: {image: x, env_file: missing.env, networks: [nope]}}\n' > "$d/nxprobe/compose.yaml" \
+ && AGENT_PERSONA=p docker compose -f "$d/nxprobe/compose.yaml" config --format json --no-env-resolution \
+      --no-consistency > "$d/out" \
  && grep -qF '"name": "p-nxprobe"' "$d/out" \
  && rm -rf "$d"
 # Testcontainers bind-mounts the socket into its Ryuk container by path, and that path is looked up on the VM,

@@ -458,7 +458,8 @@ which name it would pick (from `.env`, `name:`, `-f`, the directory, as compose 
 to ask.
 - It asks with `docker compose config --no-env-resolution --no-consistency`. A compose that refuses those flags
   would run every project unprefixed, without a word; the unit tests (`tests/unit/test_compose_shim.py`) fail on
-  such a compose rather than skip.
+  such a compose rather than skip. Compose 2.x takes them but still fails on a service's missing `env_file`, so such
+  a project runs unprefixed there; the image's build checks that its Compose (5 or later) doesn't.
 - A remote `include:` or `-f oci://…` is fetched twice a command, once to ask: an unreachable one costs compose's
   own timeout twice (about 30 s each) before its error.
 - When a script stops `docker compose` with a signal and there is no terminal, the docker CLI closes its plugin

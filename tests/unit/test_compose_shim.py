@@ -31,6 +31,19 @@ P = "nxwp"
 PLUGIN = {"DOCKER_CLI_PLUGIN_ORIGINAL_CLI_COMMAND": "docker", "DOCKER_CLI_PLUGIN_SOCKET": "@docker_cli_0123"}
 REAL_OK = os.access(shim.REAL, os.X_OK)
 
+
+def compose_major():
+    """The major version of the Docker Compose at shim.REAL; 0 when it doesn't say."""
+    try:
+        out = subprocess.run([shim.REAL, "version", "--short"], stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                             stderr=subprocess.DEVNULL, timeout=60).stdout.decode()
+        return int(out.strip().lstrip("v").split(".")[0])
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return 0
+
+
+COMPOSE_MAJOR = compose_major() if REAL_OK else 0
+
 # A stand-in for the real plugin: it logs each call (a line of JSON to $NXW_FAKE_LOG), answers the probe with
 # {"name": $NXW_FAKE_NAME} (or $NXW_FAKE_OUT, exit $NXW_FAKE_RC, after $NXW_FAKE_SLEEP s) and noise on stderr, and
 # anything else with "compose ran" and exit $NXW_FAKE_EXIT.
@@ -543,16 +556,27 @@ class Real(unittest.TestCase):
         self.write("already/compose.yaml", "name: nxwp-already\n" + COMPOSE)
         self.assertEqual(self.name([], "already"), "nxwp-already")
 
-    def test_the_probe_flags(self):
-        # A missing env_file and an undefined network fail plain `config`, not the probe; `name:` is interpolated.
+    def lax(self, line):
+        """A project whose service has LINE, which fails plain `config`: (rc of that, the name the probe says)."""
         path = self.write("lax/compose.yaml", "name: nxw-${NXW_SUFFIX:-dflt}\nservices:\n  s:\n"
-                                              "    image: busybox:1.36.1-musl\n    env_file: missing.env\n"
-                                              "    networks: [nope]\n")
+                                              "    image: busybox:1.36.1-musl\n    %s\n" % line)
         env = self.env(NXW_SUFFIX="abc")
         plain = subprocess.run([shim.REAL, "-f", path, "config", "--format", "json"], env=env,
                                stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        self.assertNotEqual(plain.returncode, 0)
-        self.assertEqual(shim.probe(shim.REAL, ["-f", path], env), "nxw-abc")
+        return plain.returncode, shim.probe(shim.REAL, ["-f", path], env)
+
+    def test_the_probe_flags(self):
+        # An undefined network fails plain `config`, not the probe; `name:` is interpolated.
+        rc, name = self.lax("networks: [nope]")
+        self.assertNotEqual(rc, 0)
+        self.assertEqual(name, "nxw-abc")
+
+    @unittest.skipUnless(COMPOSE_MAJOR >= 5, "Compose %d.x reads a service's env_file in the probe too, as 5 doesn't "
+                         "(the image's Compose is checked at its build)" % COMPOSE_MAJOR)
+    def test_a_missing_env_file(self):
+        rc, name = self.lax("env_file: missing.env")
+        self.assertNotEqual(rc, 0)
+        self.assertEqual(name, "nxw-abc")
 
     @unittest.skipUnless(shutil.which("docker"), "no docker CLI")
     def test_through_the_docker_cli(self):

@@ -63,8 +63,10 @@ Pitfalls (each pinned where named):
   listens on it once exec'd. While probing the shim does: closed, it kills the probe and exits 130, nothing run
   (test_compose_shim.Run.test_a_closed_plugin_socket_stops_it_before_compose,
   test_compose_shim.Run.test_an_open_plugin_socket_changes_nothing)
-- --no-env-resolution and --no-consistency, so a missing env_file or an undefined network don't fail the probe; no
-  --no-interpolate, which gets `name: x-${Y}` wrong (test_compose_shim.Real.test_the_probe_flags)
+- --no-env-resolution and --no-consistency, so an undefined network doesn't fail the probe, nor a missing env_file
+  from Compose 5 on (2.x still reads it, and that project runs unprefixed: the image's build checks its Compose); no
+  --no-interpolate, which gets `name: x-${Y}` wrong (test_compose_shim.Real.test_the_probe_flags,
+  test_compose_shim.Real.test_a_missing_env_file)
 - never twice: a name that is the persona or starts with `<persona>-` stays; `<persona>x` doesn't count
   (test_compose_shim.Prefix.test_never_twice, test_compose_shim.Real.test_already_prefixed_stays)
 - a probe that fails, hangs or says nothing usable runs the command unprefixed, quietly (compose's own error, if
@@ -77,6 +79,8 @@ Pitfalls (each pinned where named):
   one behind "unknown command: docker compose"; the command then says what is wrong
   (test_compose_shim.Run.test_it_refuses_to_run_itself, test_compose_shim.Run.test_a_missing_compose_is_one_line)
 - nothing imported on the way through (test_compose_shim.Run.test_passing_through_imports_nothing)
+- stderr flushed before the exec: Python 3.8 buffers a redirected stderr in blocks, and the exec would drop the
+  piped-file line with the buffer, as on CI's 3.8 (test_compose_shim.Run.test_a_piped_file_runs_as_asked_and_says_so)
 """
 import os
 import stat
@@ -313,6 +317,7 @@ def main():
         env = plan(real, args, env)
     except KeyboardInterrupt:                                          # ^C during the probe
         sys.exit(130)
+    sys.stderr.flush()                                                 # the exec drops what Python still holds
     try:
         os.execve(real, [real] + args, env)
     except OSError as e:
