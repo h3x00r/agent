@@ -266,3 +266,72 @@ which would send the old token to the new address:
 - **all:on with no collector** gives the whole command, with --telemetry-token-file FILE --telemetry-ca FILE|none
   (config/telemetry-details-flags).
 - **--help** says so under --telemetry-endpoint, accepted in the four cases that show it.
+
+## Changed on purpose: the docker work (scratch dir, Nexus notes, port ranges)
+Each persona gets a scratch dir in the shared scratch root (NEXUS_SCRATCH_ROOT, else /srv/nexus-scratch), the Nexus
+notes (personas/notes.md filled in for it, mounted as its CLI's managed CLAUDE.md or a grok rule) and a port range
+(personas.json "ports", NEXUS_PORTS in its service); the image gets the Docker guard, a compose shim and nexus-apm
+(image/). 311 cases were recorded again, accepted@docker-work, after a script took each kind of change below out of
+the new output and found the rest equal to the old byte for byte; each meta.json names the kinds its case has. 26
+cases didn't change.
+- **The sandbox** has its scratch root, <S>/scratch, there already, as NEXUS_SCRATCH_ROOT, so no case reaches the
+  VM's /srv (nor sudo for it). nexus gives compose the root it resolved, and fake.py logs it: every docker call's env
+  has it (292 cases).
+- **nexus's preflight** (a start, an attach, a headless run, an upgrade) makes the persona's dir in it,
+  `+ scratch/<name>  d 755` (126 cases). A root that isn't there is refused with the sudo command that makes it (an
+  attach or a headless run to a running persona only warns: see the review's fixes below). At a running persona nexus reads its mounts once more (55 cases gain that inspect)
+  and warns when its container was made without its scratch dir or the notes; the Sandbox's containers have both,
+  unless made with nexus_mounts=False.
+- **compose.personas.yml**: each service's NEXUS_SCRATCH and NEXUS_PORTS env, its scratch bind and its notes mount
+  (70 cases). **personas.json**: "ports" last in each persona (71 cases), so the four cases that grep it show a comma
+  on the line before it, and config/personas-json-refused's JSON error moves (line 11, char 192). Every persona's
+  **personas/<name>.notes.md** (49 cases), and the grok configs' **[paths]** table (27 cases; config/telemetry-flags'
+  grep of the tables shows it).
+- **What the tools say**: the published-ports line after --list, the summaries and the menu's overview (92 cases);
+  --ports and a sentence on the notes and the scratch root in the usage (4 cases); --remove's note names the notes file
+  (9 cases).
+- **Templates**: .env.example's NEXUS_SCRATCH_ROOT and DOCKER_GUARD lines (76 cases), the persona env templates'
+  GITLAB_TOKEN and GITLAB_HOST lines (44 cases), and image/ in the four checkout listings (config/m4-menu-unmigrated,
+  m4-migrate-check-fails, m4-migrate-readonly, m4-zero-not-migrating-note).
+- **One by one**:
+  - config/cli-remove: `--remove c1 --persona c1` is a new persona, which takes the block after the highest in use,
+    so run 2 now says "c1: changed; `nexus c1 restart` applies it" (its range moved).
+  - config/m4-configsh-era-grok: diff's line numbers move by the nine compose lines above g1's managed config.
+  - nexus/edge-upgrade-personas-bytes: its two compose backups aren't UTF-8, so tree.txt has their hashes: each new one
+    is the old one with the new lines taken out.
+  - nexus/m4-json-by-hand: its hand-written personas.json has the ranges nexus --config gave (without them its compose
+    file would be out of step, which isn't what it tests).
+- **golden.py**: a text file is shown whole up to 64 KiB (was 16 KiB), so config/cli-colours' compose file (ten
+  personas, 22 KB now) stays readable instead of becoming a hash; no other case had a file over 16 KiB. The ids in
+  nexus --config's `sudo install -d -o UID -g GID` are normalised to <UID> and <GID>.
+- **New cases** (recorded from the Python, nothing to compare): nexus/scratch-start, nexus/scratch-root-missing,
+  nexus/scratch-made-without, nexus/notes-missing; config/scratch-root-made, config/scratch-root-sudo,
+  config/vm-settings-refused, config/notes-template, config/notes-grok-paths, config/ports-flags,
+  config/ports-json-by-hand, config/ports-older-checkout, config/ports-older-checkout-menu, config/remove-scratch-notes.
+  A range takes no leading zeros (020000-020099 is refused, by --ports and in personas.json alike).
+- **The review's fixes** (14 cases recorded again, accepted "docker-work fix: …", each diff checked by script to hold
+  only these lines):
+  - nexus/scratch-root-missing: the scratch root missing at an attach or a headless run to a running persona is a
+    warning (the user's call: its container has its mount), and on; a start or a restart of it, and an attach that
+    would start it, still refused (four runs added). The messages add the way without sudo (NEXUS_SCRATCH_ROOT at a
+    directory of your own); a file in the root's place gets "move it aside", no install -d (which would fail); a root
+    you can't write in gets the command that makes it yours. The running check is the one inspect nexus made later.
+  - config/scratch-root-sudo: the sudo-failure note adds the way without sudo; two runs added (a file in the root's
+    place, a root there you can't write in: a note each, no sudo).
+  - config/vm-settings-refused: runs 8 and 10 change DOCKER_GUARD, so each persona's notes say the guard the other way
+    now: a restart note each, as a container's guard is the one it was made with.
+  - --remove (config/cli-remove, ask-menu-remove, cli-colours, cli-ddev-missing, cli-settings-json-broken,
+    cli-vm-settings, migrate-remove-all, remove-scratch-notes, scratch-root-made, telemetry-flags,
+    telemetry-hand-edits): a line naming what the persona made with docker (its label's filter); the scratch dir's
+    removal with sudo (a container may have left root's files in it).
+- **The docs' fixes** (102 cases recorded again, accepted "docker-work docs: …", the earlier provenance kept after
+  "before that:"; a script checked that every changed line is a line of the old or the new template, and that the
+  cases changed are exactly those that hold one):
+  - personas/notes.md, rewritten (58 cases: the rendered personas/<name>.notes.md in tree.txt, and
+    config/vm-settings-refused's grep of its guard line): a project's fixed host port overridden with `!override` in
+    a git-excluded compose.override.yaml; the names that are global outside compose; labelling and clean-up by the
+    guard's state, anonymous volumes and images; how to see the guard's live state (`readlink`); other personas'
+    secrets; DOCKER_HOST's socket, which the VM hasn't got; ddev's shared router; one GitLab token for one host.
+  - .env.example's DOCKER_GUARD comment (78 cases): what the guard covers, and that a change takes nexus --config,
+    then the restarts.
+  - The persona env templates' GITLAB_TOKEN and GITLAB_HOST lines (46 cases): one token, one host.

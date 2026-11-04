@@ -11,6 +11,8 @@ As the bash launcher did:
 - The VM's projects root: PROJECTS_ROOT in your shell, else in .env, else ~/projects (an error without
   HOME); a persona with a root= of its own uses that. Compose gets the persona's per call; this process
   keeps the shell's.
+- The shared scratch root (domain/scratch.py): NEXUS_SCRATCH_ROOT in your shell, else in .env, else
+  /srv/nexus-scratch; a persona's scratch dir is <root>/<name>. Compose gets it per call, as the projects root.
 - SSH_AUTH_SOCK: yours if it is a socket, else the first of the usual agent sockets, else "" (exported).
 - The personas: personas.json, read once and held to its rules (personas_store.load_json). A checkout
   still on compose.personas.yml's `# persona:` lines is told to run nexus --config --yes, which moves them;
@@ -51,6 +53,7 @@ from agentctl.adapters import compose_render, personas_store
 from agentctl.core import dotenv
 from agentctl.core.errors import NexusError
 from agentctl.core.shellcompat import logical, printf_q
+from agentctl.domain import scratch
 
 
 def die(msg):
@@ -93,6 +96,13 @@ class Context:
                 die("HOME isn't set, and there is no PROJECTS_ROOT in your shell or %s" % dot)
             self.vm_root = env["HOME"] + "/projects"
             self.vm_from = "the default: no PROJECTS_ROOT in your shell or %s" % dot
+        if env.get(scratch.VAR):    # .env read only when the shell has none, as for PROJECTS_ROOT
+            self.scratch_root, self.scratch_from = scratch.root(env[scratch.VAR], ""), "NEXUS_SCRATCH_ROOT in your shell"
+        else:
+            dot_scratch = dotenv.get(dot, scratch.VAR)
+            self.scratch_root = scratch.root("", dot_scratch)
+            self.scratch_from = "NEXUS_SCRATCH_ROOT in %s" % dot if dot_scratch else \
+                "the default: no NEXUS_SCRATCH_ROOT in your shell or %s" % dot
         if not is_socket(env.get("SSH_AUTH_SOCK", "")):
             uid = env["AGENT_UID"]
             rt = env.get("XDG_RUNTIME_DIR") or "/run/user/" + uid
@@ -203,8 +213,9 @@ class Persona:
                 % (name, " ".join(p.name for p in ps), ctx.agents_dir))
         self.name, self.container = name, rec.container
         self.flavour, self.context, self.ssh, self.own_root = rec.flavour, rec.context, rec.ssh, rec.root
-        self.permissions, self.telemetry = rec.permissions, rec.telemetry
+        self.permissions, self.telemetry, self.ports = rec.permissions, rec.telemetry, rec.ports
         self.root = rec.root or ctx.vm_root
         if self.root.endswith("/"):
             self.root = self.root[:-1]
         self.root_from = "" if rec.root else " (%s)" % ctx.vm_from
+        self.scratch = scratch.path(ctx.scratch_root, name)

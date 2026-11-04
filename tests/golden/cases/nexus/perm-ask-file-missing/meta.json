@@ -1,3 +1,3 @@
 {
-  "provenance": "accepted: perm M1: new, after review"
+  "provenance": "accepted: docker-work: nexus gives compose NEXUS_SCRATCH_ROOT, so every docker call's env has it (fake.py ENV_KEYS); nexus's preflight (a start, an attach, a headless run, an upgrade) makes the persona's scratch dir (+ scratch/<name>)"
 }

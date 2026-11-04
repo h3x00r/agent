@@ -1,0 +1,71 @@
+## run 1: config --yes  (personas/grok.toml with [paths] extra_rule_dirs = ["/home/dev/rules"])  [pipe]
+rc: 0
+--- stdout
+nexus --config: setting up <A>
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  g1                              grok     docker   yes        the VM's             your agent
+  c1                              claude   docker   yes        the VM's             your agent
+  published ports: g1 20000-20099, c1 20100-20199
+
+Start one from a project directory:  cd <P>/<project> && nexus g1
+g1: its grok settings changed; the next grok started in it reads them
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: warning: personas/grok.toml has a [paths] table of its own, so nexus --config adds none, and the grok personas don't read the Nexus notes: add "/etc/grok/rules" to its extra_rule_dirs
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
+## run 2: grep paths|rule personas/g1.grok.toml  [pipe, cwd a]
+rc: 0
+--- stdout
+# it has a switch for (CLAUDE.md and rules in .claude, skills and commands, hooks, ~/.claude.json's MCP
+rules = false
+[paths]
+extra_rule_dirs = ["/home/dev/rules"]
+--- stderr
+(empty)
+## run 3: config --yes  (its extra_rule_dirs lists '/etc/grok/rules' too)  [pipe]
+rc: 0
+--- stdout
+nexus --config: setting up <A>
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  g1                              grok     docker   yes        the VM's             your agent
+  c1                              claude   docker   yes        the VM's             your agent
+  published ports: g1 20000-20099, c1 20100-20199
+
+Start one from a project directory:  cd <P>/<project> && nexus g1
+g1: its grok settings changed; the next grok started in it reads them
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
+## run 4: config --yes  (personas/grok.toml as committed: the table nexus --config adds)  [pipe]
+rc: 0
+--- stdout
+nexus --config: setting up <A>
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  g1                              grok     docker   yes        the VM's             your agent
+  c1                              claude   docker   yes        the VM's             your agent
+  published ports: g1 20000-20099, c1 20100-20199
+
+Start one from a project directory:  cd <P>/<project> && nexus g1
+g1: its grok settings changed; the next grok started in it reads them
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
+## run 5: grep paths|rule personas/g1.grok.toml  [pipe, cwd a]
+rc: 0
+--- stdout
+# it has a switch for (CLAUDE.md and rules in .claude, skills and commands, hooks, ~/.claude.json's MCP
+rules = false
+# The Nexus notes, /etc/grok/rules/00-nexus.md: nexus --config adds this table.
+[paths]
+extra_rule_dirs = ["/etc/grok/rules"]
+--- stderr
+(empty)

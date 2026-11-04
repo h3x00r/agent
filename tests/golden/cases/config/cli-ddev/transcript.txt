@@ -9,6 +9,7 @@ Personas:
   NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
   d1                              claude   ddev     yes        the VM's             your agent
   c1                              claude   docker   yes        the VM's             your agent
+  published ports: d1 20000-20099, c1 20100-20199
 
 Start one from a project directory:  cd <P>/<project> && nexus d1
 ddev: run `mkcert -install` on this VM (it comes with ddev), then `nexus <persona> restart`, or https://*.ddev.site stays untrusted inside
@@ -30,6 +31,7 @@ Personas:
   NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
   d1                              claude   ddev     yes        the VM's             your agent
   c1                              claude   docker   yes        the VM's             your agent
+  published ports: d1 20000-20099, c1 20100-20199
 
 Start one from a project directory:  cd <P>/<project> && nexus d1
 Day-to-day use, upgrades and troubleshooting: runbook.md

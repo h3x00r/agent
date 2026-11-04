@@ -12,13 +12,19 @@
     |     build: { target: grok, args: { CONTEXT: docker } }
     |     container_name: agent-g1
     |     env_file: personas/g1.env
-    |     environment: { AGENT_PERSONA: "g1", AGENT_COLOUR: colour25 }
+    |     environment: { AGENT_PERSONA: "g1", AGENT_COLOUR: colour25, NEXUS_SCRATCH: "${NEXUS_SCRATCH_ROOT:-/srv/nexus-scratch}/g1", NEXUS_PORTS: "20000-20099" }
     |     labels: { agent.persona: "g1", agent.flavour: grok, agent.context: docker }
     |     volumes:
     |       - g1-home:/home/dev
+    |       # The shared scratch dir (NEXUS_SCRATCH), at the same path here as on the VM, so a container it starts can
+    |       # bind-mount files from it. nexus makes it before compose up; Docker mustn't (it would make it root's).
+    |       - { type: bind, source: "${NEXUS_SCRATCH_ROOT:-/srv/nexus-scratch}/g1", target: "${NEXUS_SCRATCH_ROOT:-/srv/nexus-scratch}/g1", bind: { create_host_path: false } }
     |       # grok's managed config, written by nexus --config: personas/grok.toml, then the statusline's
     |       # [ui.status_line] with the statusline on. A key in the persona's ~/.grok/config.toml wins.
     |       - { type: bind, source: ./personas/g1.grok.toml, target: /etc/grok/managed_config.toml, read_only: true, bind: { create_host_path: false } }
+    |       # The Nexus notes (personas/notes.md, filled in for it by nexus --config) as a rule grok reads in every
+    |       # session ([paths] in its managed config). Rewritten in place, so a new session reads a change.
+    |       - { type: bind, source: ./personas/g1.notes.md, target: /etc/grok/rules/00-nexus.md, read_only: true, bind: { create_host_path: false } }
     | 
     |   "g2":
     |     extends: { file: compose.yml, service: _agent }
@@ -27,13 +33,19 @@
     |     build: { target: grok, args: { CONTEXT: docker } }
     |     container_name: agent-g2
     |     env_file: personas/g2.env
-    |     environment: { AGENT_PERSONA: "g2", AGENT_COLOUR: colour28 }
+    |     environment: { AGENT_PERSONA: "g2", AGENT_COLOUR: colour28, NEXUS_SCRATCH: "${NEXUS_SCRATCH_ROOT:-/srv/nexus-scratch}/g2", NEXUS_PORTS: "20100-20199" }
     |     labels: { agent.persona: "g2", agent.flavour: grok, agent.context: docker }
     |     volumes:
     |       - g2-home:/home/dev
+    |       # The shared scratch dir (NEXUS_SCRATCH), at the same path here as on the VM, so a container it starts can
+    |       # bind-mount files from it. nexus makes it before compose up; Docker mustn't (it would make it root's).
+    |       - { type: bind, source: "${NEXUS_SCRATCH_ROOT:-/srv/nexus-scratch}/g2", target: "${NEXUS_SCRATCH_ROOT:-/srv/nexus-scratch}/g2", bind: { create_host_path: false } }
     |       # grok's managed config, written by nexus --config: personas/grok.toml, then the statusline's
     |       # [ui.status_line] with the statusline on. A key in the persona's ~/.grok/config.toml wins.
     |       - { type: bind, source: ./personas/g2.grok.toml, target: /etc/grok/managed_config.toml, read_only: true, bind: { create_host_path: false } }
+    |       # The Nexus notes (personas/notes.md, filled in for it by nexus --config) as a rule grok reads in every
+    |       # session ([paths] in its managed config). Rewritten in place, so a new session reads a change.
+    |       - { type: bind, source: ./personas/g2.notes.md, target: /etc/grok/rules/00-nexus.md, read_only: true, bind: { create_host_path: false } }
     | 
     | volumes:
     |   "g1-home":
@@ -46,13 +58,15 @@
     |       "flavour": "grok",
     |       "context": "docker",
     |       "colour": "colour25",
-    |       "statusline": false
+    |       "statusline": false,
+    |       "ports": "20000-20099"
     |     },
     |     "g2": {
     |       "flavour": "grok",
     |       "context": "docker",
     |       "colour": "colour28",
-    |       "statusline": false
+    |       "statusline": false,
+    |       "ports": "20100-20199"
     |     }
     |   }
     | }
@@ -64,13 +78,15 @@
     |       "flavour": "grok",
     |       "context": "docker",
     |       "colour": "colour25",
-    |       "statusline": true
+    |       "statusline": true,
+    |       "ports": "20000-20099"
     |     },
     |     "g2": {
     |       "flavour": "grok",
     |       "context": "docker",
     |       "colour": "colour28",
-    |       "statusline": false
+    |       "statusline": false,
+    |       "ports": "20100-20199"
     |     }
     |   }
     | }
@@ -124,6 +140,10 @@
     | [features]
     | subagent_model_inheritance = false
     | 
+    | 
+    | # The Nexus notes, /etc/grok/rules/00-nexus.md: nexus --config adds this table.
+    | [paths]
+    | extra_rule_dirs = ["/etc/grok/rules"]
 + a/personas/g2.grok.toml  f 600
     | # /etc/grok/managed_config.toml in grok persona g2, written by nexus --config from personas/grok.toml
     | # (grok settings for every grok persona here) and, with the statusline on, statusline/grok/settings.toml.
@@ -174,3 +194,7 @@
     | [features]
     | subagent_model_inheritance = false
     | 
+    | 
+    | # The Nexus notes, /etc/grok/rules/00-nexus.md: nexus --config adds this table.
+    | [paths]
+    | extra_rule_dirs = ["/etc/grok/rules"]

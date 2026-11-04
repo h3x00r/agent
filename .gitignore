@@ -13,6 +13,10 @@ personas/*.pem
 personas/*.pem.*
 personas/*.telemetry.json
 personas/*.telemetry.json.*
+# written by nexus --config: each persona's Nexus notes, from the template personas/notes.md (committed)
+personas/*.notes.md
+personas/*.notes.md.*
+!personas/notes.md
 # written by nexus --config: this VM's personas, and the compose file generated from them
 personas.json
 personas.json.*

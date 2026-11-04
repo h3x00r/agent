@@ -1,0 +1,74 @@
+~ a/.env  f 600 inode=same
+    | # /opt/agents/.env — per-VM settings. nexus --config writes it from this template (re-run it to change
+    | # them, or edit by hand); docker compose reads it automatically.
+    | # Identity (AGENT_UID/AGENT_GID/DOCKER_GID/SSH_AUTH_SOCK) and AGENT_CA_CERTS are derived at launch by
+    | # ./nexus; don't set them here.
+    | # A variable exported in your shell takes precedence over this file (a persona's own projects root beats both).
+    | # Keep comments on their own lines: compose's .env parser mis-reads a comment after an empty value.
+    | 
+    | # The VM's projects root: an absolute path, mounted at the identical path inside every persona that has no
+    | # root of its own (nexus --config asks per persona; it is kept as root= in compose.personas.yml).
+    | # Without it, ./nexus uses $HOME/projects of the VM user.
+    | PROJECTS_ROOT=<P>
+    | 
+    | # Where images come from. "local" = build on this VM (nexus <persona> build);
+    | # otherwise a registry you push the images to (e.g. registry.lan:5000) and `nexus <persona> pull`.
+    | REGISTRY=local
+    | # The tags default to the versions below, so a pinned image is tagged with its CLI's version.
+    | #CLAUDE_TAG=
+    | #GROK_TAG=
+    | 
+    | # Build pins. `nexus <persona> upgrade` sets CLAUDE_VERSION or GROK_VERSION to the newest release and
+    | # rebuilds. DDEV_VERSION only matters when building ddev-context images here; CLAUDE_VERSION and
+    | # GROK_VERSION are also the image tags (unless the *_TAG is set), so on a pulling VM they pick the tag
+    | # that is pulled and run.
+    | # Claude Code (Anthropic's native installer): an exact X.Y.Z, or a channel, latest | stable.
+    | # A pin is reproducible, and bumping it re-runs only the Claude installer stage. A
+    | # channel is resolved once and then cached: `nexus <persona> build --no-cache` to move to a newer
+    | # release. Pins below 2.1.118 ignore the image's lock on `claude update`. Current versions:
+    | #   curl -fsSL https://downloads.claude.ai/claude-code-releases/latest   (or …/stable)
+    | CLAUDE_VERSION=latest
+    | # Grok Build (xAI's installer): an exact X.Y.Z, or latest (the newest on its stable channel), cached once
+    | # built like a Claude channel. Current version:  curl -fsSL https://x.ai/cli/stable
+    | GROK_VERSION=latest
+    | # APM (Agent Package Manager, in both flavours), from PyPI's apm-cli: an exact X.Y.Z, or latest.
+    | # As with Claude, a pin bump re-runs only the APM stage and latest is cached once built. Current version:
+    | #   curl -fsSL https://pypi.org/pypi/apm-cli/json | jq -r .info.version
+    | APM_VERSION=latest
+    | # ddev context only: pin ddev to `ddev version` on this VM (nexus --config does; the leading v is optional),
+    | # or the router gets recreated on every switch.
+    | DDEV_VERSION=
+    | 
+    | # Per-container ceiling. Six parallel Claude sessions sit comfortably in this.
+    | # AGENT_CPUS must not exceed the VM's vCPU count (nproc), or the container won't start.
+    | AGENT_CPUS=3
+    | AGENT_MEMORY=8g
+    | 
+    | # The shared scratch root: each persona gets <root>/<name> ($NEXUS_SCRATCH inside it), at the identical path inside
+    | # and on the VM, for files a container it starts must mount. nexus --config creates the root (with sudo when its
+    | # parent isn't yours), ./nexus each persona's dir in it. Empty: /srv/nexus-scratch.
+    | #NEXUS_SCRATCH_ROOT=/srv/nexus-scratch
+    | # The Docker guard in every persona: on (the default), the containers, volumes and networks a persona creates are
+    | # labelled as its own, its prunes reach only those, and it can't stop or remove what isn't its own, nor remove a
+    | # persona image, another persona's, or one a container not its own uses; off, docker there reaches the VM's socket as
+    | # it is. A change: re-run nexus --config (it writes the guard's state into each persona's notes, and names the
+    | # personas to restart), then `nexus <persona> restart` for each.
+    | #DOCKER_GUARD=on
+    | 
+    | # Telemetry: OpenTelemetry from the personas that send it to one collector (nexus --config: telemetry in its
+    | # menu, or --telemetry-endpoint and the like). Empty: none. Its OTLP/HTTP address, e.g. https://collector.lan:4318;
+    | # its bearer token (this file is made private, mode 600, once it holds one); the CA its certificate is signed by,
+    | # as nexus --config copied it in (personas/telemetry-ca.pem; empty: a publicly trusted certificate). A path of
+    | # your own here is copied in at the next nexus --config. Which personas send is in personas.json.
+    | #TELEMETRY_ENDPOINT=
+    | #TELEMETRY_TOKEN=
+    | #TELEMETRY_CA=
+    | # on: every persona that sends telemetry also sends its tool details (the commands, file paths and other input its
+    | # tools ran with, which can hold secrets). Empty or off: only the personas marked "tool_details": true in
+    | # personas.json (none by default).
+    | #TELEMETRY_TOOL_DETAILS=
+    | # on: every persona that sends telemetry also sends its tool content (what its tools read, wrote and printed, such as
+    | # whole files and command output, which can hold secrets). Empty or off: only the personas marked "tool_content":
+    | # true in personas.json (none by default).
+    | #TELEMETRY_TOOL_CONTENT=
+    | DOCKER_GUARD=off

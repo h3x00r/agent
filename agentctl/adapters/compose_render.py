@@ -4,6 +4,11 @@ always written, under a header that says where they come from (personas.json).
 No YAML library: nexus renders it too and compares the bytes with the file (one edited by hand is out of
 step), the tests look for exact lines in it, and compose expands the ${…} in it, not this code.
 
+Every persona gets its shared scratch dir (domain/scratch.py: NEXUS_SCRATCH, and the dir at the same path inside)
+and the Nexus notes for its CLI (domain/notes.py), whatever its other settings; one with a port range, NEXUS_PORTS.
+service(p, …, older=True) is the service as nexus --config wrote it before those three (never written now: the
+restart notes tell a file from before them apart from one edited by hand).
+
 render(personas, managed=…, env_files=…, legacy=…, ca=…, tele_files=…): the whole file. managed: whether
 personas/claude.managed.json exists (its mount is left out otherwise); env_files: a name → env file path map
 for the staged check before a commit (personas/NAME.env otherwise), and tele_files the same for a grok persona's
@@ -17,8 +22,15 @@ Pitfalls (each pinned where named):
   config/cli-bad-ssh)
 - a persona that asks gets personas/claude.ask.json whether or not it is there: left out, it would bypass (and a
   start without it is refused) (test_adapters.Render.test_ask, golden nexus/perm-ask-file-missing)
+- the scratch dir as ${NEXUS_SCRATCH_ROOT:-…}, for compose to fill in, never the path itself: .env doesn't change
+  the file's bytes, so a root moved in .env doesn't put it out of step (test_adapters.Render.test_scratch_and_notes)
+- the scratch dir and the notes with create_host_path false: a start without them fails, rather than Docker making
+  a root-owned dir in their place (test_adapters.Render.test_scratch_and_notes)
+- NEXUS_PORTS only for a persona with a range; older=True leaves it out even then, with the scratch dir and the notes
+  (test_adapters.Render.test_ports)
 """
-from agentctl.domain import context, flavour
+from agentctl.domain import context, flavour, notes
+from agentctl.domain import scratch as scr
 from agentctl.domain import telemetry as tele
 
 HEADER = (
@@ -34,6 +46,26 @@ LEGACY = (
              "# config-tools to add, change or remove personas: nexus won't create a container from a file that\n"
              "# isn't what personas.json gives.\n"),
     ("written by nexus --config: personas/grok.toml", "written by config-tools: personas/grok.toml"),
+)
+
+SCRATCH = (
+    "      # The shared scratch dir (NEXUS_SCRATCH), at the same path here as on the VM, so a container it starts can\n"
+    "      # bind-mount files from it. nexus makes it before compose up; Docker mustn't (it would make it root's).\n"
+    "      - { type: bind, source: \"{dir}\", target: \"{dir}\", bind: { create_host_path: false } }\n"
+)
+
+NOTES_CLAUDE = (
+    "      # The Nexus notes (personas/notes.md, filled in for it by nexus --config) as Claude Code's managed\n"
+    "      # CLAUDE.md, read in every session. Rewritten in place, so a new session reads a change.\n"
+    "      - { type: bind, source: ./{notes}, target: " + notes.TARGETS["claude"] + ", read_only: true, "
+    "bind: { create_host_path: false } }\n"
+)
+
+NOTES_GROK = (
+    "      # The Nexus notes (personas/notes.md, filled in for it by nexus --config) as a rule grok reads in every\n"
+    "      # session ([paths] in its managed config). Rewritten in place, so a new session reads a change.\n"
+    "      - { type: bind, source: ./{notes}, target: " + notes.TARGETS["grok"] + ", read_only: true, "
+    "bind: { create_host_path: false } }\n"
 )
 
 MANAGED = (
@@ -112,9 +144,14 @@ OWN_KEY = (
 )
 
 
-def _service(p, env_file, managed, ca=False, tele_env=None):
+def _service(p, env_file, managed, ca=False, tele_env=None, older=False):
     fl, cx = flavour.get(p.flavour), context.get(p.context)
     more = ', SSH_AUTH_SOCK: ""' if p.ssh else ""
+    dir_ = scr.path(scr.COMPOSE, p.name)
+    if not older:
+        more += ', NEXUS_SCRATCH: "%s"' % dir_
+    if p.ports and not older:
+        more += ', NEXUS_PORTS: "%s"' % p.ports
     if p.telemetry and p.flavour == "grok":     # its second env file: the token header grok reads from the env
         env_file = "[%s, %s]" % (env_file, tele_env or tele.env_file(p.name))
     s = (
@@ -132,6 +169,8 @@ def _service(p, env_file, managed, ca=False, tele_env=None):
         "      - %(n)s-home:/home/dev\n"
     ) % {"n": p.name, "base": cx.base_service, "f": p.flavour, "c": p.context, "tag": fl.image_tag,
          "env": env_file, "col": p.colour, "more": more}
+    if not older:
+        s += SCRATCH.replace("{dir}", dir_)
     if p.flavour == "claude" and managed:
         s += MANAGED
     if p.flavour == "claude" and p.permissions == "ask":
@@ -142,6 +181,8 @@ def _service(p, env_file, managed, ca=False, tele_env=None):
         if p.statusline:
             s += GROK_STATUSLINE
         s += GROK_CONFIG.replace("{name}", p.name)
+    if not older:
+        s += (NOTES_CLAUDE if p.flavour == "claude" else NOTES_GROK).replace("{notes}", notes.file(p.name))
     if p.telemetry and p.flavour == "claude":
         s += TELEMETRY_CLAUDE.replace("{dropin}", tele.dropin_file(p.name))
     if p.telemetry and ca:
@@ -155,9 +196,10 @@ def _service(p, env_file, managed, ca=False, tele_env=None):
     return s
 
 
-def service(p, managed, ca=False):
-    """One persona's service, as render() writes it into the file."""
-    return _service(p, "personas/%s.env" % p.name, managed, ca)
+def service(p, managed, ca=False, older=False):
+    """One persona's service, as render() writes it into the file (OLDER: as it wrote it before the scratch dir, the
+    port range and the notes)."""
+    return _service(p, "personas/%s.env" % p.name, managed, ca, older=older)
 
 
 def render(personas, managed, env_files=None, legacy=False, ca=False, tele_files=None):

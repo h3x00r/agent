@@ -14,6 +14,7 @@ Personas
   c1                              claude   docker   yes        the VM's             your agent
   g1                              grok     docker   yes        the VM's             your agent
   sends telemetry to https://127.0.0.1:1: c1, g1
+  published ports: c1 20000-20099, g1 20100-20199
 
 What next?
   1) list      the shared settings and the personas, again
@@ -66,6 +67,7 @@ Personas
   g1                              grok     docker   yes        the VM's             your agent
   sends telemetry to https://127.0.0.1:1: c1, g1
   sends tool content too (what the tools read, wrote and printed, such as whole files, command output and web pages): c1, g1
+  published ports: c1 20000-20099, g1 20100-20199
 
 What next?
   1) list      the shared settings and the personas, again
@@ -128,6 +130,7 @@ Personas
   g1                              grok     docker   yes        the VM's             your agent
   sends telemetry to https://127.0.0.1:1: c1, g1
   sends tool content too (what the tools read, wrote and printed, such as whole files, command output and web pages): c1, g1
+  published ports: c1 20000-20099, g1 20100-20199
 
 What next?
   1) list      the shared settings and the personas, again
@@ -178,6 +181,7 @@ Personas
   sends telemetry to https://127.0.0.1:1: c1, g1
   sends tool details too (the commands, file paths and other input the tools ran with): c1, g1
   sends tool content too (what the tools read, wrote and printed, such as whole files, command output and web pages): c1, g1
+  published ports: c1 20000-20099, g1 20100-20199
 
 What next?
   1) list      the shared settings and the personas, again
@@ -232,6 +236,7 @@ Personas
   sends telemetry to https://127.0.0.1:1: c1, g1
   sends tool details too (the commands, file paths and other input the tools ran with): c1, g1
   sends tool content too (what the tools read, wrote and printed, such as whole files, command output and web pages): c1, g1
+  published ports: c1 20000-20099, g1 20100-20199
 
 What next?
   1) list      the shared settings and the personas, again
@@ -358,6 +363,7 @@ Personas
   sends telemetry to https://127.0.0.1:1: c1, g1, c2
   sends tool details too (the commands, file paths and other input the tools ran with): c1, g1, c2
   sends tool content too (what the tools read, wrote and printed, such as whole files, command output and web pages): c1, g1, c2
+  published ports: c1 20000-20099, g1 20100-20199, c2 20200-20299
 
 What next?
   1) list      the shared settings and the personas, again
@@ -436,6 +442,7 @@ Personas
   c2                              claude   docker   yes        the VM's             your agent
   sends telemetry to https://127.0.0.1:1: c1, g1, c2
   sends tool content too (what the tools read, wrote and printed, such as whole files, command output and web pages): c1, g1, c2
+  published ports: c1 20000-20099, g1 20100-20199, c2 20200-20299
 
 What next?
   1) list      the shared settings and the personas, again
@@ -486,6 +493,7 @@ Personas
   g1                              grok     docker   yes        the VM's             your agent
   c2                              claude   docker   yes        the VM's             your agent
   sends telemetry to https://127.0.0.1:1: c1, g1, c2
+  published ports: c1 20000-20099, g1 20100-20199, c2 20200-20299
 
 What next?
   1) list      the shared settings and the personas, again

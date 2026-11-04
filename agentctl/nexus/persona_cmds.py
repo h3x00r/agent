@@ -5,15 +5,18 @@ which decides which error wins:
      headless run's arguments): only for an attach or a headless run of a claude persona;
   1. the subcommand: ls, stop/logs/build/pull (compose, exec'd: no checks), start, restart, upgrade,
      headless, or an attach (the default: [SESSION] [-- CMD…]);
-  2. preflight: the projects root must be absolute and creatable; a ddev persona gets ~/.ddev and the
-     mkcert dir, and its CA if there is one; a persona with ssh= of its own gets no agent;
+  2. preflight: the projects root must be absolute and creatable; the shared scratch root must be there
+     (nexus --config makes it), and the persona's scratch dir in it is made (an attach or a headless run to a
+     running one only warns when it can't be: it has its mount already); a ddev persona gets ~/.ddev and
+     the mkcert dir, and its CA if there is one; a persona with ssh= of its own gets no agent;
   3. upgrade, if that was asked;
   4. a restart, or a persona that isn't running: the checks that keep Docker from making root-owned
-     files (its ssh key, the settings files its service mounts, its telemetry files and the collector's CA),
+     files (its ssh key, the settings files its service mounts, its notes, its telemetry files and the collector's CA),
      then that compose.personas.yml is what personas.json gives (a hand edit isn't used to create one), the
      ddev telemetry bundle written (the CA, then mkcert's), the warnings (no mkcert CA, an empty or stale
      ssh-agent), then compose up and the Claude defaults; a running one: the projects root it was created with,
-     if that isn't the persona's now, and a warning if compose.personas.yml is out of step;
+     if that isn't the persona's now, a warning for each thing its container was made without (the ask drop-in,
+     its scratch dir, the notes, telemetry), and one if compose.personas.yml is out of step;
   5. start stops here; otherwise where to start (domain.roots.place), then headless or the attach:
      `docker exec -it … tmux new-session -A`, which takes this process over. With one of the two words, a
      probe in the persona first (mode_env): the session's NEXUS_PERMISSIONS, which the image's claude
@@ -24,6 +27,14 @@ Pitfalls (each pinned where named):
 - stop, logs, build and pull: no checks, and an empty SSH_AUTH_SOCK is /dev/null for compose (golden
   nexus/edge-persona-mgmt-extra)
 - the projects root made as mkdir -p makes it, under a tight umask too (golden nexus/edge-persona-umask)
+- the scratch root there, or refused with the sudo command that makes it (nexus never runs sudo), or the other way
+  out (a root of your own); one that isn't a directory, with no install -d (it would fail); the persona's dir in it
+  made mode 755, under a tight umask too; never chmod-ed once there; a root you can't write in, said so, with the
+  command that makes it yours (test_nexus.Scratch.test_scratch_dir, golden nexus/scratch-root-missing, golden
+  nexus/edge-persona-umask)
+- the scratch root missing at an attach or a headless run to a running persona: a warning, and on (its container has
+  its mount); a start, a restart or an upgrade, and an attach to one that isn't running, still refused (golden
+  nexus/scratch-root-missing)
 - ~/.ddev and the mkcert dir both tried, then exit 1 with mkdir's own line, ‘…’ in a UTF-8 locale (golden
   nexus/edge-persona-ddev-home-file)
 - the defaults merge: 20 s, then 124 with what it printed (golden nexus/edge-persona-defaults-timeout, golden
@@ -34,8 +45,9 @@ Pitfalls (each pinned where named):
   nexus/edge-persona-session-newline, golden nexus/life-attach-names)
 - no TERM: infocmp is asked for dumb, as bash set it (golden nexus/life-attach-term)
 - before creating a container: the key, claude.managed.json, claude.ask.json for one that asks (there, and setting
-  a mode that asks), the grok.toml, then compose.personas.yml in step with personas.json (golden
-  nexus/edge-persona-refusal-order, golden nexus/life-legacy-claude-json, golden nexus/perm-ask-file-missing)
+  a mode that asks), the grok.toml, the notes, then compose.personas.yml in step with personas.json (golden
+  nexus/edge-persona-refusal-order, golden nexus/life-legacy-claude-json, golden nexus/perm-ask-file-missing, golden
+  nexus/notes-missing)
 - out of step at an attach to a running one: a warning, not a refusal (golden nexus/life-legacy-statusline)
 - one that asks, running in a container made before it did (no 16-ask.json mount): a warning, at a start and an
   attach (golden nexus/perm-ask-not-restarted)
@@ -49,11 +61,15 @@ Pitfalls (each pinned where named):
   makes it a root-owned directory; a ddev claude persona's bundle written at every start, so a later `mkcert
   -install` and a restart reach it; once the container is made, a telemetry file its service no longer names (a
   neutral drop-in left for the old container) removed (golden nexus/telemetry-start)
+- running in a container made without its scratch dir (or with another root's) or the notes: one warning naming
+  what it lacks, at a start, an attach and a headless run; none when its mounts can't be read
+  (test_nexus.Scratch.test_made_without, golden nexus/scratch-made-without)
 - telemetry, running in a container made before it changed: a warning at a start, an attach and a headless run, as
   for one that asks: a claude one by its drop-in's mount, and by what that drop-in holds there against the one in
   the checkout (tool details turned off, say: it would go on sending them), a grok one by its token header in the
   container's environment (golden nexus/telemetry-not-restarted)
 """
+import errno
 import os
 import shutil
 
@@ -62,6 +78,8 @@ from agentctl.adapters import telemetry as tele_io
 from agentctl.core import proc
 from agentctl.core.errors import Exit, NexusError
 from agentctl.core.shellcompat import bash_basename, mkdir_p, realpath_e, utf8_locale
+from agentctl.domain import notes as nts
+from agentctl.domain import scratch
 from agentctl.domain import telemetry as tele
 from agentctl.domain.roots import moved, place
 from agentctl.nexus import headless, ls, upgrade
@@ -76,6 +94,11 @@ ASK_TARGET = "/etc/claude-code/managed-settings.d/16-ask.json"
 
 def die(msg):
     raise NexusError(msg)
+
+
+class NoScratch(NexusError):
+    """The shared scratch root as it is on the VM keeps the persona's scratch dir from being made (not there, not a
+    directory, not writable): what an attach to a running persona only warns about."""
 
 
 def take_mode(args):
@@ -107,6 +130,7 @@ class Run:
     def compose(self, *args, env=None):
         e = dict(self.env if env is None else env)
         e["PROJECTS_ROOT"] = self.p.root
+        e[scratch.VAR] = self.ctx.scratch_root     # the root the scratch dir was made in, whatever .env says
         return self.ctx.compose_argv() + ["--profile", self.p.name] + list(args), e
 
     def mgmt(self, *args):
@@ -215,6 +239,17 @@ class Run:
             mkdir_p(p.root)
         except OSError:
             die("can't create the projects root %s (%s)" % (p.root, where))
+        running = None     # asked of Docker once, when it's needed here
+        try:
+            scratch_dir(self.ctx.scratch_root, p.name, self.ctx.scratch_from, a)
+        except NoScratch as e:
+            # The container a start, restart or upgrade makes would mount it; a running one has its mount already.
+            if start_only or restart or is_upgrade:
+                raise
+            running = docker.running(p.container)
+            if not running:
+                raise
+            self.out.warn("%s (%s runs on as it is; starting or restarting it is refused until then)" % (e.message, p.name))
         no_ca = False
         if p.context == "ddev":
             if "HOME" not in self.env:
@@ -249,7 +284,7 @@ class Run:
 
         # 4. (re)create, or look at the running one
         old = ""
-        if restart or not docker.running(p.container):
+        if restart or not (docker.running(p.container) if running is None else running):
             if key and not (os.path.isfile(key) and os.access(key, os.R_OK)):
                 die("%s's ssh key %s isn't there; nexus --config makes one (SSH: new), or points it at another, none or your "
                     "agent" % (p.name, key))
@@ -264,6 +299,8 @@ class Run:
                     die("%s/%s %s, and %s asks before running tools: %s" % (a, ASK_FILE, why, p.name, fix))
             if "./personas/%s.grok.toml," % p.name in text and not os.path.isfile(os.path.join(a, "personas", p.name + ".grok.toml")):
                 die("%s/personas/%s.grok.toml isn't there: re-run %s/nexus --config, which writes it" % (a, p.name, a))
+            if "./%s," % nts.file(p.name) in text and not os.path.isfile(os.path.join(a, nts.file(p.name))):
+                die("%s/%s isn't there: re-run %s/nexus --config, which writes it" % (a, nts.file(p.name), a))
             mine = service_text(text, p.name)
             for f in (tele.dropin_file(p.name), tele.env_file(p.name)):
                 if f in mine and not os.path.isfile(os.path.join(a, f)):
@@ -306,10 +343,12 @@ class Run:
             self.claude_defaults()
         else:
             old = ls.old_root(p)
-            if p.flavour == "claude" and p.permissions == "ask" and ASK_TARGET not in docker.mounts(p.container):
+            m = docker.mounts(p.container)
+            if p.flavour == "claude" and p.permissions == "ask" and ASK_TARGET not in m:
                 self.out.warn("%s asks before running tools now, but its container was made before that and doesn't: "
                               "`nexus %s restart` applies it (that ends its tmux sessions)" % (p.name, p.name))
-            self.tele_made_before()
+            self.made_without(m)
+            self.tele_made_before(m)
         if start_only:
             if old:
                 self.out.warn(moved(p.name, old, p.root + p.root_from))
@@ -335,14 +374,26 @@ class Run:
             return headless.Headless(self, pl.dir, args).run()
         return self.attach(pl, old, args)
 
-    def tele_made_before(self):
-        """A running container made before the persona's telemetry changed: said, with the restart that applies it. A
-        claude one sends while its container mounts the drop-in, as that drop-in was when the container was made (a new
-        one is written by a rename: other settings, tool details on or off); a grok one has the token header in its
-        environment (with no table in its managed config, which is rewritten in place, a grok stops sending at once)."""
+    def made_without(self, m):
+        """A running container (its mounts: M) made without its scratch dir, or with another root's (NEXUS_SCRATCH_ROOT
+        moved since), or without the Nexus notes (made before nexus gave them): said, with the restart that adds them.
+        No mounts known (it couldn't be inspected): nothing said."""
+        p = self.p
+        no_dir, no_notes = p.scratch not in m, nts.TARGETS[p.flavour] not in m
+        lacks = (["its scratch dir %s" % p.scratch] if no_dir else []) + (["the Nexus notes"] if no_notes else [])
+        if m and lacks:
+            self.out.warn("%s's container was made without %s: `nexus %s restart` adds %s (that ends its tmux sessions)"
+                          % (p.name, " and ".join(lacks), p.name, "them" if no_notes else "it"))
+
+    def tele_made_before(self, m):
+        """A running container (its mounts: M) made before the persona's telemetry changed: said, with the restart
+        that applies it. A claude one sends while its container mounts the drop-in, as that drop-in was when the
+        container was made (a new one is written by a rename: other settings, tool details on or off); a grok one has
+        the token header in its environment (with no table in its managed config, which is rewritten in place, a grok
+        stops sending at once)."""
         p, a = self.p, self.ctx.agents_dir
         if p.flavour == "claude" and (p.telemetry or os.path.isfile(os.path.join(a, tele.dropin_file(p.name)))):
-            made = tele.DROPIN_TARGET in docker.mounts(p.container)
+            made = tele.DROPIN_TARGET in m
         elif p.flavour == "grok" and p.telemetry:
             made = tele.GROK_HEADERS[0] in docker.env_keys(p.container)
         else:
@@ -398,6 +449,32 @@ class Run:
         proc.execvp(["docker", "exec", "-it", "-e", "TERM=" + term, "-w", wd, p.container,
                      "tmux", "new-session"] + ([] if perm else ["-A"]) + ["-s", session, "-c", wd]
                     + (["-e", "NEXUS_PERMISSIONS=" + perm] if perm else []) + cmd)
+
+
+def scratch_dir(root, name, where, a):
+    """NAME's scratch dir under the shared scratch ROOT (from WHERE), made if it isn't there, mode 755 whatever the
+    umask (a container that runs as another user goes through it); the root must be there already: nexus --config
+    makes it once, with sudo when it has to, and nexus never runs sudo. A: the checkout, for the messages. A root the
+    rules refuse: NexusError; one that is in the way as it is on the VM: NoScratch."""
+    if not scratch.root_ok(root):
+        die("the shared scratch root must be %s, not '%s' (%s)" % (scratch.RULE, root, where))
+    if os.path.lexists(root) and not os.path.isdir(root):     # a file, or a link to nothing: install -d would fail
+        raise NoScratch("the shared scratch root %s isn't a directory (%s): %s" % (root, where, scratch.NOT_DIR))
+    if not os.path.isdir(root):
+        raise NoScratch("the shared scratch root %s isn't there (%s): %s/nexus --config creates it, or run: %s; %s"
+                        % (root, where, a, scratch.install_cmd(root), scratch.ELSEWHERE))
+    d = scratch.path(root, name)
+    if not os.path.isdir(d):
+        try:
+            os.mkdir(d)
+            os.chmod(d, 0o755)
+        except OSError as e:
+            if e.errno in (errno.EACCES, errno.EPERM):
+                raise NoScratch("can't create %s's scratch dir %s (%s): you can't write in the shared scratch root %s "
+                                "(%s); make it yours: %s, %s"
+                                % (name, d, e.strerror, root, where, scratch.install_cmd(root), scratch.ELSEWHERE))
+            raise NoScratch("can't create %s's scratch dir %s (%s)" % (name, d, e.strerror))
+    return d
 
 
 def service_text(text, name):

@@ -8,6 +8,7 @@ nexus --config: setting up <A>
 Personas:
   NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
   c1                              grok     docker   yes        the VM's             your agent
+  published ports: c1 20000-20099
 
 Start one from a project directory:  cd <P>/<project> && nexus c1
 c1: changed; `nexus c1 restart` applies it (that ends its tmux sessions)
@@ -27,6 +28,7 @@ nexus --config: setting up <A>
 Personas:
   NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
   c1                              claude   docker   yes        the VM's             your agent
+  published ports: c1 20000-20099
 
 Start one from a project directory:  cd <P>/<project> && nexus c1
 c1: changed; `nexus c1 restart` applies it (that ends its tmux sessions)

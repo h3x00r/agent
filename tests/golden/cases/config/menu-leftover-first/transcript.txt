@@ -30,6 +30,7 @@ Shared by every persona
 Personas
   NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
   d1                              claude   docker   yes        the VM's             your agent
+  published ports: d1 20000-20099
   personas/o2.env is no persona's (one removed earlier?): add one named o2 to use it again
   personas/x1.env (a grok one) is no persona's (one removed earlier?): add one named x1 to use it again
 

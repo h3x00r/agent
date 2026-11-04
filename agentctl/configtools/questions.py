@@ -197,7 +197,8 @@ class Questions:
         perm = self.permissions(n, f, "bypass")
         tel = self.telemetry_for(n, False)
         det, con = (self.extra_for(x, n, tel, False) for x in tele.EXTRAS)
-        s.put(Persona(n, f, c, rules.next_colour(s.personas), sl, r, k, perm, tel, det, con))
+        s.put(Persona(n, f, c, rules.next_colour(s.personas), sl, r, k, perm, tel, det, con,
+                      rules.next_ports(s.personas)))
         return n
 
     def change(self, name):
@@ -210,7 +211,7 @@ class Questions:
         perm = self.permissions(name, f, p.permissions)
         tel = self.telemetry_for(name, p.telemetry)
         det, con = (self.extra_for(x, name, tel, getattr(p, x.field)) for x in tele.EXTRAS)
-        s.put(Persona(name, f, c, p.colour, sl, r, k, perm, tel, det, con))
+        s.put(Persona(name, f, c, p.colour, sl, r, k, perm, tel, det, con, p.ports))     # its range kept, not asked
 
     # --- telemetry: the collector, and who sends to it ---
     def telemetry(self):

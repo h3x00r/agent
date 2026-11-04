@@ -3,13 +3,13 @@ rc: 1
 --- stdout
 (empty)
 --- stderr
-config: <A>/personas.json isn't valid JSON (Expecting ',' delimiter: line 10 column 4 (char 162)): fix it, then run nexus --config again
+config: <A>/personas.json isn't valid JSON (Expecting ',' delimiter: line 11 column 4 (char 192)): fix it, then run nexus --config again
 ## run 2: nexus c1  (personas.json: cut short)  [pipe]
 rc: 1
 --- stdout
 (empty)
 --- stderr
-nexus: <A>/personas.json isn't valid JSON (Expecting ',' delimiter: line 10 column 4 (char 162)): fix it
+nexus: <A>/personas.json isn't valid JSON (Expecting ',' delimiter: line 11 column 4 (char 192)): fix it
 ## run 3: config --list  (personas.json: version 2)  [pipe]
 rc: 1
 --- stdout
@@ -75,5 +75,6 @@ rc: 0
 --- stdout
   NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
   c1                              claude   docker   yes        the VM's             your agent
+  published ports: c1 20000-20099
 --- stderr
 (empty)

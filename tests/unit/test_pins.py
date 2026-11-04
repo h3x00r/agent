@@ -31,25 +31,27 @@ def known():
 
 class Pins(unittest.TestCase):
     def test_every_pitfall_names_a_test_that_exists(self):
-        # Each module's docstring ends with its pitfalls, each naming what pins it (or "not pinned").
+        # Each module's docstring ends with its pitfalls, each naming what pins it (or "not pinned"): agentctl/, and
+        # the image's Python (the Docker guard, the compose shim).
         names, missing = known(), []
-        for top, _, files in os.walk(os.path.join(ROOT, "agentctl")):
-            for n in files:
-                if not n.endswith(".py"):
-                    continue
-                path = os.path.join(top, n)
-                with open(path) as f:
-                    doc = ast.get_docstring(ast.parse(f.read()), clean=False) or ""
-                if HEAD not in doc:
-                    continue
-                for item in re.sub(r"\n  ", " ", doc.split(HEAD, 1)[1]).split("\n- ")[1:]:
-                    m = re.search(r"\(([^()]*(?:\([^()]*\)[^()]*)*)\)$", item.strip())
-                    group = m.group(1) if m else ""
-                    pins = re.findall(PIN, group)
-                    if group != "not pinned" and (not pins or re.sub(PIN, "", group).strip(" ,")):
-                        missing.append("%s: no pin in %r" % (os.path.relpath(path, ROOT), item.strip()[:60]))
-                    # Every name the item gives, wherever in it: a pin in the middle counts too.
-                    missing += ["%s: %s" % (os.path.relpath(path, ROOT), p) for p in re.findall(PIN, item) if p not in names]
+        paths = [os.path.join(top, n) for top, _, files in os.walk(os.path.join(ROOT, "agentctl")) for n in files]
+        paths += [os.path.join(ROOT, "image", n) for n in sorted(os.listdir(os.path.join(ROOT, "image")))]
+        self.assertTrue(any(p.endswith(os.sep + "docker-guard.py") for p in paths))
+        for path in paths:
+            if not path.endswith(".py"):
+                continue
+            with open(path) as f:
+                doc = ast.get_docstring(ast.parse(f.read()), clean=False) or ""
+            if HEAD not in doc:
+                continue
+            for item in re.sub(r"\n  ", " ", doc.split(HEAD, 1)[1]).split("\n- ")[1:]:
+                m = re.search(r"\(([^()]*(?:\([^()]*\)[^()]*)*)\)$", item.strip())
+                group = m.group(1) if m else ""
+                pins = re.findall(PIN, group)
+                if group != "not pinned" and (not pins or re.sub(PIN, "", group).strip(" ,")):
+                    missing.append("%s: no pin in %r" % (os.path.relpath(path, ROOT), item.strip()[:60]))
+                # Every name the item gives, wherever in it: a pin in the middle counts too.
+                missing += ["%s: %s" % (os.path.relpath(path, ROOT), p) for p in re.findall(PIN, item) if p not in names]
         self.assertEqual(missing, [])
 
 

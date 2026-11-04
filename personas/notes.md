@@ -1,0 +1,100 @@
+# Nexus: how this environment works
+
+You are persona `{{persona}}` ({{cli}}), a container on a VM that other personas and people share. nexus --config
+wrote this note from personas/notes.md; the env vars below hold the live values if they ever differ from it.
+
+## Files a container must see
+- The Docker daemon is the VM's. Every bind-mount source (`docker run -v SRC:…`, a compose `volumes:` path) is
+  looked up on the VM, not in this container.
+- Shared with the VM at the same path, and writable by you:
+  - the projects root `{{projects_root}}` (`$PROJECTS_ROOT`);
+  - your scratch dir `{{scratch}}` (`$NEXUS_SCRATCH`): put throwaway files a container must mount here (test keys,
+    env files, probe copies, a TMPDIR for tests that start containers).
+- Not shared: `/tmp`, `$HOME` (`/home/dev`, a volume of this persona) and the rest of this container. A bind source
+  from there doesn't exist on the VM: Docker refuses it (`--mount`) or makes an empty root-owned dir there (`-v`).
+- Only those two dirs themselves are writable: their parent dirs exist here only as mount points, so a new folder
+  next to them can't be made. Make it inside one of them.
+- A container that writes into a bind mount as root leaves root-owned files you can't delete: run it with
+  `--user "$(id -u):$(id -g)"` (compose: `user:`) when it writes there.
+
+## Ports and the network
+- This persona uses the VM's network. A port a stack publishes on `127.0.0.1:PORT` is reachable here as
+  `localhost:PORT`: no `--network host` helper container and no port forwarding is needed.
+- Ports are shared by everyone on the VM. Yours are `{{ports}}` (`$NEXUS_PORTS`). Publish on 127.0.0.1 and either:
+  - let Docker pick a free port (`-p 127.0.0.1::80`, or `ports: ["127.0.0.1::80"]` in compose) and look it up with
+    `docker compose port <service> 80` or `docker port <container> 80`; or
+  - choose one in your range, through the project's own variable when it has one (`WEB_PORT=…`).
+  Don't publish a fixed common port (80, 3000, 5432, 8080…): another persona's copy of the stack may hold it. A
+  server you run here directly (`npm run dev`, vite) is on the VM's ports too: 127.0.0.1, a port in your range.
+- A compose file that publishes a fixed port with no variable for it: don't edit it. Put a `compose.override.yaml`
+  next to it (compose reads it when no `-f` is given; `.git/info/exclude` keeps it out of git), as below, then
+  `docker compose port web 80`. A plain `ports:` there adds to the project's, and the fixed port stays. Every
+  persona working in that dir reads that file and `.env`: a port of your range goes on the command line
+  (`WEB_PORT=20001 docker compose up -d`), never in a file there.
+  ```yaml
+  services:
+    web:
+      ports: !override ["127.0.0.1::80"]     # a port Docker picks
+      container_name: !reset null            # for a fixed container_name: compose's own, prefixed name again
+  ```
+
+## Names on the shared daemon
+- `docker compose` here prefixes the project name with `{{persona}}-`: project `shop` becomes `{{persona}}-shop`,
+  its containers `{{persona}}-shop-<service>-1`, its networks and volumes `{{persona}}-shop_…`. Two personas can
+  run the same project at once.
+- `-p NAME`, or `COMPOSE_PROJECT_NAME` exported in the shell, turn the prefix off (one in the project's `.env` or an
+  `--env-file` gets the prefix too): use them only to reach a stack on purpose. A Makefile or `.envrc` may export
+  `COMPOSE_PROJECT_NAME` unseen, and the stack then gets that bare name: when `echo $COMPOSE_PROJECT_NAME` (or the
+  Makefile) shows one, pass `-p {{persona}}-<project>`, or `make COMPOSE_PROJECT_NAME={{persona}}-<project> …`.
+- Outside compose nothing is prefixed, and names are global: `docker run --name` or `docker network create` of a
+  name someone has fails, and `-v NAME:…`, `--mount source=NAME` or `docker volume create NAME` of one gets that
+  volume, data and all (the guard refuses another persona's, not the user's). Start yours with `{{persona}}-`. A
+  fixed `container_name:`, or `name:` on a network or volume, in a compose file is global the same way: override it
+  in that git-excluded `compose.override.yaml`, not in the project's file.
+- ddev names its projects itself (`ddev-<site>`), without the prefix: keep site names distinct between personas.
+  Its router and ssh-agent serve every persona's and the user's ddev sites: stop only your own project (`ddev stop`
+  in its folder), never `ddev poweroff` or `ddev stop --all` unless the user asks.
+
+## Cleaning up
+- With the Docker guard on, every container, volume (anonymous ones too) and network you create is labelled
+  `nexus.persona={{persona}}`. Clean up only what is yours: `docker compose down -v` for your projects, or
+  `docker ps -a --filter label=nexus.persona={{persona}}` (likewise `volume ls`, `network ls`) and remove from that
+  list. With it off nothing is labelled: `docker compose down -v` for your projects, else only what you created, by
+  name. Either way prefer `docker run --rm`, `docker rm -v` and `down -v`: a container's anonymous volumes go with
+  it.
+- Images aren't labelled (a build or a pull can't be). Remove only what your projects built (`{{persona}}-…`), or
+  what you built or pulled yourself and no one else's container uses. Never `docker rmi -f $(docker images -q)`, nor
+  `docker compose down --rmi all` on a stack whose base images others use.
+- Never clean up the whole daemon (`docker system prune`, `docker rm -f $(docker ps -aq)`, `docker volume prune -a`):
+  other personas' stacks and data live there too.
+- The build cache is shared by everyone and Docker can't label it: don't prune it unless the user asks.
+  `docker builder prune` goes past the guard and empties everyone's.
+- The Docker guard is `{{guard}}` here, as nexus --config wrote this (`readlink /run/nexus/docker.sock` printing
+  `/var/run/docker.sock` means it is off now). When on, prunes reach only what is labelled yours, and it refuses
+  (`Error response from daemon: nexus guard: …`) to stop, remove or change a container, volume or network not
+  yours, to mount another persona's volume, to remove or re-tag a persona image, another persona's, or one a
+  container not yours uses, and `docker swarm` and plugins (use compose, not `docker stack`). A refusal means: leave
+  it, or ask the user. The raw socket `/var/run/docker.sock` is still mounted, so the guard stops accidents, not
+  you: don't go around it unless the user asks.
+- The persona containers (`agent-*`) hold their persona's tokens and API keys in their environment: never
+  `docker inspect`, `exec`, `commit` or `export` another persona's (the guard lets those through, and its secrets
+  would land in your session). To follow a container not yours: `docker logs -f`, not `docker attach` (Ctrl-C there
+  is refused; three end it).
+- `$DOCKER_HOST`'s socket is in this container only. A tool that mounts "the Docker socket" into the containers it
+  starts must be given `/var/run/docker.sock` (act: `--container-daemon-socket unix:///var/run/docker.sock`), else
+  `-v` makes an empty root-owned dir on the VM. Such a container, like any given that socket, goes round the guard.
+
+## Containers inside containers
+- Privileged sibling containers (Docker-in-Docker for end-to-end suites) are allowed. They are labelled like the
+  rest; keep their ports in your range, and remove them when done. A Docker daemon inside one resolves its own bind
+  paths, so mount the projects root or scratch into it at the same path.
+- When `docker info` lists a `sysbox-runc` runtime, prefer `--runtime=sysbox-runc` to `--privileged`.
+
+## Tools
+- Python: `python3 -m venv`, `uv`, `uvx` (`uvx --from tool==X.Y.Z tool …` runs a project's pinned version).
+- APM: `apm` is the image's version. `nexus-apm X.Y.Z …` runs the version a project pins. Never run
+  `apm self-update`: the image is the updater.
+- GitHub: `gh` (token `GH_TOKEN`). GitLab: `glab`, merge requests with `glab mr`, pipelines with `glab ci`. Its token
+  `GITLAB_TOKEN` is one host's, `GITLAB_HOST`'s (a self-managed GitLab), else gitlab.com's: git over https to another
+  host doesn't get it. Git over https to `GITLAB_HOST` needs, once:
+  `git config --global credential.https://<host>.helper /usr/local/libexec/nexus/glab-credential`.

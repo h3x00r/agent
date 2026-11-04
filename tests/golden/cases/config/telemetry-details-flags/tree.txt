@@ -44,6 +44,17 @@
     | AGENT_CPUS=3
     | AGENT_MEMORY=8g
     | 
+    | # The shared scratch root: each persona gets <root>/<name> ($NEXUS_SCRATCH inside it), at the identical path inside
+    | # and on the VM, for files a container it starts must mount. nexus --config creates the root (with sudo when its
+    | # parent isn't yours), ./nexus each persona's dir in it. Empty: /srv/nexus-scratch.
+    | #NEXUS_SCRATCH_ROOT=/srv/nexus-scratch
+    | # The Docker guard in every persona: on (the default), the containers, volumes and networks a persona creates are
+    | # labelled as its own, its prunes reach only those, and it can't stop or remove what isn't its own, nor remove a
+    | # persona image, another persona's, or one a container not its own uses; off, docker there reaches the VM's socket as
+    | # it is. A change: re-run nexus --config (it writes the guard's state into each persona's notes, and names the
+    | # personas to restart), then `nexus <persona> restart` for each.
+    | #DOCKER_GUARD=on
+    | 
     | # Telemetry: OpenTelemetry from the personas that send it to one collector (nexus --config: telemetry in its
     | # menu, or --telemetry-endpoint and the like). Empty: none. Its OTLP/HTTP address, e.g. https://collector.lan:4318;
     | # its bearer token (this file is made private, mode 600, once it holds one); the CA its certificate is signed by,
@@ -74,10 +85,13 @@
     |     build: { target: claude, args: { CONTEXT: docker } }
     |     container_name: agent-c1
     |     env_file: personas/c1.env
-    |     environment: { AGENT_PERSONA: "c1", AGENT_COLOUR: colour25 }
+    |     environment: { AGENT_PERSONA: "c1", AGENT_COLOUR: colour25, NEXUS_SCRATCH: "${NEXUS_SCRATCH_ROOT:-/srv/nexus-scratch}/c1", NEXUS_PORTS: "20000-20099" }
     |     labels: { agent.persona: "c1", agent.flavour: claude, agent.context: docker }
     |     volumes:
     |       - c1-home:/home/dev
+    |       # The shared scratch dir (NEXUS_SCRATCH), at the same path here as on the VM, so a container it starts can
+    |       # bind-mount files from it. nexus makes it before compose up; Docker mustn't (it would make it root's).
+    |       - { type: bind, source: "${NEXUS_SCRATCH_ROOT:-/srv/nexus-scratch}/c1", target: "${NEXUS_SCRATCH_ROOT:-/srv/nexus-scratch}/c1", bind: { create_host_path: false } }
     |       # The Claude Code settings that hold in every Claude persona, personas/claude.managed.json, as a
     |       # managed drop-in: they win over its own settings (the defaults in personas/claude.json don't: nexus
     |       # merges those into them). A single-file mount, so a change (a git pull too) needs a restart.
@@ -87,6 +101,9 @@
     |       # so a change to statusline/claude/settings.json needs `nexus <persona> restart`.
     |       - ./statusline/claude:/etc/claude-code/statusline:ro
     |       - ./statusline/claude/settings.json:/etc/claude-code/managed-settings.d/20-statusline.json:ro
+    |       # The Nexus notes (personas/notes.md, filled in for it by nexus --config) as Claude Code's managed
+    |       # CLAUDE.md, read in every session. Rewritten in place, so a new session reads a change.
+    |       - { type: bind, source: ./personas/c1.notes.md, target: /etc/claude-code/CLAUDE.md, read_only: true, bind: { create_host_path: false } }
     |       # Telemetry (nexus --config, telemetry): Claude Code's OpenTelemetry to the collector in .env, as a managed
     |       # drop-in nexus --config writes from it (it holds the token). A single-file mount: a change needs a restart.
     |       - { type: bind, source: ./personas/c1.telemetry.json, target: /etc/claude-code/managed-settings.d/50-telemetry.json, read_only: true, bind: { create_host_path: false } }
@@ -100,15 +117,21 @@
     |     build: { target: grok, args: { CONTEXT: docker } }
     |     container_name: agent-g1
     |     env_file: personas/g1.env
-    |     environment: { AGENT_PERSONA: "g1", AGENT_COLOUR: colour28 }
+    |     environment: { AGENT_PERSONA: "g1", AGENT_COLOUR: colour28, NEXUS_SCRATCH: "${NEXUS_SCRATCH_ROOT:-/srv/nexus-scratch}/g1", NEXUS_PORTS: "20100-20199" }
     |     labels: { agent.persona: "g1", agent.flavour: grok, agent.context: docker }
     |     volumes:
     |       - g1-home:/home/dev
+    |       # The shared scratch dir (NEXUS_SCRATCH), at the same path here as on the VM, so a container it starts can
+    |       # bind-mount files from it. nexus makes it before compose up; Docker mustn't (it would make it root's).
+    |       - { type: bind, source: "${NEXUS_SCRATCH_ROOT:-/srv/nexus-scratch}/g1", target: "${NEXUS_SCRATCH_ROOT:-/srv/nexus-scratch}/g1", bind: { create_host_path: false } }
     |       # grok's statusline: the script's directory, so edits and pulls show up live.
     |       - ./statusline/grok:/etc/grok/statusline:ro
     |       # grok's managed config, written by nexus --config: personas/grok.toml, then the statusline's
     |       # [ui.status_line] with the statusline on. A key in the persona's ~/.grok/config.toml wins.
     |       - { type: bind, source: ./personas/g1.grok.toml, target: /etc/grok/managed_config.toml, read_only: true, bind: { create_host_path: false } }
+    |       # The Nexus notes (personas/notes.md, filled in for it by nexus --config) as a rule grok reads in every
+    |       # session ([paths] in its managed config). Rewritten in place, so a new session reads a change.
+    |       - { type: bind, source: ./personas/g1.notes.md, target: /etc/grok/rules/00-nexus.md, read_only: true, bind: { create_host_path: false } }
     | 
     |   "c2":
     |     extends: { file: compose.yml, service: _agent }
@@ -117,10 +140,13 @@
     |     build: { target: claude, args: { CONTEXT: docker } }
     |     container_name: agent-c2
     |     env_file: personas/c2.env
-    |     environment: { AGENT_PERSONA: "c2", AGENT_COLOUR: colour90 }
+    |     environment: { AGENT_PERSONA: "c2", AGENT_COLOUR: colour90, NEXUS_SCRATCH: "${NEXUS_SCRATCH_ROOT:-/srv/nexus-scratch}/c2", NEXUS_PORTS: "20200-20299" }
     |     labels: { agent.persona: "c2", agent.flavour: claude, agent.context: docker }
     |     volumes:
     |       - c2-home:/home/dev
+    |       # The shared scratch dir (NEXUS_SCRATCH), at the same path here as on the VM, so a container it starts can
+    |       # bind-mount files from it. nexus makes it before compose up; Docker mustn't (it would make it root's).
+    |       - { type: bind, source: "${NEXUS_SCRATCH_ROOT:-/srv/nexus-scratch}/c2", target: "${NEXUS_SCRATCH_ROOT:-/srv/nexus-scratch}/c2", bind: { create_host_path: false } }
     |       # The Claude Code settings that hold in every Claude persona, personas/claude.managed.json, as a
     |       # managed drop-in: they win over its own settings (the defaults in personas/claude.json don't: nexus
     |       # merges those into them). A single-file mount, so a change (a git pull too) needs a restart.
@@ -130,6 +156,9 @@
     |       # so a change to statusline/claude/settings.json needs `nexus <persona> restart`.
     |       - ./statusline/claude:/etc/claude-code/statusline:ro
     |       - ./statusline/claude/settings.json:/etc/claude-code/managed-settings.d/20-statusline.json:ro
+    |       # The Nexus notes (personas/notes.md, filled in for it by nexus --config) as Claude Code's managed
+    |       # CLAUDE.md, read in every session. Rewritten in place, so a new session reads a change.
+    |       - { type: bind, source: ./personas/c2.notes.md, target: /etc/claude-code/CLAUDE.md, read_only: true, bind: { create_host_path: false } }
     | 
     | volumes:
     |   "c1-home":
@@ -144,19 +173,22 @@
     |       "context": "docker",
     |       "colour": "colour25",
     |       "statusline": true,
-    |       "telemetry": true
+    |       "telemetry": true,
+    |       "ports": "20000-20099"
     |     },
     |     "g1": {
     |       "flavour": "grok",
     |       "context": "docker",
     |       "colour": "colour28",
-    |       "statusline": true
+    |       "statusline": true,
+    |       "ports": "20100-20199"
     |     },
     |     "c2": {
     |       "flavour": "claude",
     |       "context": "docker",
     |       "colour": "colour90",
-    |       "statusline": true
+    |       "statusline": true,
+    |       "ports": "20200-20299"
     |     }
     |   }
     | }
@@ -221,4 +253,8 @@
     | [ui.status_line]
     | type = "command"
     | command = "/etc/grok/statusline/statusline.sh"
+    | 
+    | # The Nexus notes, /etc/grok/rules/00-nexus.md: nexus --config adds this table.
+    | [paths]
+    | extra_rule_dirs = ["/etc/grok/rules"]
 - a/personas/g1.telemetry.env

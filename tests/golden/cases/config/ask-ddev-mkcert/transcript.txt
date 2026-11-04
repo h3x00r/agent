@@ -36,6 +36,7 @@ Shared by every persona
 Personas
   NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
   d1                              claude   ddev     yes        the VM's             your agent
+  published ports: d1 20000-20099
 
 What next?
   1) list      the shared settings and the personas, again
@@ -84,6 +85,7 @@ Shared by every persona
 Personas
   NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
   d1                              claude   ddev     yes        the VM's             your agent
+  published ports: d1 20000-20099
 
 What next?
   1) list      the shared settings and the personas, again

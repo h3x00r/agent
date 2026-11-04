@@ -1,0 +1,3 @@
+{
+  "provenance": "accepted: docker-work: new: nexus and the shared scratch dir (made by the preflight; a root that isn't there, or that its rules refuse, refused with the command that makes it; the warning for a running container made without its scratch dir or the notes)"
+}

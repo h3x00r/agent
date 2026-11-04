@@ -11,6 +11,7 @@ Personas:
   c1                              claude   docker   yes        the VM's             your agent
   c2                              claude   docker   yes        the VM's             your agent
   g1                              grok     docker   yes        the VM's             your agent
+  published ports: c1 20000-20099, c2 20100-20199, g1 20200-20299
 
 Start one from a project directory:  cd <P>/<project> && nexus c1
 Day-to-day use, upgrades and troubleshooting: runbook.md
@@ -35,6 +36,7 @@ Personas:
   c1                              claude   docker   yes        the VM's             your agent
   c2                              claude   docker   yes        the VM's             your agent
   g1                              grok     docker   yes        the VM's             your agent
+  published ports: c1 20000-20099, c2 20100-20199, g1 20200-20299
 
 Start one from a project directory:  cd <P>/<project> && nexus c1
 Day-to-day use, upgrades and troubleshooting: runbook.md

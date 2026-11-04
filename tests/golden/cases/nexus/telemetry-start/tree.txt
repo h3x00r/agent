@@ -44,6 +44,17 @@
     | AGENT_CPUS=3
     | AGENT_MEMORY=8g
     | 
+    | # The shared scratch root: each persona gets <root>/<name> ($NEXUS_SCRATCH inside it), at the identical path inside
+    | # and on the VM, for files a container it starts must mount. nexus --config creates the root (with sudo when its
+    | # parent isn't yours), ./nexus each persona's dir in it. Empty: /srv/nexus-scratch.
+    | #NEXUS_SCRATCH_ROOT=/srv/nexus-scratch
+    | # The Docker guard in every persona: on (the default), the containers, volumes and networks a persona creates are
+    | # labelled as its own, its prunes reach only those, and it can't stop or remove what isn't its own, nor remove a
+    | # persona image, another persona's, or one a container not its own uses; off, docker there reaches the VM's socket as
+    | # it is. A change: re-run nexus --config (it writes the guard's state into each persona's notes, and names the
+    | # personas to restart), then `nexus <persona> restart` for each.
+    | #DOCKER_GUARD=on
+    | 
     | # Telemetry: OpenTelemetry from the personas that send it to one collector (nexus --config: telemetry in its
     | # menu, or --telemetry-endpoint and the like). Empty: none. Its OTLP/HTTP address, e.g. https://collector.lan:4318;
     | # its bearer token (this file is made private, mode 600, once it holds one); the CA its certificate is signed by,
@@ -187,3 +198,7 @@
 + home/.local/share/mkcert  d 755
 + home/.local/share/mkcert/rootCA.pem  f 644
     | fake mkcert CA
++ scratch/c1  d 755
++ scratch/d1  d 755
++ scratch/g1  d 755
++ scratch/n1  d 755

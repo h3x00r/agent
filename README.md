@@ -46,7 +46,9 @@ compose.personas.yml    their services, generated from personas.json by nexus --
 update.json             written by nexus --update: the commit the personas were brought to, and what it still
                         has to apply to them (gitignored)
 Dockerfile              targets claude | grok, build arg CONTEXT=docker | ddev; no project toolchains on purpose
-entrypoint.sh           keeps the tmux server alive, paints the persona into the status bar
+entrypoint.sh           keeps the tmux server alive, paints the persona into the status bar, starts the Docker guard
+image/                  copied into every image: docker-guard.py (the Docker guard), docker-compose-persona.py (the
+                        persona in front of compose project names), nexus-apm (APM at the version a project pins)
 claude-mode.sh          the image's `claude`: Claude Code (/usr/local/libexec/claude) in a session's permission mode,
                         if nexus gave it one (--skip-bypass-permissions | --bypass-permissions); else unchanged
 tmux.conf               session-per-project ergonomics
@@ -69,6 +71,9 @@ personas/claude.json    Claude Code defaults for every Claude persona, on every 
 personas/claude.managed.json  Claude Code settings that hold in every Claude persona (a managed drop-in)
 personas/claude.ask.json  the permission mode a Claude persona set to ask starts in (a managed drop-in after that one)
 personas/grok.toml      grok settings for every grok persona, on every VM (its managed config, with the statusline)
+personas/notes.md       the Nexus notes: what every persona's CLI is told about the place it runs in (the shared
+                        Docker daemon, paths, scratch dir, ports, names, the guard), filled in for each persona by
+                        nexus --config as personas/<name>.notes.md (gitignored)
 personas/*.telemetry.*  written by nexus --config for the personas that send telemetry, from .env (gitignored)
 ```
 
@@ -96,9 +101,13 @@ they are.
 - **Agents that keep running.** Sessions survive disconnects: detach, close the laptop, come back later.
 - **Native to your stack.** It uses the same Docker daemon, network and paths as the VM, so `ddev` and
   `docker compose` work inside exactly as outside. ddev personas share ddev's state and its local CA, so
-  `https://*.ddev.site` is trusted inside. No project toolchains in the image: the agent drives the
-  project's own containers, so it fits any stack.
-- **Upgrades on your terms.** Claude Code, Grok Build, APM and ddev versions are pinned and the built-in
+  `https://*.ddev.site` is trusted inside. No project toolchains in the image (python3 with venv and uv aside,
+  for a project's own Python tools): the agent drives the project's own containers, so it fits any stack.
+- **One Docker daemon, many personas.** Each persona's compose projects carry its name, it has ports and a
+  scratch dir of its own, and a guard keeps it from stopping or removing another persona's containers, volumes and
+  networks, mounting its volumes, or removing the images their containers run on
+  ([below](#one-docker-daemon-many-personas)).
+- **Upgrades on your terms.** Claude Code, Grok Build, APM, ddev, uv and glab versions are pinned and the built-in
   auto-updaters are off. `nexus <persona> upgrade` moves to a new release in one command, and logins survive it.
 - **Sensible limits.** SSH through your forwarded agent (your keys never enter a container), a key of the
   persona's own such as a deploy key, or none at all; no privilege escalation; CPU, memory and process
@@ -112,9 +121,9 @@ they are.
 ## Install on a VM
 
 Needs on the VM: Docker Engine with the compose plugin (your user in the `docker` group), git, Python 3.8 or
-newer (Ubuntu 20.04 has 3.8; nothing else to install), and an ssh-agent holding your key (`ssh-add -l`) for
-the personas that use it. For ddev-context personas also ddev from pkg.ddev.com (it provides `mkcert`). Step
-by step: [runbook.md](runbook.md).
+newer (Ubuntu 20.04 has 3.8; nothing else to install), an ssh-agent holding your key (`ssh-add -l`) for
+the personas that use it, and sudo once, for the shared scratch root `/srv/nexus-scratch`. For ddev-context
+personas also ddev from pkg.ddev.com (it provides `mkcert`). Step by step: [runbook.md](runbook.md).
 
 ```bash
 curl -fsSL https://nexus.light-and-dark.io/install.sh | bash   # clones to /opt/agents; then nexus --config asks
@@ -142,7 +151,10 @@ and offers `mkcert -install` for a ddev context. After that, and every time you 
 up and a menu: list, add, change or remove a persona, the shared settings, the launcher, the images. Each
 action is saved when it is done: `.env`, `personas/<name>.env` (mode 600), `personas.json` and the
 `compose.personas.yml` generated from it, all together and only once `docker compose config` accepts them.
-Each persona mounts the VM's projects root, or a root of its own; several personas can share one.
+Each persona mounts the VM's projects root, or a root of its own; several personas can share one. Each also
+gets a scratch dir in the shared scratch root, `/srv/nexus-scratch`, which `nexus --config` creates once, with
+sudo (it asks for your password; under `--yes` it runs `sudo -n`, which fails without passwordless sudo, and
+then prints the command instead).
 `nexus --config --help` lists flags that do it all without questions, e.g.
 `nexus --config --yes --persona claude-docker:claude:docker`.
 
@@ -172,6 +184,8 @@ enforced ([Settings for every persona](#settings-for-every-persona)).
   is a volume seeded from the image once. `nexus … build` uses your `id -u`/`id -g`, so a VM user that
   isn't 1000 gets a matching local build, but a pulled image must have been built for the same uid
   (its `agent.uid` label). After a uid change, also remove the persona's volume (`agents_<persona>-home`).
+  The Docker guard starts whatever the uid (its directory, `/run/nexus`, is writable by every uid); it is the
+  home volume that needs the build's uid.
 - **ddev context: run ddev from inside the persona, not from the VM shell.** DDEV bakes username/uid
   into its web image; alternating between host user and container user forces a rebuild each time.
 - **ddev context: pin DDEV_VERSION to the VM's `ddev version`** (`nexus --config` does). The router and
@@ -190,7 +204,8 @@ enforced ([Settings for every persona](#settings-for-every-persona)).
   `claude install` would put a copy in the home volume that shadows the image's binary in login shells
   and never upgrades. If an older volume has one, run `rm -rf ~/.local/bin/claude ~/.local/share/claude`
   inside the persona. `claude doctor` still notes "~/.local/bin is not in your PATH"; that is expected.
-  APM's `apm self-update` is switched off in the image the same way.
+  APM's `apm self-update` is switched off in the image the same way, and in the versions `nexus-apm` installs;
+  glab doesn't look for updates, and uv's tarball build can't update itself.
 - **The ssh-agent socket path is fixed when the container is created.** A forwarded agent (`ssh -A`) dies
   with that login, so after reconnecting run `nexus <persona> restart`. After a VM reboot the persona
   stays stopped until the next `nexus <persona>` if that socket is gone; `nexus <persona> start` (or a
@@ -212,14 +227,32 @@ enforced ([Settings for every persona](#settings-for-every-persona)).
   For a person to approve Claude's tools first, set the persona to ask, or start the session with
   `--skip-bypass-permissions` ([Settings for every persona](#settings-for-every-persona)); it is the mode Claude
   starts in, not a lock.
+- **Bind mounts are looked up on the VM.** A container a persona starts runs on the VM's daemon, so only the
+  projects root and the persona's scratch dir (`$NEXUS_SCRATCH`) are at the same path inside and out. A `-v` from
+  the persona's `/tmp` or home finds nothing on the VM, and Docker makes an empty root-owned directory there
+  instead. The scratch root must be there: without it nexus starts and restarts no persona, and says the
+  `sudo install -d …` that makes it (runbook §1); a persona that runs already is still attached to, with a
+  warning.
+- **Ports and names are shared by every persona.** Publish on 127.0.0.1, on a port Docker picks or one in the
+  persona's range (`$NEXUS_PORTS`), never a fixed common one. Compose project names carry the persona; ddev's don't,
+  so keep ddev site names distinct between personas, and its router is every persona's (`ddev poweroff` in one
+  takes all their sites offline until the next `ddev start`). A fixed `container_name:` or host port in a project's compose file collides: a
+  git-excluded `compose.override.yaml` overrides it, and plain `docker run` and `docker volume` names are global
+  (runbook §4).
+- **The Docker guard stops accidents, not an agent that means it.** The raw socket stays mounted in every
+  persona, and a sibling given it goes round the guard. `docker builder prune` goes round it too (over gRPC) and
+  empties the build cache every persona shares: never run it in a persona unless you mean that. What a persona
+  made before the guard isn't labelled, so the guard refuses removing it from a persona: do that on the VM
+  (runbook §10). Nor does it hide what is inside another persona's container: `docker inspect` or `exec` on one
+  shows that persona's tokens and keys, which the notes tell agents not to do.
 
 ## Settings for every persona
 
 Three committed files hold the settings every persona of a flavour gets, on every VM that pulls the repo, and a
 fourth the permission mode of a Claude persona set to ask. Each is either **defaults**, which a persona's own
-settings override key by key, or **enforced**, which win over them. Nothing is copied by hand; the three that are
-mounted are read-only, and the one written into a persona's home goes in through a merge that keeps the persona's
-own choices.
+settings override key by key, or **enforced**, which win over them. A fifth, `personas/notes.md`, is what every
+persona's CLI is told about the place it runs in. Nothing is copied by hand; the four that are mounted are
+read-only, and the one written into a persona's home goes in through a merge that keeps the persona's own choices.
 
 | File | Kind | How it reaches each persona of its flavour | A change applies |
 |---|---|---|---|
@@ -227,6 +260,7 @@ own choices.
 | `personas/claude.managed.json` | enforced: `permissions.defaultMode`, `skipDangerousModePermissionPrompt`, `env` | compose mounts it read-only as the managed drop-in `/etc/claude-code/managed-settings.d/15-personas.json`, which outranks every other layer but a later drop-in (`16-ask.json`) | at `nexus <persona> restart`: a single-file mount keeps the version the container started with |
 | `personas/claude.ask.json` | enforced, for a Claude persona set to ask: `permissions.defaultMode` (`default` as committed: it asks before each tool that needs it; edit it for `acceptEdits`, `plan`, …) | compose mounts it read-only, in a persona set to ask only, as `/etc/claude-code/managed-settings.d/16-ask.json`: after `15-personas.json`, so its mode wins over `bypassPermissions` | at `nexus <persona> restart`, as above; until then a persona newly set to ask gets a warning at each start and attach |
 | `personas/grok.toml` | defaults: all of it | `nexus --config` writes it, with the statusline's `[ui.status_line]` where that's on, to `personas/<name>.grok.toml`; compose mounts that read-only as grok's `/etc/grok/managed_config.toml`, a layer below the persona's own `~/.grok/config.toml` | once `nexus --config` has re-run, at the next grok started in the persona: the file is rewritten in place, so no restart |
+| `personas/notes.md` | instructions, for both flavours: the Nexus notes (the shared Docker daemon, what a container can mount, the scratch dir, ports, names, cleaning up, the guard, the tools) | `nexus --config` fills it in for each persona (its name, CLI, projects root, scratch dir, ports, guard) as `personas/<name>.notes.md`; compose mounts that read-only as Claude Code's managed `/etc/claude-code/CLAUDE.md`, or as grok's rule `/etc/grok/rules/00-nexus.md` | once `nexus --config` has re-run, at the CLI's next session: the file is rewritten in place, so no restart |
 
 - The merge records in `~/.claude/.nexus-defaults.json` the keys nexus owns. A key the persona doesn't have gets the
   default; one nexus owns follows a changed default (also after Claude's own migrations, such as `opus` to
@@ -254,7 +288,45 @@ own choices.
   `claude --dangerously-skip-permissions` in a session that asks still bypasses. Unlike the persona's setting, the
   words need an image with `claude-mode.sh` (`nexus <persona> build`, with a registry `pull`, then `restart`); nexus
   refuses them on an older one.
+- The Nexus notes reach Claude Code first in every session, before the user's and the project's CLAUDE.md, and a
+  user can't exclude them. grok reads them as a user rule, through a `[paths]` table `nexus --config` adds to its
+  managed config; a persona's own `~/.grok/config.toml` with an `extra_rule_dirs` of its own replaces that, and
+  that persona's grok then doesn't read them. Edit `personas/notes.md` and re-run `nexus --config`; a placeholder it
+  doesn't know (`{{…}}`) is refused, and nothing is written ([The Nexus notes](runbook.md#the-nexus-notes)).
 - Details, and how to see what a persona got: runbook §5, [Settings for every persona](runbook.md#settings-for-every-persona).
+
+## One Docker daemon, many personas
+
+Every persona drives the VM's own Docker daemon, on the VM's network, next to the other personas and to you. So
+that their stacks can live side by side:
+
+- **A scratch dir of its own**, `$NEXUS_SCRATCH` (`/srv/nexus-scratch/<persona>`), at the same path inside the
+  persona as on the VM: with the projects root, the only place a container it starts can bind-mount files from.
+  nexus makes it at the persona's start; `nexus --config` makes the root once.
+- **A port range of its own**, `$NEXUS_PORTS` (a block of 100 from 20000, kept in `personas.json`): where its
+  stacks publish, unless Docker picks a port (`127.0.0.1::80`). An agreement the notes tell the CLI, not a lock.
+- **Its name on compose projects**: `docker compose` in a persona runs project `shop` as `<persona>-shop`, so two
+  personas can run the same project at once. `-p` and an exported `COMPOSE_PROJECT_NAME` are taken as given (one
+  in the project's `.env` gets the prefix); ddev, and programs that link compose as a library, name their projects
+  themselves.
+- **The Docker guard**: the persona's `DOCKER_HOST` is a socket in front of the daemon's. The containers, volumes
+  (anonymous ones too) and networks the persona creates are labelled `nexus.persona=<persona>`, and its prunes reach
+  only those. Stopping or removing a container, volume or network it didn't make, mounting another persona's
+  volume, removing a persona image, another persona's or one a container not the persona's runs on, and a
+  build-cache prune through the API (`docker system prune`'s last step) are refused, with
+  `Error response from daemon: nexus guard: …`. Images a persona builds or pulls aren't labelled, so they stay
+  removable while nothing else uses them; `docker builder prune` goes round the guard (over gRPC). It stops
+  accidents, not an agent that means it (the rules above).
+
+| Setting | Where | Default | A change applies |
+|---|---|---|---|
+| `NEXUS_SCRATCH_ROOT` | `.env` (by hand; `nexus --config` never writes it) | `/srv/nexus-scratch` | `nexus --config` makes the new root, then `nexus <persona> restart` for each persona |
+| `DOCKER_GUARD` | `.env` (by hand): `on` or `off` | `on` | re-run `nexus --config` (the notes say which), then `nexus <persona> restart` for each persona |
+| port range | `personas.json`, `"ports": "FROM-TO"`; `nexus --config --ports NAME:FROM-TO` | the block of 100 after the highest in use, from 20000, given by `nexus --config` | with `--ports`: `nexus <persona> restart`. After a hand edit of `personas.json`: `nexus --config --yes` first (it writes `compose.personas.yml` and the notes again; until then the restart is refused as out of step), then the restart |
+
+How to work with each, what the guard refuses and can't see, Docker in Docker (Sysbox, the safer runtime) and the
+Python and GitLab tools: runbook §4, [Working in each context](runbook.md#4-working-in-each-context). Stacks
+started before an update brought these: [runbook §10](runbook.md#stacks-started-before-the-prefix-and-the-guard).
 
 ## Telemetry (optional)
 
@@ -315,19 +387,22 @@ The persona names are examples; so is the split of projects roots in the first d
 
 ```text
 VM
-├── Docker daemon ◄─────────── /var/run/docker.sock, mounted into every persona
+├── Docker daemon ◄─────────── /var/run/docker.sock, mounted into every persona (each talks to it through its guard)
 │   ├── agent-claude-team   ─┐  persona containers: one per persona, long-lived
 │   ├── agent-claude-max     ├─ each has a tmux server, one session per project,
-│   ├── agent-grok          ─┘  its CLI, and apm, docker, ddev, gh, node
-│   └── project stacks (ddev web/db, compose services)  ◄── started from inside a persona
+│   ├── agent-grok          ─┘  its CLI, and apm, docker, ddev, gh, glab, node, uv
+│   └── project stacks (ddev web/db, compose services)  ◄── started from inside a persona, labelled as its own,
+│                                                           compose projects named <persona>-<project>
 │
 ├── projects roots, mounted at the same path inside:
 │   ├── /home/local/src    the VM's root: claude-max, grok
 │   └── /home/local/work   a root of its own: claude-team
+├── /srv/nexus-scratch     the shared scratch root: claude-max/, claude-team/, grok/, each mounted at the same
+│                          path in its own persona alone
 ├── ssh-agent              its socket is mounted into the personas that use it: your keys stay outside
 ├── ~/.ddev + mkcert CA    shared with ddev-context personas
 └── ~/agent                checkout: nexus, .env, personas.json, compose files,
-                           personas/ (*.env, *.key, grok.toml)
+                           personas/ (*.env, *.key, grok.toml, notes.md and each persona's <name>.notes.md)
 ```
 
 ### Inside one persona
@@ -338,10 +413,30 @@ agent-claude-max                        image: local/agent-claude-ddev:<version>
 │   ├── main        always there
 │   ├── billing  ◄── nexus claude-max -- claude, run in /home/local/src/billing
 │   └── api      ◄── nexus claude-max -- claude, run in /home/local/src/api
-├── /home/dev           volume agents_claude-max-home: login, settings, memory, history (kept across rebuilds)
-├── /home/local/src     its projects root (same path as on the VM)
-├── /ssh-agent          your agent (with a key of its own: /run/nexus/ssh-key and no agent; with none: neither)
-└── claude, apm, docker, ddev, gh   from the image, so a new image upgrades them
+├── /home/dev                      volume agents_claude-max-home: login, settings, memory, history (kept across rebuilds)
+├── /home/local/src                its projects root (same path as on the VM)
+├── /srv/nexus-scratch/claude-max  its scratch dir, $NEXUS_SCRATCH (same path as on the VM)
+├── /etc/claude-code/CLAUDE.md     the Nexus notes, read-only (a grok persona: /etc/grok/rules/00-nexus.md)
+├── /run/nexus/docker.sock         the Docker guard, $DOCKER_HOST, in front of the VM's /var/run/docker.sock
+├── /ssh-agent                     your agent (with a key of its own: /run/nexus/ssh-key and no agent; with none: neither)
+├── $NEXUS_PORTS                   its port range, e.g. 20100-20199
+└── claude, apm, nexus-apm, docker + compose shim, ddev, gh, glab, uv: from the image, so a new image upgrades them
+```
+
+### Docker from inside a persona
+
+```text
+inside claude-max, in /home/local/src/shop:  docker compose up -d
+  ├─ the compose shim: project shop ─► claude-max-shop      (-p or an exported COMPOSE_PROJECT_NAME: as given)
+  ├─ DOCKER_HOST=unix:///run/nexus/docker.sock: the Docker guard (DOCKER_GUARD=off: a link to the raw socket)
+  │    ├─ create a container, volume or network ─► labelled nexus.persona=claude-max (anonymous volumes too)
+  │    ├─ a prune ───────────────────────────────► only what carries that label
+  │    ├─ stop, rm, kill … a container, volume or network without it,
+  │    │  mount another persona's volume, rmi an image others run on,
+  │    │  or system prune's build-cache step ────► refused: "nexus guard: …"
+  │    ├─ docker builder prune (buildx, gRPC) ───► as it came: the build cache every persona shares
+  │    └─ the rest (ps, logs, exec, build, pull …) ─► as it came
+  └─ /var/run/docker.sock, the VM's daemon: still mounted, so the guard stops accidents, not an agent that means it
 ```
 
 ### Settings into a persona
@@ -357,13 +452,15 @@ statusline/claude/settings.json ── mount (ro) ───► /etc/claude-code/
                                   (the image's own 10-agent-image.json: its update lock)
 .env TELEMETRY_* ─ nexus --config ─► personas/<name>.telemetry.json ─ mount (ro) ─► …/managed-settings.d/50-telemetry.json
                    (a persona that sends)
+personas/notes.md ─ nexus --config ─► personas/<name>.notes.md ─ mount (ro) ─► /etc/claude-code/CLAUDE.md   read first
 
                                                    inside a grok persona
 personas/grok.toml ──────┐
 statusline/grok/         ├─ nexus --config ─► personas/<name>.grok.toml ─ mount (ro) ─► /etc/grok/managed_config.toml
   settings.toml ─────────┤  (statusline on)                                              below ~/.grok/config.toml, which wins
 .env TELEMETRY_* ────────┘  ([telemetry], a persona that sends) and personas/<name>.telemetry.env ─► its environment
-                                                                                         (the token header alone)
+                            ([paths], for the notes)                                     (the token header alone)
+personas/notes.md ─ nexus --config ─► personas/<name>.notes.md ─ mount (ro) ─► /etc/grok/rules/00-nexus.md   a rule
 ```
 
 ### Setup, once per VM (run it again to change anything)
@@ -376,16 +473,18 @@ nexus --config
   │                permissions (claude), then its sign-in key/token, git identity, GH_TOKEN ─► saved, its image built
   ▼
 what is set up (shared settings, launcher, personas, env files of no persona), and a menu:
-  list · add · change · remove · shared · launcher · images · quit
-  │  each action: its questions, then saved: .env, personas.json, personas/<name>.env, and
-  │               compose.personas.yml generated from personas.json; all together, or nothing
-  │  then:        personas/<name>.key for a new ssh key (its public half shown, to add), the image
+  list · add · change · remove · shared · telemetry · launcher · images · quit
+  │  each action: its questions, then saved: .env, personas.json, personas/<name>.env, personas/<name>.notes.md,
+  │               and compose.personas.yml generated from personas.json; all together, or nothing
+  │  then:        personas/<name>.key for a new ssh key (its public half shown, to add), the shared scratch
+  │               root /srv/nexus-scratch if it isn't there (sudo, once), the image
   ▼
 quit: how to start one
 ```
 
 `nexus --config --yes [options]` does it all in one go, without questions: the settings, the personas, the link,
-one image per flavour × context (`local/agent-claude-ddev:<ver>`, …; pulled instead when a registry is set).
+the scratch root (`sudo -n`: without passwordless sudo it prints the command instead), one image per flavour ×
+context (`local/agent-claude-ddev:<ver>`, …; pulled instead when a registry is set).
 
 ### Daily use
 
@@ -394,7 +493,10 @@ cd /home/local/src/billing
 nexus claude-max -- claude
   │
   ├─ looks up the persona in personas.json: flavour, context, projects root
-  ├─ container running? ── no ──► docker compose up -d (mounts the root, the socket, the ssh-agent or its key)
+  ├─ the shared scratch root there? ── no ──► refuses, with the sudo install -d … that makes it
+  │                                 └─ yes ─► makes the persona's scratch dir in it, if it isn't there
+  ├─ container running? ── no ──► docker compose up -d (mounts the root, the scratch dir, the notes, the socket,
+  │                               the ssh-agent or its key)
   ├─ session "billing" exists? ── yes ─► attach
   │                            └─ no ──► create it in billing/, running claude
   ▼
@@ -446,8 +548,11 @@ nexus claude-max upgrade [VERSION | stable] [-y]
 ### How an image is built (Dockerfile)
 
 ```text
-tools: apt, docker CLI, node, gh, python3 ─► ctx-docker │ ctx-ddev (+ ddev) ─► base: user, tmux, entrypoint
-fetch ─► claude-cli  Anthropic's installer ─┐
-      ─► grok-cli    xAI's installer        ├─ copied into ─► target claude │ grok
-      ─► apm-cli     PyPI, in a venv       ─┘
+tools: apt, docker CLI, node, gh, python3 (+ venv) ─► ctx-docker │ ctx-ddev (+ ddev) ─► base: user, tmux, entrypoint,
+                                                                                       docker guard, compose shim, nexus-apm
+fetch ─► claude-cli  Anthropic's installer                ─┐
+      ─► grok-cli    xAI's installer                       │
+      ─► apm-cli     PyPI, in a venv                       ├─ copied into ─► target claude │ grok
+      ─► uv-bin      uv's release, sha256 pinned here      │
+      ─► glab-cli    glab's release, sha256 pinned here   ─┘
 ```

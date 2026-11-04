@@ -9,7 +9,8 @@
     |       "context": "docker",
     |       "colour": "colour28",
     |       "statusline": true,
-    |       "ssh": "personas/g1.key"
+    |       "ssh": "personas/g1.key",
+    |       "ports": "20100-20199"
     |     }
     |   }
     | }

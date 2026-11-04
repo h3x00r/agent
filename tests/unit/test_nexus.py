@@ -118,3 +118,74 @@ class TakeMode(unittest.TestCase):
         from agentctl.nexus.persona_cmds import take_mode
         with self.assertRaises(NexusError):
             take_mode(["--skip-bypass-permissions", "s1", "--bypass-permissions"])
+
+
+class Scratch(unittest.TestCase):
+    def test_scratch_dir(self):
+        from agentctl.core.errors import NexusError
+        from agentctl.nexus.persona_cmds import NoScratch, scratch_dir
+        with tempfile.TemporaryDirectory() as d:
+            for root, msg in (("rel", "the shared scratch root must be an absolute directory other than /"),
+                              (d + "/a b", "without ':' or whitespace, not '%s/a b' (from: here)" % d)):
+                with self.assertRaises(NexusError) as e:
+                    scratch_dir(root, "c1", "from: here", "/a")
+                self.assertIn(msg, e.exception.message)
+                self.assertNotIsInstance(e.exception, NoScratch)        # refused even at an attach to a running one
+            with self.assertRaises(NoScratch) as e:
+                scratch_dir(d + "/none", "c1", "from: here", "/a")
+            self.assertEqual(e.exception.message,
+                             "the shared scratch root %s/none isn't there (from: here): /a/nexus --config creates it, or "
+                             "run: sudo install -d -o $(id -u) -g $(id -g) -m 755 %s/none; or point NEXUS_SCRATCH_ROOT "
+                             "(.env, or your shell) at a directory of your own" % (d, d))
+            # A file, or a link to nothing: install -d would fail on it, so it isn't offered.
+            open(os.path.join(d, "file"), "w").close()
+            os.symlink(d + "/nowhere", d + "/dangling")
+            for f in ("file", "dangling"):
+                with self.assertRaises(NoScratch) as e:
+                    scratch_dir(d + "/" + f, "c1", "x", "/a")
+                self.assertIn("%s isn't a directory (x): move it aside (nexus --config then creates the root), or point "
+                              "NEXUS_SCRATCH_ROOT" % f, e.exception.message)
+                self.assertNotIn("install -d", e.exception.message)
+            # made, mode 755 under a tight umask too; one there keeps its mode
+            old = os.umask(0o177)
+            try:
+                self.assertEqual(scratch_dir(d, "c1", "x", "/a"), d + "/c1")
+            finally:
+                os.umask(old)
+            self.assertEqual(oct(os.stat(d + "/c1").st_mode & 0o777), "0o755")
+            os.chmod(d + "/c1", 0o700)
+            scratch_dir(d, "c1", "x", "/a")
+            self.assertEqual(oct(os.stat(d + "/c1").st_mode & 0o777), "0o700")
+            if os.geteuid() != 0:
+                # A root you can't write in: said so, with the command that makes it yours.
+                os.mkdir(d + "/ro", 0o555)
+                with self.assertRaises(NoScratch) as e:
+                    scratch_dir(d + "/ro", "c1", "x", "/a")
+                self.assertEqual(e.exception.message,
+                                 "can't create c1's scratch dir %s/ro/c1 (Permission denied): you can't write in the "
+                                 "shared scratch root %s/ro (x); make it yours: sudo install -d -o $(id -u) -g $(id -g) "
+                                 "-m 755 %s/ro, or point NEXUS_SCRATCH_ROOT (.env, or your shell) at a directory of your "
+                                 "own" % (d, d, d))
+                os.chmod(d + "/ro", 0o755)
+
+    def test_made_without(self):
+        from agentctl.nexus.persona_cmds import Run
+        said = []
+        r = Run.__new__(Run)
+        r.out = type("Out", (), {"warn": lambda self, m: said.append(m)})()
+        r.p = type("P", (), {"name": "c1", "flavour": "claude", "scratch": "/s/c1"})()
+        for mounts, want in (({"/home/dev", "/s/c1", "/etc/claude-code/CLAUDE.md"}, None),
+                             (set(), None),                                           # can't be inspected: nothing
+                             ({"/home/dev", "/old/c1", "/etc/claude-code/CLAUDE.md"},
+                              "c1's container was made without its scratch dir /s/c1: `nexus c1 restart` adds it"),
+                             ({"/home/dev", "/etc/grok/rules/00-nexus.md"},
+                              "made without its scratch dir /s/c1 and the Nexus notes: `nexus c1 restart` adds them"),
+                             ({"/home/dev", "/s/c1"},                               # the notes alone: them, not it
+                              "c1's container was made without the Nexus notes: `nexus c1 restart` adds them")):
+            del said[:]
+            r.made_without(mounts)
+            if want is None:
+                self.assertEqual(said, [], mounts)
+            else:
+                self.assertEqual(len(said), 1)
+                self.assertIn(want, said[0])

@@ -5,3 +5,5 @@
 + home/.local  d 700
 + home/.local/share  d 700
 + home/.local/share/mkcert  d 600
++ scratch/d1  d 755
++ scratch/g1  d 755

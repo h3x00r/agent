@@ -11,6 +11,8 @@ anything else the check itself failed (counts as unchecked). ask_problem(path): 
 personas/claude.ask.json from making a persona ask and what to do, or ("", "") (read here: it is JSON, and no
 CLI is needed). grok_sets_telemetry(path): whether personas/grok.toml has a [telemetry] of its own, which the one
 nexus --config adds for a persona that sends would clash with (read here, by its spellings: no CLI is needed).
+grok_has_paths(path): the same for a [paths] table, which the one nexus --config adds for the Nexus notes would clash
+with.
 
 Pitfalls (each pinned where named):
 - the programs as spelt, in a persona image when this python3 has no tomllib (golden config/cli-images-build)
@@ -19,6 +21,8 @@ Pitfalls (each pinned where named):
   persona would bypass (golden config/perm-file-missing, golden nexus/perm-ask-file-missing)
 - grok_sets_telemetry(): by table, not by line alone: [features] telemetry = false is no telemetry table, and
   ['telemetry'] or [[telemetry]] is one (test_adapters.Telemetry.test_grok_sets_telemetry)
+- grok_has_paths(): any [paths] at all, whatever its keys: a second one would make the file invalid TOML
+  (test_adapters.Telemetry.test_grok_has_paths)
 """
 import json
 import os
@@ -87,11 +91,10 @@ _THEAD = re.compile(r'%s*\[\[?' % _S + _TKEY)
 _TROOT = re.compile(_TKEY + r'%s*[.=]' % _S)
 
 
-def grok_sets_telemetry(path):
-    """Whether grok settings at PATH have telemetry settings of their own: a table named telemetry ([telemetry],
-    [telemetry.x], ['telemetry'], [[telemetry]]), or a telemetry key before the first table (telemetry.x = …,
-    telemetry = {…}); one in another table ([features] telemetry = false) is that table's. Read line by line, by
-    these spellings: no CLI is needed."""
+def _has_table(path, name):
+    """Whether TOML at PATH has a top-level table NAME: [NAME], [NAME.x], ['NAME'], [[NAME]], or a NAME key before the
+    first table (NAME.x = …, NAME = {…}); one in another table ([features] NAME = false) is that table's. Read line
+    by line, by these spellings: no CLI is needed."""
     if not os.path.isfile(path):
         return False
     with open(path, "rb") as f:
@@ -101,13 +104,23 @@ def grok_sets_telemetry(path):
         h = _THEAD.match(line)
         if h:
             at_root = False
-            if h.group(1).strip("\"\x27") == "telemetry":
+            if h.group(1).strip("\"\x27") == name:
                 return True
             continue
         k = _TROOT.match(line) if at_root else None
-        if k and k.group(1).strip("\"\x27") == "telemetry":
+        if k and k.group(1).strip("\"\x27") == name:
             return True
     return False
+
+
+def grok_sets_telemetry(path):
+    """Whether grok settings at PATH have telemetry settings of their own (a telemetry table, _has_table)."""
+    return _has_table(path, "telemetry")
+
+
+def grok_has_paths(path):
+    """Whether grok settings at PATH have a [paths] table of their own, with whatever keys (_has_table)."""
+    return _has_table(path, "paths")
 
 
 def grok_sets_statusline(path):

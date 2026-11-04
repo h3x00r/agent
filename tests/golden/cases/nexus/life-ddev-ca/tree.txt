@@ -75,3 +75,5 @@
 + home/.local/share/mkcert  d 755
 + home/.local/share/mkcert/rootCA.pem  f 644
     | fake CA
++ scratch/c1  d 755
++ scratch/d1  d 755

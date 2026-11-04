@@ -5,8 +5,9 @@ nexus --config: setting up <A>
 
 Personas:
   (none yet)
-c1: removed. Its env file and home volume stay; to delete them:
-    docker rm -f agent-c1; docker volume rm agents_c1-home; rm -f <A>/personas/c1.env <A>/personas/c1.key <A>/personas/c1.key.pub <A>/personas/c1.grok.toml 
+c1: removed. Its env file, notes and home volume stay; to delete them:
+    docker rm -f agent-c1; docker volume rm agents_c1-home; rm -f <A>/personas/c1.env <A>/personas/c1.key <A>/personas/c1.key.pub <A>/personas/c1.grok.toml <A>/personas/c1.notes.md 
+    what it made with docker stays too: docker ps -a --filter label=nexus.persona=c1 lists it (docker volume ls and docker network ls take the filter too)
 personas: none left; compose.personas.yml from before personas.json is kept as compose.personas.yml.bak
 Day-to-day use, upgrades and troubleshooting: runbook.md
 --- stderr

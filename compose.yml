@@ -11,7 +11,9 @@
 #
 # Without the launcher (PROJECTS_ROOT exported as here: the persona's own "root" from ./personas.json,
 # else the VM's from ./.env; for a ddev persona on a VM without a mkcert CA also AGENT_CA_CERTS= , empty,
-# and mkdir -p ~/.ddev ~/.local/share/mkcert first):
+# and mkdir -p ~/.ddev ~/.local/share/mkcert first; for every persona, its scratch dir made first:
+# mkdir -m 755 /srv/nexus-scratch/<persona>, or in the NEXUS_SCRATCH_ROOT ./.env names, and
+# personas/<persona>.notes.md written by nexus --config; compose creates neither):
 #   AGENT_UID=$(id -u) AGENT_GID=$(id -g) DOCKER_GID=$(stat -c %g /var/run/docker.sock) \
 #   PROJECTS_ROOT=$HOME/projects docker compose -p agents -f compose.yml -f compose.personas.yml \
 #     --profile <persona> up -d
@@ -77,6 +79,9 @@ services:
       # The Claude image already locks updates (managed settings); this also covers pins too old for that.
       DISABLE_AUTOUPDATER: "1"
       GROK_DISABLE_AUTOUPDATER: "1" # grok's own switch; its updates would only pile up in ~/.grok/downloads
+      # The Docker guard, which the entrypoint starts: on, what the persona creates with docker is labelled as its
+      # own, and it can stop or remove only what is; off (DOCKER_GUARD=off in .env), docker reaches the socket as is.
+      NEXUS_DOCKER_GUARD: "${DOCKER_GUARD:-on}"
 
     volumes:
       # The Docker socket: ddev and docker compose inside the container drive the VM's daemon.
@@ -100,7 +105,10 @@ services:
           create_host_path: false
 
     healthcheck:
-      test: ["CMD", "tmux", "has-session", "-t", "=main"]
+      # The tmux server's main session, and the docker endpoint the image's DOCKER_HOST names: the guard's socket,
+      # or with the guard off the link to the VM's (an image from before the guard has no /run/nexus). A guard that
+      # can't listen shows here as unhealthy.
+      test: ["CMD-SHELL", "tmux has-session -t =main && { [ ! -d /run/nexus ] || [ -S /run/nexus/docker.sock ]; }"]
       interval: 30s
       timeout: 5s
       retries: 3

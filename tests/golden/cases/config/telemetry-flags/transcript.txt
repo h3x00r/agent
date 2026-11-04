@@ -9,6 +9,7 @@ Personas:
   g1                              grok     docker   yes        the VM's             your agent
   d1                              claude   ddev     yes        the VM's             your agent
   sends telemetry to https://127.0.0.1:1: c1, g1, d1
+  published ports: c1 20000-20099, g1 20100-20199, d1 20200-20299
 
 Start one from a project directory:  cd <P>/<project> && nexus c1
 c1: changed; `nexus c1 restart` applies it (that ends its tmux sessions)
@@ -30,6 +31,7 @@ rc: 0
   g1                              grok     docker   yes        the VM's             your agent
   d1                              claude   ddev     yes        the VM's             your agent
   sends telemetry to https://127.0.0.1:1: c1, g1, d1
+  published ports: c1 20000-20099, g1 20100-20199, d1 20200-20299
 --- stderr
 (empty)
 ## run 3: grep ^TELEMETRY_ .env  [pipe, cwd a]
@@ -76,6 +78,7 @@ rc: 0
 # The token comes from the environment (personas/<name>.telemetry.env): grok has no setting for it.
 [telemetry]
 otel_certificate = "/etc/nexus/telemetry-ca.pem"
+[paths]
 --- stderr
 (empty)
 ## run 6: grep . personas/d1.telemetry.json  [pipe, cwd a]
@@ -118,6 +121,7 @@ Personas:
   g1                              grok     docker   yes        the VM's             your agent
   d1                              claude   ddev     yes        the VM's             your agent
   sends telemetry to https://127.0.0.1:1: c1, g1, d1
+  published ports: c1 20000-20099, g1 20100-20199, d1 20200-20299
 
 Start one from a project directory:  cd <P>/<project> && nexus c1
 ddev: run `mkcert -install` on this VM (it comes with ddev), then `nexus <persona> restart`, or https://*.ddev.site stays untrusted inside
@@ -137,6 +141,7 @@ Personas:
   g1                              grok     docker   yes        the VM's             your agent
   d1                              claude   ddev     yes        the VM's             your agent
   sends telemetry to https://127.0.0.1:1: c1, g1, d1
+  published ports: c1 20000-20099, g1 20100-20199, d1 20200-20299
 
 Start one from a project directory:  cd <P>/<project> && nexus c1
 ddev: run `mkcert -install` on this VM (it comes with ddev), then `nexus <persona> restart`, or https://*.ddev.site stays untrusted inside
@@ -156,6 +161,7 @@ Personas:
   g1                              grok     docker   yes        the VM's             your agent
   d1                              claude   ddev     yes        the VM's             your agent
   sends telemetry to https://127.0.0.1:1: c1, g1, d1
+  published ports: c1 20000-20099, g1 20100-20199, d1 20200-20299
 
 Start one from a project directory:  cd <P>/<project> && nexus c1
 ddev: run `mkcert -install` on this VM (it comes with ddev), then `nexus <persona> restart`, or https://*.ddev.site stays untrusted inside
@@ -175,6 +181,7 @@ Personas:
   g1                              grok     docker   yes        the VM's             your agent
   d1                              claude   ddev     yes        the VM's             your agent
   sends telemetry to https://127.0.0.1:1: g1, d1
+  published ports: c1 20000-20099, g1 20100-20199, d1 20200-20299
 
 Start one from a project directory:  cd <P>/<project> && nexus c1
 c1: changed; `nexus c1 restart` applies it (that ends its tmux sessions)
@@ -195,6 +202,7 @@ Personas:
   g1                              grok     docker   yes        the VM's             your agent
   d1                              claude   ddev     yes        the VM's             your agent
   sends telemetry to https://127.0.0.1:1: g1, d1
+  published ports: c1 20000-20099, g1 20100-20199, d1 20200-20299
 
 Start one from a project directory:  cd <P>/<project> && nexus c1
 ddev: run `mkcert -install` on this VM (it comes with ddev), then `nexus <persona> restart`, or https://*.ddev.site stays untrusted inside
@@ -217,6 +225,7 @@ Personas:
   g1                              grok     docker   yes        the VM's             your agent
   d1                              claude   ddev     yes        the VM's             your agent
   sends telemetry to https://127.0.0.1:1: g1, d1
+  published ports: c1 20000-20099, g1 20100-20199, d1 20200-20299
 
 Start one from a project directory:  cd <P>/<project> && nexus c1
 ddev: run `mkcert -install` on this VM (it comes with ddev), then `nexus <persona> restart`, or https://*.ddev.site stays untrusted inside
@@ -252,6 +261,7 @@ Personas:
   g1                              grok     docker   yes        the VM's             your agent
   d1                              claude   ddev     yes        the VM's             your agent
   sends telemetry to https://127.0.0.2:1: g1, d1
+  published ports: c1 20000-20099, g1 20100-20199, d1 20200-20299
 
 Start one from a project directory:  cd <P>/<project> && nexus c1
 ddev: run `mkcert -install` on this VM (it comes with ddev), then `nexus <persona> restart`, or https://*.ddev.site stays untrusted inside
@@ -286,6 +296,7 @@ Personas
   g1                              grok     docker   yes        the VM's             your agent
   d1                              claude   ddev     yes        the VM's             your agent
   sends telemetry to https://127.0.0.3:1: g1, d1
+  published ports: c1 20000-20099, g1 20100-20199, d1 20200-20299
 
 What next?
   1) list      the shared settings and the personas, again
@@ -328,6 +339,7 @@ Personas:
   g1                              grok     docker   yes        the VM's             your agent
   d1                              claude   ddev     yes        the VM's             your agent
   sends telemetry to https://127.0.0.2:1: g1, d1
+  published ports: c1 20000-20099, g1 20100-20199, d1 20200-20299
 
 Start one from a project directory:  cd <P>/<project> && nexus c1
 ddev: run `mkcert -install` on this VM (it comes with ddev), then `nexus <persona> restart`, or https://*.ddev.site stays untrusted inside
@@ -352,6 +364,7 @@ Personas:
   g1                              grok     docker   yes        the VM's             your agent
   d1                              claude   ddev     yes        the VM's             your agent
   sends telemetry to https://127.0.0.2:1: c1, g1, d1
+  published ports: c1 20000-20099, g1 20100-20199, d1 20200-20299
 
 Start one from a project directory:  cd <P>/<project> && nexus c1
 c1: changed; `nexus c1 restart` applies it (that ends its tmux sessions)
@@ -383,6 +396,7 @@ Personas:
   g1                              grok     docker   yes        the VM's             your agent
   d1                              claude   ddev     yes        the VM's             your agent
   sends telemetry to https://127.0.0.2:1: c1, g1, d1
+  published ports: c1 20000-20099, g1 20100-20199, d1 20200-20299
 
 Start one from a project directory:  cd <P>/<project> && nexus c1
 c1: changed; `nexus c1 restart` applies it (that ends its tmux sessions)
@@ -403,10 +417,12 @@ Personas:
   c1                              claude   docker   yes        the VM's             your agent
   d1                              claude   ddev     yes        the VM's             your agent
   sends telemetry to https://127.0.0.2:1: c1, d1
+  published ports: c1 20000-20099, d1 20200-20299
 
 Start one from a project directory:  cd <P>/<project> && nexus c1
-g1: removed. Its env file and home volume stay; to delete them:
-    docker rm -f agent-g1; docker volume rm agents_g1-home; rm -f <A>/personas/g1.env <A>/personas/g1.key <A>/personas/g1.key.pub <A>/personas/g1.grok.toml <A>/personas/g1.telemetry.env 
+g1: removed. Its env file, notes and home volume stay; to delete them:
+    docker rm -f agent-g1; docker volume rm agents_g1-home; rm -f <A>/personas/g1.env <A>/personas/g1.key <A>/personas/g1.key.pub <A>/personas/g1.grok.toml <A>/personas/g1.telemetry.env <A>/personas/g1.notes.md 
+    what it made with docker stays too: docker ps -a --filter label=nexus.persona=g1 lists it (docker volume ls and docker network ls take the filter too)
 ddev: run `mkcert -install` on this VM (it comes with ddev), then `nexus <persona> restart`, or https://*.ddev.site stays untrusted inside
 Day-to-day use, upgrades and troubleshooting: runbook.md
 --- stderr
@@ -422,6 +438,7 @@ Personas:
   c1                              claude   docker   yes        the VM's             your agent
   d1                              claude   ddev     yes        the VM's             your agent
   sends telemetry to https://127.0.0.2:1: c1, d1
+  published ports: c1 20000-20099, d1 20200-20299
 
 Start one from a project directory:  cd <P>/<project> && nexus c1
 ddev: run `mkcert -install` on this VM (it comes with ddev), then `nexus <persona> restart`, or https://*.ddev.site stays untrusted inside
@@ -442,6 +459,7 @@ Personas:
   c1                              claude   docker   yes        the VM's             your agent
   d1                              claude   ddev     yes        the VM's             your agent
   sends telemetry to https://127.0.0.2:1: c1, d1
+  published ports: c1 20000-20099, d1 20200-20299
 
 Start one from a project directory:  cd <P>/<project> && nexus c1
 ddev: run `mkcert -install` on this VM (it comes with ddev), then `nexus <persona> restart`, or https://*.ddev.site stays untrusted inside
@@ -467,6 +485,7 @@ Personas:
   NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
   c1                              claude   docker   yes        the VM's             your agent
   d1                              claude   ddev     yes        the VM's             your agent
+  published ports: c1 20000-20099, d1 20200-20299
 
 Start one from a project directory:  cd <P>/<project> && nexus c1
 telemetry: off; c1, d1 no longer send it
@@ -483,6 +502,7 @@ rc: 0
   NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
   c1                              claude   docker   yes        the VM's             your agent
   d1                              claude   ddev     yes        the VM's             your agent
+  published ports: c1 20000-20099, d1 20200-20299
 --- stderr
 (empty)
 ## run 29: grep . personas/d1.telemetry.json  (neutral, until it is restarted)  [pipe, cwd a]

@@ -1,6 +1,15 @@
 """What nexus --config does once the settings are saved; a failure here is a note, not a stop (the files are in
-place already): the ssh keys asked for, the launcher linked, mkcert, the images built or pulled, the telemetry
-collector tried.
+place already): the ssh keys asked for, the launcher linked, the shared scratch root made, mkcert, the images built
+or pulled, the telemetry collector tried.
+
+Pitfalls (each pinned where named):
+- the scratch root: made once a run, never touched when it is there (install -d would chmod and chown it); by
+  mkdir when the parent is yours, else with sudo (-n under --yes); a failure is a note with the command, which never
+  says `nexus NAME restart` (Session.restarts() reads that as a persona to restart)
+  (test_configtools.ScratchRoot.test_branches, golden config/scratch-root-made, golden config/scratch-root-sudo)
+- one there that you can't write in is a note only while a persona's dir is still to be made in it (one chowned
+  away after they were made works on); one that isn't a directory, a note with no sudo (install -d would fail)
+  (test_configtools.ScratchRoot.test_branches)
 """
 import os
 import shutil
@@ -10,6 +19,7 @@ from agentctl.adapters import telemetry as tele_io
 from agentctl.configtools.host import ln_ok, mkdir_ok, read_or_empty, readlink_f, short_host
 from agentctl.core import proc
 from agentctl.core.shellcompat import printf_q
+from agentctl.domain import scratch as scr
 
 
 def ssh_keys(s):
@@ -71,6 +81,38 @@ def link(s, target):
                 s.say("-- removed %s, the launcher's old name (it is nexus now)" % old)
             else:
                 s.later.append("launcher: remove its old link: sudo rm %s" % printf_q(old))
+
+
+def scratch_root(s):
+    """The shared scratch root (domain/scratch.py), made if it isn't there and a persona needs it: by mkdir when its
+    parent is yours (mode 755, whatever the umask), else with sudo, as yours. Once a run (a menu saves often)."""
+    if s.scratch_tried or not s.personas:
+        return
+    s.scratch_tried = True
+    root = s.scratch_root()
+    if not scr.root_ok(root):     # a bad one: refused before the save (Session.vm_problem)
+        return
+    if os.path.isdir(root):
+        if not os.access(root, os.W_OK | os.X_OK) and \
+                any(not os.path.isdir(scr.path(root, getattr(p, "name", p))) for p in s.personas):
+            s.later.append("scratch: you can't write in the shared scratch root %s, so nexus can't make a persona's "
+                           "dir in it; run: %s, %s" % (root, scr.install_cmd(root), scr.ELSEWHERE))
+        return
+    if os.path.lexists(root):
+        s.later.append("scratch: the shared scratch root %s isn't a directory, and every persona needs it to start: %s"
+                       % (root, scr.NOT_DIR))
+        return
+    if mkdir_ok(root):
+        try:
+            os.chmod(root, 0o755)
+        except OSError:
+            pass
+        return
+    s.say("-- creating the shared scratch root %s needs sudo" % root)
+    if not proc.run(_sudo(s) + ["install", "-d", "-o", str(os.getuid()), "-g", str(os.getgid()), "-m", "755", root],
+                    capture=False).ok:
+        s.later.append("scratch: couldn't create the shared scratch root %s, which every persona needs to start; "
+                       "run: %s, %s" % (root, scr.install_cmd(root), scr.ELSEWHERE))
 
 
 def mkcert(s):

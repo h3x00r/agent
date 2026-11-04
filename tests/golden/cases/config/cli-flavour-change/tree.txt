@@ -7,7 +7,8 @@
     |       "flavour": "grok",
     |       "context": "docker",
     |       "colour": "colour25",
-    |       "statusline": true
+    |       "statusline": true,
+    |       "ports": "20000-20099"
     |     }
     |   }
     | }
@@ -32,6 +33,12 @@
     | # Optional.
     | # gh CLI (PRs, issues) and APM (private GitHub packages) as this persona's account:
     | # GH_TOKEN=
+    | # glab (merge requests, pipelines) and git over https to GitLab as this persona's account. One token, one host:
+    | # gitlab.com's, or the GITLAB_HOST below's.
+    | # GITLAB_TOKEN=
+    | # Only for a self-managed GitLab: its host, e.g. gitlab.example.org. GITLAB_TOKEN is then that host's, and git over
+    | # https to gitlab.com doesn't get it; git over https to this host takes a `git config` in the persona (runbook §4).
+    | # GITLAB_HOST=
     | # Context ddev: never block an unattended run on a ddev prompt:
     | # DDEV_NONINTERACTIVE=true
     | # Default model for this persona:
@@ -54,6 +61,12 @@
     | # Optional.
     | # gh CLI (PRs, issues) and APM (private GitHub packages) as this persona's account:
     | # GH_TOKEN=
+    | # glab (merge requests, pipelines) and git over https to GitLab as this persona's account. One token, one host:
+    | # gitlab.com's, or the GITLAB_HOST below's.
+    | # GITLAB_TOKEN=
+    | # Only for a self-managed GitLab: its host, e.g. gitlab.example.org. GITLAB_TOKEN is then that host's, and git over
+    | # https to gitlab.com doesn't get it; git over https to this host takes a `git config` in the persona (runbook §4).
+    | # GITLAB_HOST=
     | # Context ddev: never block an unattended run on a ddev prompt:
     | # DDEV_NONINTERACTIVE=true
 + a/personas/c1.grok.toml  f 600
@@ -114,3 +127,7 @@
     | [ui.status_line]
     | type = "command"
     | command = "/etc/grok/statusline/statusline.sh"
+    | 
+    | # The Nexus notes, /etc/grok/rules/00-nexus.md: nexus --config adds this table.
+    | [paths]
+    | extra_rule_dirs = ["/etc/grok/rules"]

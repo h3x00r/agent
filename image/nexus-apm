@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+# nexus-apm X.Y.Z [apm arguments…]: APM at the version a project pins, where `apm` is the image's own.
+# /usr/local/bin/nexus-apm in the persona images. The first run of a version installs it into
+# ${XDG_DATA_HOME:-~/.local/share}/nexus/apm/X.Y.Z (the persona's home volume: once per persona and version):
+# a venv on /usr/bin/python3 made with uv, apm-cli==X.Y.Z in it, and its self-update turned off the way the
+# Dockerfile's apm-cli stage turns it off (apm_cli/update_policy.py, which also silences the "new version"
+# notice). APM has that hook from 0.9.0 on, so an older version is refused: its `apm self-update` would put
+# APM's release binary into ~/.local/bin, over the image's apm in login shells (and that binary needs a newer
+# glibc than the image has).
+#
+# Two first runs at once: a version is installed under a lock of its own (flock), in a temp dir next to where it
+# goes, then renamed into place whole, so a run finds nothing there or a finished venv. The venv is relocatable
+# (uv venv --relocatable): its scripts find their python from where they are, not from the temp dir.
+# The home volume outlives the image: a venv made on another Python (an image on a newer Debian) has its packages
+# under another lib/pythonX.Y, which this one doesn't read, so it is installed again on its next run. A version is
+# kept only once its `apm --version` runs.
+set -uo pipefail
+
+die() { echo "nexus-apm: $*" >&2; exit 1; }
+usage() { echo "usage: nexus-apm X.Y.Z [apm arguments…]   runs apm-cli X.Y.Z (0.9.0 or later), e.g. nexus-apm 0.34.0 install"; }
+
+case "${1-}" in
+  "") usage >&2; exit 2 ;;
+  -h|--help) usage; exit 0 ;;
+esac
+arg="$1"; shift
+v="${arg#v}"
+if [[ ! $v =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+  echo "nexus-apm: '$arg' isn't a version: the first argument is the X.Y.Z of apm-cli to run" >&2
+  usage >&2; exit 2
+fi
+if [[ ${BASH_REMATCH[1]} == 0 && ${#BASH_REMATCH[2]} -eq 1 && ${BASH_REMATCH[2]} -lt 9 ]]; then
+  echo "nexus-apm: apm-cli $v is older than 0.9.0, which is the first with a way to turn its self-update off," \
+       "so it isn't run here: pin 0.9.0 or later. To run it anyway, as it is: uvx --from apm-cli==$v apm …," \
+       "and never its self-update (it would put APM into ~/.local/bin, over the image's apm)" >&2
+  exit 2
+fi
+
+base="${XDG_DATA_HOME:-$HOME/.local/share}/nexus/apm"
+d="$base/$v"
+py="$(readlink -f /usr/bin/python3)"; py="${py##*/}"   # python3.11: where a venv on it keeps its packages
+ok() { [[ -x $d/bin/apm && -d $d/lib/$py/site-packages/apm_cli ]]; }
+if ! ok; then
+  command -v uv >/dev/null || die "uv isn't on PATH, and it is what installs apm-cli $v (the image has it)"
+  mkdir -p "$base" || die "can't make $base"
+  (
+    flock 9 || exit 1
+    ok && exit 0                                      # installed by the run that held the lock before this one
+    [[ -e $d ]] && echo "nexus-apm: $d isn't a venv on this image's $py (made on another Python?):" \
+                        "installing it again" >&2
+    rm -rf "$d" "$base/.$v".tmp.*                     # what a run cut short left, or a venv on another Python
+    tmp="$(mktemp -d "$base/.$v.tmp.XXXXXX")" || exit 1
+    trap 'rm -rf "$tmp"' EXIT
+    echo "nexus-apm: installing apm-cli $v into $d (once)" >&2
+    # Run from here, not from the project: uv reads the uv.toml or pyproject.toml of the directory it runs in.
+    cd "$base" || exit 1
+    msg="nexus-apm runs the APM version it is given: name another one to it (nexus-apm X.Y.Z ...). The image's apm is updated with the image."
+    uv venv -q --relocatable --python /usr/bin/python3 "$tmp/venv" \
+      && uv pip install -q --python "$tmp/venv/bin/python" "apm-cli==$v" \
+      && [[ -x $tmp/venv/bin/apm ]] \
+      || die "apm-cli $v couldn't be installed (above); nothing was kept"
+    p="$("$tmp/venv/bin/python" -I -c 'import apm_cli.update_policy as u; print(u.__file__)')" \
+      && sed -i -e 's/^SELF_UPDATE_ENABLED = True$/SELF_UPDATE_ENABLED = False/' \
+           -e "s/^SELF_UPDATE_DISABLED_MESSAGE = .*/SELF_UPDATE_DISABLED_MESSAGE = \"$msg\"/" "$p" \
+      && "$tmp/venv/bin/python" -I -c 'import apm_cli.update_policy as u; assert not u.is_self_update_enabled()' \
+      || die "apm-cli $v's self-update switch isn't where nexus-apm turns it off (SELF_UPDATE_ENABLED in" \
+             "apm_cli/update_policy.py), so it isn't run here; nothing was kept. To run it as it is:" \
+             "uvx --from apm-cli==$v apm …, and never its self-update"
+    # Its dependencies come at their newest: an old version can install and still not start.
+    "$tmp/venv/bin/apm" --version >/dev/null \
+      || die "apm-cli $v was installed but doesn't start (above); nothing was kept"
+    mv -T "$tmp/venv" "$d" || die "can't move the venv to $d"
+  ) 9>"$base/.$v.lock" || exit 1
+fi
+exec "$d/bin/apm" "$@"

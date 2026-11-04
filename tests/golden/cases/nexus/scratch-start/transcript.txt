@@ -1,0 +1,37 @@
+## run 1: nexus c1 start  (NEXUS_SCRATCH_ROOT=<S>/scratch in the shell)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-c1  Started
+nexus: c1: Claude defaults from personas/claude.json: model, modelSettings.opus.effortLevel, outputStyle, teammateMode, theme, tui, worktree.baseRef
+## run 2: nexus c1 start  (running: its dir is there)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+(empty)
+## run 3: nexus g1 start  (NEXUS_SCRATCH_ROOT=<S>/other/root/ in the shell)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-g1  Started
+## run 4: nexus g1 start  (running, made with <S>/other/root/g1; the root is <S>/scratch)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+nexus: warning: g1's container was made without its scratch dir <S>/scratch/g1: `nexus g1 restart` adds it (that ends its tmux sessions)
+## run 5: nexus c1 restart  (no NEXUS_SCRATCH_ROOT in the shell, <S>/dotenv/root in .env)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-c1  Recreated
+## run 6: nexus c1 start  (running; the shell's <S>/scratch beats .env's)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+nexus: warning: c1's container was made without its scratch dir <S>/scratch/c1: `nexus c1 restart` adds it (that ends its tmux sessions)

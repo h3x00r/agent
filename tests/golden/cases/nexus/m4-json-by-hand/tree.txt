@@ -1,5 +1,5 @@
 ~ a/personas.json  f 644 inode=same
-    | {"personas": {"c1": {"statusline": true, "colour": "colour25", "context": "docker", "flavour": "claude", "root": "/r\ud800"}, "g1": {"ssh": "personas/g1.key", "statusline": true, "flavour": "grok", "context": "docker", "colour": "colour28"}}, "version": 1}
+    | {"personas": {"c1": {"ports": "20000-20099", "statusline": true, "colour": "colour25", "context": "docker", "flavour": "claude", "root": "/r\ud800"}, "g1": {"ssh": "personas/g1.key", "statusline": true, "flavour": "grok", "ports": "20100-20199", "context": "docker", "colour": "colour28"}}, "version": 1}
     (no newline at the end)
 + ctr  d 755
 + ctr/c1  d 755
@@ -37,3 +37,5 @@
     |     "baseRef": "head"
     |   }
     | }
++ scratch/c1  d 755
++ scratch/g1  d 755

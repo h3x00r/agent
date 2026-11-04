@@ -15,6 +15,7 @@ Personas
   NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
   c1                              claude   docker   yes        the VM's             your agent
   g1                              grok     docker   yes        the VM's             personas/g1.key
+  published ports: c1 20000-20099, g1 20100-20199
 
 What next?
   1) list      the shared settings and the personas, again
@@ -51,6 +52,7 @@ compose.personas.yml
 compose.personas.yml.bak
 compose.yml
 entrypoint.sh
+image
 install.sh
 nexus
 personas

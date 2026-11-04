@@ -1,0 +1,3 @@
+{
+  "provenance": "accepted: docker-work fix: --remove's note names what the persona made with docker (its nexus.persona label's filter), and removes the scratch dir with sudo; before that: docker-work: new: --remove names a persona's notes and scratch dir among what stays, when they are there"
+}
