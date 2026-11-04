@@ -6,6 +6,7 @@ rc: 0
   g1                              grok     docker   no         the VM's             personas/g1.key
   x1                              grok     ddev     no         the VM's             none
   c123456789012345678901234567890 claude   docker   no         the VM's             <S>/keys/link
+  published ports: c1 20000-20099, g1 20100-20199, x1 20200-20299, c123456789012345678901234567890 20300-20399
 --- stderr
 (empty)
 ## run 2: config --list --yes --remove c1  [pipe]
@@ -16,6 +17,7 @@ rc: 0
   g1                              grok     docker   no         the VM's             personas/g1.key
   x1                              grok     ddev     no         the VM's             none
   c123456789012345678901234567890 claude   docker   no         the VM's             <S>/keys/link
+  published ports: c1 20000-20099, g1 20100-20199, x1 20200-20299, c123456789012345678901234567890 20300-20399
 --- stderr
 (empty)
 ## run 3: config --list  [pipe]
@@ -26,5 +28,6 @@ rc: 0
   g1                              grok     docker   no         the VM's             personas/g1.key
   x1                              grok     ddev     no         the VM's             none
   c123456789012345678901234567890 claude   docker   no         the VM's             <S>/keys/link
+  published ports: c1 20000-20099, g1 20100-20199, x1 20200-20299, c123456789012345678901234567890 20300-20399
 --- stderr
 (empty)

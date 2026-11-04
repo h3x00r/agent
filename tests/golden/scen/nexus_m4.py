@@ -136,11 +136,12 @@ def _json(sb, data, raw=None):
 
 @case("nexus/m4-json-by-hand")
 def _(sb):
-    # A personas.json written by hand, valid: another key order, CRLF, no newline at the end.
+    # A personas.json written by hand, valid: another key order, CRLF, no newline at the end. Each with the port range
+    # nexus --config gave it (without one, the compose file it wrote is out of step until it gives one again).
     two_personas(sb)
-    raw = (b'{"personas": {\r\n "c1": {"statusline": true, "colour": "colour25", "context": "docker", "flavour": "claude"},'
-           b'\r\n "g1": {"ssh": "personas/g1.key", "statusline": true, "flavour": "grok", "context": "docker",'
-           b' "colour": "colour28"}}, "version": 1}')
+    raw = (b'{"personas": {\r\n "c1": {"ports": "20000-20099", "statusline": true, "colour": "colour25", "context": '
+           b'"docker", "flavour": "claude"},\r\n "g1": {"ssh": "personas/g1.key", "statusline": true, "flavour": "grok", '
+           b'"ports": "20100-20199", "context": "docker", "colour": "colour28"}}, "version": 1}')
     _json(sb, None, raw)
     sb.run("nexus", "c1", "start", label="nexus c1 start  (hand-written, valid)")
     sb.run("nexus", "g1", "start", label="nexus g1 start  (hand-written, valid)")

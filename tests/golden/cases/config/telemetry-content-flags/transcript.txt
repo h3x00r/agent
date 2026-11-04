@@ -30,6 +30,7 @@ Personas:
   c2                              claude   docker   yes        the VM's             your agent
   sends telemetry to https://127.0.0.1:1: c1, g1
   sends tool content too (what the tools read, wrote and printed, such as whole files, command output and web pages): c1
+  published ports: c1 20000-20099, g1 20100-20199, c2 20200-20299
 
 Start one from a project directory:  cd <P>/<project> && nexus c1
 c1: its telemetry settings changed; `nexus c1 restart` applies them (that ends its tmux sessions)
@@ -59,6 +60,7 @@ Personas:
   c2                              claude   docker   yes        the VM's             your agent
   sends telemetry to https://127.0.0.1:1: c1, g1
   sends tool content too (what the tools read, wrote and printed, such as whole files, command output and web pages): c1
+  published ports: c1 20000-20099, g1 20100-20199, c2 20200-20299
 
 Start one from a project directory:  cd <P>/<project> && nexus c1
 Day-to-day use, upgrades and troubleshooting: runbook.md
@@ -78,6 +80,7 @@ Personas:
   sends telemetry to https://127.0.0.1:1: c1, g1
   sends tool details too (the commands, file paths and other input the tools ran with): c1
   sends tool content too (what the tools read, wrote and printed, such as whole files, command output and web pages): c1
+  published ports: c1 20000-20099, g1 20100-20199, c2 20200-20299
 
 Start one from a project directory:  cd <P>/<project> && nexus c1
 c1: its telemetry settings changed; `nexus c1 restart` applies them (that ends its tmux sessions)
@@ -107,6 +110,7 @@ Personas:
   sends telemetry to https://127.0.0.1:1: c1, g1
   sends tool details too (the commands, file paths and other input the tools ran with): c1
   sends tool content too (what the tools read, wrote and printed, such as whole files, command output and web pages): c1, g1
+  published ports: c1 20000-20099, g1 20100-20199, c2 20200-20299
 
 Start one from a project directory:  cd <P>/<project> && nexus c1
 g1: grok sends each tool's full command and input with its tool content, so its commands are sent even without tool details
@@ -128,9 +132,9 @@ rc: 0
 --- stdout
       "telemetry": true,
       "tool_details": true,
-      "tool_content": true
+      "tool_content": true,
       "telemetry": true,
-      "tool_content": true
+      "tool_content": true,
 --- stderr
 (empty)
 ## run 12: config --list  [pipe]
@@ -143,6 +147,7 @@ rc: 0
   sends telemetry to https://127.0.0.1:1: c1, g1
   sends tool details too (the commands, file paths and other input the tools ran with): c1
   sends tool content too (what the tools read, wrote and printed, such as whole files, command output and web pages): c1, g1
+  published ports: c1 20000-20099, g1 20100-20199, c2 20200-20299
 --- stderr
 (empty)
 ## run 13: config --yes … --tool-content all:on  (the personas' own go)  [pipe]
@@ -158,6 +163,7 @@ Personas:
   sends telemetry to https://127.0.0.1:1: c1, g1
   sends tool details too (the commands, file paths and other input the tools ran with): c1
   sends tool content too (what the tools read, wrote and printed, such as whole files, command output and web pages): c1, g1
+  published ports: c1 20000-20099, g1 20100-20199, c2 20200-20299
 
 Start one from a project directory:  cd <P>/<project> && nexus c1
 telemetry: nothing answered at https://127.0.0.1:1 (is it down, or is the address wrong?). The personas work all the same, but what they send is lost until this is fixed.
@@ -195,6 +201,7 @@ Personas:
   sends telemetry to https://127.0.0.1:1: c1, g1, c2
   sends tool details too (the commands, file paths and other input the tools ran with): c1
   sends tool content too (what the tools read, wrote and printed, such as whole files, command output and web pages): c1, g1, c2
+  published ports: c1 20000-20099, g1 20100-20199, c2 20200-20299
 
 Start one from a project directory:  cd <P>/<project> && nexus c1
 c2: changed; `nexus c2 restart` applies it (that ends its tmux sessions)
@@ -218,6 +225,7 @@ Personas:
   sends telemetry to https://127.0.0.1:1: c1, g1, c2
   sends tool details too (the commands, file paths and other input the tools ran with): c1
   sends tool content too (what the tools read, wrote and printed, such as whole files, command output and web pages): c2
+  published ports: c1 20000-20099, g1 20100-20199, c2 20200-20299
 
 Start one from a project directory:  cd <P>/<project> && nexus c1
 c1: its telemetry settings changed; `nexus c1 restart` applies them (that ends its tmux sessions)
@@ -231,10 +239,10 @@ config: warning: couldn't check personas/grok.toml (no python3 for it here, nor 
 rc: 0
 --- stdout
       "telemetry": true,
-      "tool_details": true
-      "telemetry": true
+      "tool_details": true,
       "telemetry": true,
-      "tool_content": true
+      "telemetry": true,
+      "tool_content": true,
 --- stderr
 (empty)
 ## run 19: config --yes … --telemetry-endpoint none  (all off)  [pipe]
@@ -247,6 +255,7 @@ Personas:
   c1                              claude   docker   yes        the VM's             your agent
   g1                              grok     docker   yes        the VM's             your agent
   c2                              claude   docker   yes        the VM's             your agent
+  published ports: c1 20000-20099, g1 20100-20199, c2 20200-20299
 
 Start one from a project directory:  cd <P>/<project> && nexus c1
 telemetry: off; c1, g1, c2 no longer send it

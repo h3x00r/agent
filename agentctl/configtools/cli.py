@@ -53,6 +53,9 @@ nexus --config — set this checkout up for one dev VM: which personas it runs, 
     --tool-content NAME|all:on|off   the same for its tool content: what its tools read, wrote and
                                      printed, such as whole files and command output, which can hold
                                      secrets (default: off). all:on and all:off as above. Repeatable
+    --ports NAME:FROM-TO             the ports that persona's stacks publish on the VM (NEXUS_PORTS in it),
+                                     e.g. c1:20000-20099, a range no other persona's overlaps (default: a
+                                     block of 100 from 20000 up, for each persona without one); repeatable
     --remove NAME                    drop a persona (its env file and home volume stay); repeatable
     --projects-root DIR              default: $HOME/projects
     --registry HOST                  local (build on this VM; the default) or host[:port][/path]
@@ -78,7 +81,10 @@ sends telemetry gets its settings written from .env's TELEMETRY_* (they hold the
 personas/<name>.telemetry.json, a managed drop-in, for claude; a [telemetry] table in its grok config
 and personas/<name>.telemetry.env for grok. Its tool details are sent too when TELEMETRY_TOOL_DETAILS
 in .env is on (all:on), or personas.json says so for it; its tool content the same way
-(TELEMETRY_TOOL_CONTENT).
+(TELEMETRY_TOOL_CONTENT). Every persona gets personas/<name>.notes.md, the Nexus notes (personas/notes.md
+filled in for it), which its CLI reads in every session, and a scratch dir in the shared scratch root
+(NEXUS_SCRATCH_ROOT in .env, else /srv/nexus-scratch), which nexus --config creates once (with sudo if
+it has to).
 """
 
 
@@ -95,6 +101,7 @@ class Options:
         self.add = []
         self.ssh = []
         self.permissions = []
+        self.ports = []
         self.telemetry = []
         self.tele_endpoint = ""
         self.tele_token_file = ""
@@ -110,6 +117,7 @@ VALUED = {
     "--persona": ("NAME:FLAVOUR:CONTEXT[:ROOT]", "add"),
     "--ssh": ("NAME:agent, NAME:none, NAME:new or NAME:KEY", "ssh"),
     "--permissions": ("NAME:ask or NAME:bypass", "permissions"),
+    "--ports": ("NAME:FROM-TO", "ports"),
     "--telemetry": ("NAME:on or NAME:off", "telemetry"),
     "--telemetry-endpoint": ("a URL or none", "tele_endpoint"),
     "--telemetry-token-file": ("a FILE", "tele_token_file"),

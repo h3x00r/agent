@@ -38,9 +38,9 @@ class Render(unittest.TestCase):
     @unittest.skipUnless(os.path.exists(GOLDEN), "the golden case isn't recorded")
     def test_as_the_goldens_have_it(self):
         # The services byte for byte as the bash wrote them (the cases were recorded from it), under the
-        # header that says personas.json is where they come from.
-        ps = [Persona("c1", "claude", "docker", "colour25", True), Persona("g1", "grok", "docker", "colour28", True,
-                                                                           ssh="personas/g1.key")]
+        # header that says personas.json is where they come from; with the port ranges nexus --config gave them.
+        ps = [Persona("c1", "claude", "docker", "colour25", True, ports="20000-20099"),
+              Persona("g1", "grok", "docker", "colour28", True, ssh="personas/g1.key", ports="20100-20199")]
         self.assertEqual(compose_render.render(ps, managed=True), golden_file(GOLDEN, "a/compose.personas.yml"))
 
     def test_shapes(self):
@@ -54,8 +54,64 @@ class Render(unittest.TestCase):
         self.assertIn("50-nexus-none.conf", out)
         self.assertIn("        source: '/keys/k'\n", out)
         self.assertNotIn("15-personas.json", out)
-        self.assertIn('environment: { AGENT_PERSONA: "k1", AGENT_COLOUR: colour25, SSH_AUTH_SOCK: "" }', out)
+        self.assertIn('environment: { AGENT_PERSONA: "k1", AGENT_COLOUR: colour25, SSH_AUTH_SOCK: "", '
+                      'NEXUS_SCRATCH: "${NEXUS_SCRATCH_ROOT:-/srv/nexus-scratch}/k1" }', out)
         self.assertTrue(out.endswith('volumes:\n  "n1-home":\n  "k1-home":\n'))
+
+    def test_scratch_and_notes(self):
+        """Every persona: its scratch dir by the root compose interpolates (never a path: .env doesn't change the
+        bytes), at the same path inside, and the notes for its CLI; both without create_host_path."""
+        ps = [Persona("c1", "claude", "docker", "colour25", ssh="none"), Persona("g1", "grok", "ddev", "colour28"),
+              Persona("c2", "claude", "ddev", "colour90", False, permissions="ask", telemetry=True)]
+        out = compose_render.render(ps, managed=True, ca=True)
+        c1 = out[out.index('  "c1":'):out.index('  "g1":')]
+        g1 = out[out.index('  "g1":'):out.index('  "c2":')]
+        c2 = out[out.index('  "c2":'):out.index("\nvolumes:")]
+        for name, svc in (("c1", c1), ("g1", g1), ("c2", c2)):
+            d = "${NEXUS_SCRATCH_ROOT:-/srv/nexus-scratch}/" + name
+            self.assertIn(', NEXUS_SCRATCH: "%s" }\n' % d, svc)
+            self.assertIn('      - %s-home:/home/dev\n      # The shared scratch dir' % name, svc)
+            self.assertIn('      - { type: bind, source: "%s", target: "%s", bind: { create_host_path: false } }\n'
+                          % (d, d), svc)
+            self.assertEqual(svc.count(".notes.md"), 1)
+        for name, svc, target in (("c1", c1, "/etc/claude-code/CLAUDE.md"), ("c2", c2, "/etc/claude-code/CLAUDE.md"),
+                                  ("g1", g1, "/etc/grok/rules/00-nexus.md")):
+            self.assertIn("      - { type: bind, source: ./personas/%s.notes.md, target: %s, read_only: true, "
+                          "bind: { create_host_path: false } }\n" % (name, target), svc)
+        # after the flavour's own settings, before telemetry and ssh
+        self.assertLess(g1.index("managed_config.toml"), g1.index("00-nexus.md"))
+        self.assertLess(c2.index("16-ask.json"), c2.index("CLAUDE.md"))
+        self.assertLess(c2.index("CLAUDE.md"), c2.index("50-telemetry.json"))
+        self.assertLess(c1.index("CLAUDE.md"), c1.index("50-nexus-none.conf"))
+        self.assertNotIn("/srv/nexus-scratch/", out.replace("${NEXUS_SCRATCH_ROOT:-/srv/nexus-scratch}/", ""))
+
+    def test_ports(self):
+        """NEXUS_PORTS for a persona with a range, after NEXUS_SCRATCH; none without one. older=True: the service as
+        written before the scratch dir, the range and the notes, the rest of it the same."""
+        ps = [Persona("c1", "claude", "docker", "colour25", ports="20000-20099"),
+              Persona("g1", "grok", "ddev", "colour28", ssh="none", telemetry=True, ports="20100-20199"),
+              Persona("c2", "claude", "docker", "colour90")]
+        out = compose_render.render(ps, managed=True, ca=True)
+        self.assertIn('environment: { AGENT_PERSONA: "c1", AGENT_COLOUR: colour25, '
+                      'NEXUS_SCRATCH: "${NEXUS_SCRATCH_ROOT:-/srv/nexus-scratch}/c1", NEXUS_PORTS: "20000-20099" }\n', out)
+        self.assertIn('SSH_AUTH_SOCK: "", NEXUS_SCRATCH: "${NEXUS_SCRATCH_ROOT:-/srv/nexus-scratch}/g1", '
+                      'NEXUS_PORTS: "20100-20199" }\n', out)
+        self.assertIn('NEXUS_SCRATCH: "${NEXUS_SCRATCH_ROOT:-/srv/nexus-scratch}/c2" }\n', out)
+        self.assertEqual(out.count("NEXUS_PORTS"), 2)
+        for p in ps:
+            for m in (True, False):
+                for ca in (True, False):
+                    now, then = compose_render.service(p, m, ca), compose_render.service(p, m, ca, older=True)
+                    for gone in ("NEXUS_SCRATCH", "NEXUS_PORTS", "notes.md", "scratch dir", "Nexus notes"):
+                        self.assertNotIn(gone, then)
+                    d = "${NEXUS_SCRATCH_ROOT:-/srv/nexus-scratch}/" + p.name
+                    notes = compose_render.NOTES_CLAUDE if p.flavour == "claude" else compose_render.NOTES_GROK
+                    adds = [', NEXUS_SCRATCH: "%s"' % d, compose_render.SCRATCH.replace("{dir}", d),
+                            notes.replace("{notes}", "personas/%s.notes.md" % p.name)]
+                    for new in adds + ([', NEXUS_PORTS: "%s"' % p.ports] if p.ports else []):
+                        self.assertEqual(now.count(new), 1, new)
+                        now = now.replace(new, "")
+                    self.assertEqual(now, then)
 
     def test_ask_problem(self):
         from agentctl.adapters import checks
@@ -208,6 +264,7 @@ class PersonasJson(unittest.TestCase):
 
     def load(self, text):
         d = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, d, True)
         p = os.path.join(d, "personas.json")
         with open(p, "wb") as f:
             f.write(text.encode("utf-8", "surrogateescape"))
@@ -219,14 +276,25 @@ class PersonasJson(unittest.TestCase):
               Persona("k2", "claude", "docker", "colour90", permissions="ask"),
               Persona("t1", "grok", "docker", "colour1", telemetry=True),
               Persona("d1", "claude", "docker", "colour1", telemetry=True, tool_details=True),
-              Persona("e1", "grok", "docker", "colour1", telemetry=True, tool_content=True)]
+              Persona("e1", "grok", "docker", "colour1", telemetry=True, tool_content=True),
+              Persona("r1", "claude", "docker", "colour1", telemetry=True, ports="20100-20199")]
         text = self.store.dumps(ps)
         self.assertTrue(text.endswith("}\n") and text.index('"z9"') < text.index('"a1"'))
         self.assertEqual(text.count('"permissions"'), 1)   # the default isn't written
-        self.assertEqual(text.count('"telemetry": true'), 3)
+        self.assertEqual(text.count('"telemetry": true'), 4)
         self.assertEqual(text.count('"tool_details": true'), 1)
         self.assertEqual(text.count('"tool_content": true'), 1)
+        self.assertEqual(text.count('"ports"'), 1)          # only where there is a range, and last
+        self.assertIn('"telemetry": true,\n      "ports": "20100-20199"\n    }', text)
         self.assertEqual(self.load(text), ps)
+        # A personas.json from before the ports reads the same, and is written back byte for byte.
+        before = ('{\n  "version": 1,\n  "personas": {\n    "c1": {\n      "flavour": "claude",\n      "context": "docker",\n'
+                  '      "colour": "colour25",\n      "statusline": true\n    },\n    "g1": {\n      "flavour": "grok",\n'
+                  '      "context": "ddev",\n      "colour": "colour28",\n      "statusline": false,\n      "ssh": "none"\n'
+                  '    }\n  }\n}\n')
+        old = self.load(before)
+        self.assertEqual([p.ports for p in old], ["", ""])
+        self.assertEqual(self.store.dumps(old), before)
         # tool details go with telemetry: a persona that doesn't send has none written
         self.assertNotIn("tool_", self.store.dumps([Persona("q1", "grok", "docker", "colour1", tool_details=True,
                                                             tool_content=True)]))
@@ -261,6 +329,13 @@ class PersonasJson(unittest.TestCase):
                 ('{"version": 1, "personas": {"c1": {%s, "tool_content": true}}}' % ok,
                  '"tool_content": true without "telemetry": true (only a persona that sends telemetry can send tool '
                  'content)'),
+                ('{"version": 1, "personas": {"c1": {%s, "ports": 20000}}}' % ok, "ports that isn't a string"),
+                ('{"version": 1, "personas": {"c1": {%s, "ports": ""}}}' % ok, "has ports '': it takes FROM-TO, two"),
+                ('{"version": 1, "personas": {"c1": {%s, "ports": "20099-20000"}}}' % ok, "has ports '20099-20000'"),
+                ('{"version": 1, "personas": {"c1": {%s, "ports": "80-180"}}}' % ok, "from 1024 to 65535"),
+                ('{"version": 1, "personas": {"c1": {%s, "ports": "20000-20099"}, "c2": {%s, "ports": "21000-21099"}, '
+                 '"c3": {%s, "ports": "20050-20149"}}}' % (ok, ok, ok),
+                 "persona 'c3' has ports 20050-20149, which overlap c1's (20000-20099)"),
                 ("{nope", "isn't valid JSON")):
             with self.assertRaises(self.store.BadPersonasJson) as c:
                 self.load(text)
@@ -380,6 +455,20 @@ class Telemetry(unittest.TestCase):
                     fh.write(text)
                 self.assertEqual(checks.grok_sets_telemetry(f), want, text)
             self.assertFalse(checks.grok_sets_telemetry(os.path.join(d, "none.toml")))
+
+    def test_grok_has_paths(self):
+        # Any [paths] at all, whatever its keys: nexus --config's own would be a second one.
+        from agentctl.adapters import checks
+        with tempfile.TemporaryDirectory() as d:
+            f = os.path.join(d, "grok.toml")
+            for text, want in (("[paths]\nextra_rule_dirs = []\n", True), ("[paths]\nfoo = 1\n", True),
+                               ("a = 1\n['paths']\n", True), ('paths.extra_rule_dirs = ["/x"]\n', True),
+                               ("paths = { x = 1 }\n", True), ("[ui]\npaths = 1\n", False), ("# [paths]\n", False),
+                               ("[pathsx]\n", False), ("", False)):
+                with open(f, "w") as fh:
+                    fh.write(text)
+                self.assertEqual(checks.grok_has_paths(f), want, text)
+            self.assertFalse(checks.grok_has_paths(os.path.join(d, "none.toml")))
 
     def test_ca_problem(self):
         with tempfile.TemporaryDirectory() as d:

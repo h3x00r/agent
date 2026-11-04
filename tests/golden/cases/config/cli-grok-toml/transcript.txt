@@ -7,6 +7,7 @@ Personas:
   NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
   g1                              grok     docker   yes        the VM's             your agent
   g2                              grok     docker   no         the VM's             your agent
+  published ports: g1 20000-20099, g2 20100-20199
 
 Start one from a project directory:  cd <P>/<project> && nexus g1
 g1: its grok settings and statusline come through personas/g1.grok.toml now; `nexus g1 restart` brings them in
@@ -24,6 +25,7 @@ Personas:
   NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
   g1                              grok     docker   yes        the VM's             your agent
   g2                              grok     docker   no         the VM's             your agent
+  published ports: g1 20000-20099, g2 20100-20199
 
 Start one from a project directory:  cd <P>/<project> && nexus g1
 g1: its grok settings changed; the next grok started in it reads them
@@ -41,6 +43,7 @@ Personas:
   NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
   g1                              grok     docker   yes        the VM's             your agent
   g2                              grok     docker   no         the VM's             your agent
+  published ports: g1 20000-20099, g2 20100-20199
 
 Start one from a project directory:  cd <P>/<project> && nexus g1
 Day-to-day use, upgrades and troubleshooting: runbook.md
@@ -56,6 +59,7 @@ Personas:
   NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
   g1                              grok     docker   yes        the VM's             your agent
   g2                              grok     docker   no         the VM's             your agent
+  published ports: g1 20000-20099, g2 20100-20199
 
 Start one from a project directory:  cd <P>/<project> && nexus g1
 g1: its grok settings changed; the next grok started in it reads them
@@ -82,6 +86,7 @@ Personas:
   NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
   g1                              grok     docker   no         the VM's             your agent
   g2                              grok     docker   no         the VM's             your agent
+  published ports: g1 20000-20099, g2 20100-20199
 
 Start one from a project directory:  cd <P>/<project> && nexus g1
 g1: changed; `nexus g1 restart` applies it (that ends its tmux sessions)

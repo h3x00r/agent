@@ -31,6 +31,7 @@ import os
 import pkgutil
 import pwd
 import re
+import resource
 import shutil
 import socket
 import stat
@@ -67,8 +68,11 @@ class Sandbox:
         self.tmp = os.path.join(root, "tmp")
         self.bin = os.path.join(root, "bin")
         self.projects = os.path.join(root, "projects")
+        # scratch/: the shared scratch root (NEXUS_SCRATCH_ROOT below), there already as nexus --config leaves it,
+        # so no case reaches the VM's /srv/nexus-scratch (nor sudo for it) and only the per-persona dirs show.
+        self.scratch = os.path.join(root, "scratch")
         for d in (self.home, self.tmp, self.bin, self.projects, os.path.join(root, "run"),
-                  os.path.join(root, "docker-root")):
+                  os.path.join(root, "docker-root"), self.scratch):
             os.makedirs(d)
         copy_tree(tree, self.a)
         # The setup tool's file in this tree: config.sh, then config-tools, then none (`nexus --config`).
@@ -103,6 +107,7 @@ class Sandbox:
             "https_proxy": "http://127.0.0.1:9", "http_proxy": "http://127.0.0.1:9",
             # Fixed ids for nexus, so the ssh-agent search never finds this VM's own /run/user/<uid>.
             "AGENT_UID": "4242", "AGENT_GID": "4343", "DOCKER_GID": "4444",
+            "NEXUS_SCRATCH_ROOT": self.scratch,
         }
         self.runs = []
         self.calls_seen = 0
@@ -160,8 +165,10 @@ class Sandbox:
             self.world = json.load(f)
         return self.world
 
-    def container(self, persona, state="running", root=None, sessions=None, **kw):
-        """A container for PERSONA in the docker world, as compose would have made it."""
+    def container(self, persona, state="running", root=None, sessions=None, nexus_mounts=True, **kw):
+        """A container for PERSONA in the docker world, as compose would have made it: with its scratch dir and the
+        notes (either flavour's) among its mounts, on top of any MOUNTS given, unless NEXUS_MOUNTS is False (one
+        made before nexus gave them)."""
         self.load_world()
         root = self.projects if root is None else root
         c = {"state": state, "status": kw.pop("status", "Up 2 hours (healthy)" if state == "running" else
@@ -169,6 +176,9 @@ class Sandbox:
              "image": kw.pop("image", "sha256:" + "1" * 64), "env": {"PROJECTS_ROOT": root},
              "workdir": self.a, "home": self.path("ctr/%s/home" % persona),
              "sessions": [{"name": "main", "windows": 1, "attached": 0, "path": root}] if sessions is None else sessions}
+        if nexus_mounts:
+            kw["mounts"] = list(kw.get("mounts", [])) + [os.path.join(self.scratch, persona), "/etc/claude-code/CLAUDE.md",
+                                                         "/etc/grok/rules/00-nexus.md"]
         c.update(kw)
         self.world["containers"]["agent-" + persona] = c
         self.save_world()
@@ -336,7 +346,9 @@ def show_content(path, data):
         text = data.decode("utf-8")
     except UnicodeDecodeError:
         return ["    (binary, sha256 %s)" % hashlib.sha256(data).hexdigest()[:16]]
-    if len(text) > 16384:
+    # 64 KiB: config/cli-colours' compose file for ten personas (about 22 KB since each service mounts its scratch
+    # dir and notes) is shown, not hashed.
+    if len(text) > 65536:
         return ["    (%d bytes, sha256 %s)" % (len(data), hashlib.sha256(data).hexdigest()[:16])]
     lines = text.replace("\r", "\\r").split("\n")
     shown = ["    | " + l for l in lines[:-1]] if text.endswith("\n") else ["    | " + l for l in lines] + ["    (no newline at the end)"]
@@ -395,6 +407,9 @@ def normaliser(sb, rename):
         if len(host) >= 4:
             text = re.sub(r"(?<![A-Za-z0-9.-])%s(?![A-Za-z0-9-])" % re.escape(host), "<HOST>", text)
         text = re.sub(r"\(uid %s\)" % uid, "(uid <UID>)", text)
+        # nexus --config's sudo for the scratch root names your ids (config/scratch-root-sudo).
+        text = text.replace('"install", "-d", "-o", "%s", "-g", "%s"' % (uid, gid),
+                            '"install", "-d", "-o", "<UID>", "-g", "<GID>"')
         text = re.sub(r"Docker as %s:" % re.escape(user), "Docker as <USER>:", text)
         # fds 9 (config.sh) and 8 (nexus upgrade) are the bash tools' lock, which they left open in every child
         # but the nexus they ran; the Python tools close it in all (ODDITIES.md). Not compared; a lock fd at
@@ -430,14 +445,13 @@ def render(sb, rename, extra_norm=None):
     after = snapshot(sb.s)
     files = {"transcript.txt": "\n".join(t) + "\n", "calls.jsonl": "\n".join(c) + "\n",
              "tree.txt": tree_diff(sb.before or {}, after)}
-    for fd in getattr(sb, "held", []):
-        os.close(fd)
     return {k: norm(v) for k, v in files.items()}
 
 
 # --- running cases ---------------------------------------------------------------------------------
 def run_case(case, tree, rename):
     root = tempfile.mkdtemp(prefix="golden.", dir=os.environ.get("GOLDEN_TMP") or None)
+    sb = None
     try:
         sb = Sandbox(tree, root, fakes=case.fakes)
         case.fn(sb)
@@ -449,6 +463,8 @@ def run_case(case, tree, rename):
                 raise RuntimeError("a tool the scenario needs isn't on its PATH:\n" + v)
         return files
     finally:
+        for fd in getattr(sb, "held", []):     # the files snapshot() held open, a scenario that failed's too
+            os.close(fd)
         shutil.rmtree(root, ignore_errors=True)
 
 
@@ -569,6 +585,16 @@ def load_cases():
 
 def main():
     os.umask(0o022)   # modes in tree.txt mustn't depend on the shell this runs from
+    # snapshot() holds every file of a sandbox open (so a freed inode isn't reused, and "inode=same" means the same
+    # file): 140-280 a sandbox, eight at once, past a soft limit of 1024 (Errno 24). drive.py polls, never selects,
+    # so fds past 1024 are fine.
+    soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+    want = 8192 if hard == resource.RLIM_INFINITY else min(hard, 8192)
+    if soft != resource.RLIM_INFINITY and soft < want:
+        try:
+            resource.setrlimit(resource.RLIMIT_NOFILE, (want, hard))
+        except (ValueError, OSError):
+            pass
     p = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     sub = p.add_subparsers(dest="cmd", required=True)
     r = sub.add_parser("record")

@@ -44,6 +44,17 @@
     | AGENT_CPUS=3
     | AGENT_MEMORY=8g
     | 
+    | # The shared scratch root: each persona gets <root>/<name> ($NEXUS_SCRATCH inside it), at the identical path inside
+    | # and on the VM, for files a container it starts must mount. nexus --config creates the root (with sudo when its
+    | # parent isn't yours), ./nexus each persona's dir in it. Empty: /srv/nexus-scratch.
+    | #NEXUS_SCRATCH_ROOT=/srv/nexus-scratch
+    | # The Docker guard in every persona: on (the default), the containers, volumes and networks a persona creates are
+    | # labelled as its own, its prunes reach only those, and it can't stop or remove what isn't its own, nor remove a
+    | # persona image, another persona's, or one a container not its own uses; off, docker there reaches the VM's socket as
+    | # it is. A change: re-run nexus --config (it writes the guard's state into each persona's notes, and names the
+    | # personas to restart), then `nexus <persona> restart` for each.
+    | #DOCKER_GUARD=on
+    | 
     | # Telemetry: OpenTelemetry from the personas that send it to one collector (nexus --config: telemetry in its
     | # menu, or --telemetry-endpoint and the like). Empty: none. Its OTLP/HTTP address, e.g. https://collector.lan:4318;
     | # its bearer token (this file is made private, mode 600, once it holds one); the CA its certificate is signed by,
@@ -74,10 +85,13 @@
     |     build: { target: claude, args: { CONTEXT: docker } }
     |     container_name: agent-c1
     |     env_file: personas/c1.env
-    |     environment: { AGENT_PERSONA: "c1", AGENT_COLOUR: colour25 }
+    |     environment: { AGENT_PERSONA: "c1", AGENT_COLOUR: colour25, NEXUS_SCRATCH: "${NEXUS_SCRATCH_ROOT:-/srv/nexus-scratch}/c1", NEXUS_PORTS: "20000-20099" }
     |     labels: { agent.persona: "c1", agent.flavour: claude, agent.context: docker }
     |     volumes:
     |       - c1-home:/home/dev
+    |       # The shared scratch dir (NEXUS_SCRATCH), at the same path here as on the VM, so a container it starts can
+    |       # bind-mount files from it. nexus makes it before compose up; Docker mustn't (it would make it root's).
+    |       - { type: bind, source: "${NEXUS_SCRATCH_ROOT:-/srv/nexus-scratch}/c1", target: "${NEXUS_SCRATCH_ROOT:-/srv/nexus-scratch}/c1", bind: { create_host_path: false } }
     |       # The Claude Code settings that hold in every Claude persona, personas/claude.managed.json, as a
     |       # managed drop-in: they win over its own settings (the defaults in personas/claude.json don't: nexus
     |       # merges those into them). A single-file mount, so a change (a git pull too) needs a restart.
@@ -87,6 +101,9 @@
     |       # so a change to statusline/claude/settings.json needs `nexus <persona> restart`.
     |       - ./statusline/claude:/etc/claude-code/statusline:ro
     |       - ./statusline/claude/settings.json:/etc/claude-code/managed-settings.d/20-statusline.json:ro
+    |       # The Nexus notes (personas/notes.md, filled in for it by nexus --config) as Claude Code's managed
+    |       # CLAUDE.md, read in every session. Rewritten in place, so a new session reads a change.
+    |       - { type: bind, source: ./personas/c1.notes.md, target: /etc/claude-code/CLAUDE.md, read_only: true, bind: { create_host_path: false } }
     | 
     |   "g1":
     |     extends: { file: compose.yml, service: _agent }
@@ -95,15 +112,21 @@
     |     build: { target: grok, args: { CONTEXT: docker } }
     |     container_name: agent-g1
     |     env_file: personas/g1.env
-    |     environment: { AGENT_PERSONA: "g1", AGENT_COLOUR: colour28 }
+    |     environment: { AGENT_PERSONA: "g1", AGENT_COLOUR: colour28, NEXUS_SCRATCH: "${NEXUS_SCRATCH_ROOT:-/srv/nexus-scratch}/g1", NEXUS_PORTS: "20100-20199" }
     |     labels: { agent.persona: "g1", agent.flavour: grok, agent.context: docker }
     |     volumes:
     |       - g1-home:/home/dev
+    |       # The shared scratch dir (NEXUS_SCRATCH), at the same path here as on the VM, so a container it starts can
+    |       # bind-mount files from it. nexus makes it before compose up; Docker mustn't (it would make it root's).
+    |       - { type: bind, source: "${NEXUS_SCRATCH_ROOT:-/srv/nexus-scratch}/g1", target: "${NEXUS_SCRATCH_ROOT:-/srv/nexus-scratch}/g1", bind: { create_host_path: false } }
     |       # grok's statusline: the script's directory, so edits and pulls show up live.
     |       - ./statusline/grok:/etc/grok/statusline:ro
     |       # grok's managed config, written by nexus --config: personas/grok.toml, then the statusline's
     |       # [ui.status_line] with the statusline on. A key in the persona's ~/.grok/config.toml wins.
     |       - { type: bind, source: ./personas/g1.grok.toml, target: /etc/grok/managed_config.toml, read_only: true, bind: { create_host_path: false } }
+    |       # The Nexus notes (personas/notes.md, filled in for it by nexus --config) as a rule grok reads in every
+    |       # session ([paths] in its managed config). Rewritten in place, so a new session reads a change.
+    |       - { type: bind, source: ./personas/g1.notes.md, target: /etc/grok/rules/00-nexus.md, read_only: true, bind: { create_host_path: false } }
     | 
     |   "c2":
     |     extends: { file: compose.yml, service: _agent }
@@ -112,10 +135,13 @@
     |     build: { target: claude, args: { CONTEXT: docker } }
     |     container_name: agent-c2
     |     env_file: personas/c2.env
-    |     environment: { AGENT_PERSONA: "c2", AGENT_COLOUR: colour90 }
+    |     environment: { AGENT_PERSONA: "c2", AGENT_COLOUR: colour90, NEXUS_SCRATCH: "${NEXUS_SCRATCH_ROOT:-/srv/nexus-scratch}/c2", NEXUS_PORTS: "20200-20299" }
     |     labels: { agent.persona: "c2", agent.flavour: claude, agent.context: docker }
     |     volumes:
     |       - c2-home:/home/dev
+    |       # The shared scratch dir (NEXUS_SCRATCH), at the same path here as on the VM, so a container it starts can
+    |       # bind-mount files from it. nexus makes it before compose up; Docker mustn't (it would make it root's).
+    |       - { type: bind, source: "${NEXUS_SCRATCH_ROOT:-/srv/nexus-scratch}/c2", target: "${NEXUS_SCRATCH_ROOT:-/srv/nexus-scratch}/c2", bind: { create_host_path: false } }
     |       # The Claude Code settings that hold in every Claude persona, personas/claude.managed.json, as a
     |       # managed drop-in: they win over its own settings (the defaults in personas/claude.json don't: nexus
     |       # merges those into them). A single-file mount, so a change (a git pull too) needs a restart.
@@ -125,6 +151,9 @@
     |       # so a change to statusline/claude/settings.json needs `nexus <persona> restart`.
     |       - ./statusline/claude:/etc/claude-code/statusline:ro
     |       - ./statusline/claude/settings.json:/etc/claude-code/managed-settings.d/20-statusline.json:ro
+    |       # The Nexus notes (personas/notes.md, filled in for it by nexus --config) as Claude Code's managed
+    |       # CLAUDE.md, read in every session. Rewritten in place, so a new session reads a change.
+    |       - { type: bind, source: ./personas/c2.notes.md, target: /etc/claude-code/CLAUDE.md, read_only: true, bind: { create_host_path: false } }
     | 
     | volumes:
     |   "c1-home":
@@ -138,19 +167,22 @@
     |       "flavour": "claude",
     |       "context": "docker",
     |       "colour": "colour25",
-    |       "statusline": true
+    |       "statusline": true,
+    |       "ports": "20000-20099"
     |     },
     |     "g1": {
     |       "flavour": "grok",
     |       "context": "docker",
     |       "colour": "colour28",
-    |       "statusline": true
+    |       "statusline": true,
+    |       "ports": "20100-20199"
     |     },
     |     "c2": {
     |       "flavour": "claude",
     |       "context": "docker",
     |       "colour": "colour90",
-    |       "statusline": true
+    |       "statusline": true,
+    |       "ports": "20200-20299"
     |     }
     |   }
     | }
@@ -163,19 +195,22 @@
     |       "context": "docker",
     |       "colour": "colour25",
     |       "statusline": true,
-    |       "telemetry": true
+    |       "telemetry": true,
+    |       "ports": "20000-20099"
     |     },
     |     "g1": {
     |       "flavour": "grok",
     |       "context": "docker",
     |       "colour": "colour28",
-    |       "statusline": true
+    |       "statusline": true,
+    |       "ports": "20100-20199"
     |     },
     |     "c2": {
     |       "flavour": "claude",
     |       "context": "docker",
     |       "colour": "colour90",
-    |       "statusline": true
+    |       "statusline": true,
+    |       "ports": "20200-20299"
     |     }
     |   }
     | }
@@ -202,10 +237,117 @@
     | # Optional.
     | # gh CLI (PRs, issues) and APM (private GitHub packages) as this persona's account:
     | # GH_TOKEN=
+    | # glab (merge requests, pipelines) and git over https to GitLab as this persona's account. One token, one host:
+    | # gitlab.com's, or the GITLAB_HOST below's.
+    | # GITLAB_TOKEN=
+    | # Only for a self-managed GitLab: its host, e.g. gitlab.example.org. GITLAB_TOKEN is then that host's, and git over
+    | # https to gitlab.com doesn't get it; git over https to this host takes a `git config` in the persona (runbook §4).
+    | # GITLAB_HOST=
     | # Context ddev: never block an unattended run on a ddev prompt:
     | # DDEV_NONINTERACTIVE=true
     | # Default model for this persona:
     | # ANTHROPIC_MODEL=
++ a/personas/c2.notes.md  f 644
+    | # Nexus: how this environment works
+    | 
+    | You are persona `c2` (Claude Code), a container on a VM that other personas and people share. nexus --config
+    | wrote this note from personas/notes.md; the env vars below hold the live values if they ever differ from it.
+    | 
+    | ## Files a container must see
+    | - The Docker daemon is the VM's. Every bind-mount source (`docker run -v SRC:…`, a compose `volumes:` path) is
+    |   looked up on the VM, not in this container.
+    | - Shared with the VM at the same path, and writable by you:
+    |   - the projects root `<P>` (`$PROJECTS_ROOT`);
+    |   - your scratch dir `<S>/scratch/c2` (`$NEXUS_SCRATCH`): put throwaway files a container must mount here (test keys,
+    |     env files, probe copies, a TMPDIR for tests that start containers).
+    | - Not shared: `/tmp`, `$HOME` (`/home/dev`, a volume of this persona) and the rest of this container. A bind source
+    |   from there doesn't exist on the VM: Docker refuses it (`--mount`) or makes an empty root-owned dir there (`-v`).
+    | - Only those two dirs themselves are writable: their parent dirs exist here only as mount points, so a new folder
+    |   next to them can't be made. Make it inside one of them.
+    | - A container that writes into a bind mount as root leaves root-owned files you can't delete: run it with
+    |   `--user "$(id -u):$(id -g)"` (compose: `user:`) when it writes there.
+    | 
+    | ## Ports and the network
+    | - This persona uses the VM's network. A port a stack publishes on `127.0.0.1:PORT` is reachable here as
+    |   `localhost:PORT`: no `--network host` helper container and no port forwarding is needed.
+    | - Ports are shared by everyone on the VM. Yours are `20200-20299` (`$NEXUS_PORTS`). Publish on 127.0.0.1 and either:
+    |   - let Docker pick a free port (`-p 127.0.0.1::80`, or `ports: ["127.0.0.1::80"]` in compose) and look it up with
+    |     `docker compose port <service> 80` or `docker port <container> 80`; or
+    |   - choose one in your range, through the project's own variable when it has one (`WEB_PORT=…`).
+    |   Don't publish a fixed common port (80, 3000, 5432, 8080…): another persona's copy of the stack may hold it. A
+    |   server you run here directly (`npm run dev`, vite) is on the VM's ports too: 127.0.0.1, a port in your range.
+    | - A compose file that publishes a fixed port with no variable for it: don't edit it. Put a `compose.override.yaml`
+    |   next to it (compose reads it when no `-f` is given; `.git/info/exclude` keeps it out of git), as below, then
+    |   `docker compose port web 80`. A plain `ports:` there adds to the project's, and the fixed port stays. Every
+    |   persona working in that dir reads that file and `.env`: a port of your range goes on the command line
+    |   (`WEB_PORT=20001 docker compose up -d`), never in a file there.
+    |   ```yaml
+    |   services:
+    |     web:
+    |       ports: !override ["127.0.0.1::80"]     # a port Docker picks
+    |       container_name: !reset null            # for a fixed container_name: compose's own, prefixed name again
+    |   ```
+    | 
+    | ## Names on the shared daemon
+    | - `docker compose` here prefixes the project name with `c2-`: project `shop` becomes `c2-shop`,
+    |   its containers `c2-shop-<service>-1`, its networks and volumes `c2-shop_…`. Two personas can
+    |   run the same project at once.
+    | - `-p NAME`, or `COMPOSE_PROJECT_NAME` exported in the shell, turn the prefix off (one in the project's `.env` or an
+    |   `--env-file` gets the prefix too): use them only to reach a stack on purpose. A Makefile or `.envrc` may export
+    |   `COMPOSE_PROJECT_NAME` unseen, and the stack then gets that bare name: when `echo $COMPOSE_PROJECT_NAME` (or the
+    |   Makefile) shows one, pass `-p c2-<project>`, or `make COMPOSE_PROJECT_NAME=c2-<project> …`.
+    | - Outside compose nothing is prefixed, and names are global: `docker run --name` or `docker network create` of a
+    |   name someone has fails, and `-v NAME:…`, `--mount source=NAME` or `docker volume create NAME` of one gets that
+    |   volume, data and all (the guard refuses another persona's, not the user's). Start yours with `c2-`. A
+    |   fixed `container_name:`, or `name:` on a network or volume, in a compose file is global the same way: override it
+    |   in that git-excluded `compose.override.yaml`, not in the project's file.
+    | - ddev names its projects itself (`ddev-<site>`), without the prefix: keep site names distinct between personas.
+    |   Its router and ssh-agent serve every persona's and the user's ddev sites: stop only your own project (`ddev stop`
+    |   in its folder), never `ddev poweroff` or `ddev stop --all` unless the user asks.
+    | 
+    | ## Cleaning up
+    | - With the Docker guard on, every container, volume (anonymous ones too) and network you create is labelled
+    |   `nexus.persona=c2`. Clean up only what is yours: `docker compose down -v` for your projects, or
+    |   `docker ps -a --filter label=nexus.persona=c2` (likewise `volume ls`, `network ls`) and remove from that
+    |   list. With it off nothing is labelled: `docker compose down -v` for your projects, else only what you created, by
+    |   name. Either way prefer `docker run --rm`, `docker rm -v` and `down -v`: a container's anonymous volumes go with
+    |   it.
+    | - Images aren't labelled (a build or a pull can't be). Remove only what your projects built (`c2-…`), or
+    |   what you built or pulled yourself and no one else's container uses. Never `docker rmi -f $(docker images -q)`, nor
+    |   `docker compose down --rmi all` on a stack whose base images others use.
+    | - Never clean up the whole daemon (`docker system prune`, `docker rm -f $(docker ps -aq)`, `docker volume prune -a`):
+    |   other personas' stacks and data live there too.
+    | - The build cache is shared by everyone and Docker can't label it: don't prune it unless the user asks.
+    |   `docker builder prune` goes past the guard and empties everyone's.
+    | - The Docker guard is `on` here, as nexus --config wrote this (`readlink /run/nexus/docker.sock` printing
+    |   `/var/run/docker.sock` means it is off now). When on, prunes reach only what is labelled yours, and it refuses
+    |   (`Error response from daemon: nexus guard: …`) to stop, remove or change a container, volume or network not
+    |   yours, to mount another persona's volume, to remove or re-tag a persona image, another persona's, or one a
+    |   container not yours uses, and `docker swarm` and plugins (use compose, not `docker stack`). A refusal means: leave
+    |   it, or ask the user. The raw socket `/var/run/docker.sock` is still mounted, so the guard stops accidents, not
+    |   you: don't go around it unless the user asks.
+    | - The persona containers (`agent-*`) hold their persona's tokens and API keys in their environment: never
+    |   `docker inspect`, `exec`, `commit` or `export` another persona's (the guard lets those through, and its secrets
+    |   would land in your session). To follow a container not yours: `docker logs -f`, not `docker attach` (Ctrl-C there
+    |   is refused; three end it).
+    | - `$DOCKER_HOST`'s socket is in this container only. A tool that mounts "the Docker socket" into the containers it
+    |   starts must be given `/var/run/docker.sock` (act: `--container-daemon-socket unix:///var/run/docker.sock`), else
+    |   `-v` makes an empty root-owned dir on the VM. Such a container, like any given that socket, goes round the guard.
+    | 
+    | ## Containers inside containers
+    | - Privileged sibling containers (Docker-in-Docker for end-to-end suites) are allowed. They are labelled like the
+    |   rest; keep their ports in your range, and remove them when done. A Docker daemon inside one resolves its own bind
+    |   paths, so mount the projects root or scratch into it at the same path.
+    | - When `docker info` lists a `sysbox-runc` runtime, prefer `--runtime=sysbox-runc` to `--privileged`.
+    | 
+    | ## Tools
+    | - Python: `python3 -m venv`, `uv`, `uvx` (`uvx --from tool==X.Y.Z tool …` runs a project's pinned version).
+    | - APM: `apm` is the image's version. `nexus-apm X.Y.Z …` runs the version a project pins. Never run
+    |   `apm self-update`: the image is the updater.
+    | - GitHub: `gh` (token `GH_TOKEN`). GitLab: `glab`, merge requests with `glab mr`, pipelines with `glab ci`. Its token
+    |   `GITLAB_TOKEN` is one host's, `GITLAB_HOST`'s (a self-managed GitLab), else gitlab.com's: git over https to another
+    |   host doesn't get it. Git over https to `GITLAB_HOST` needs, once:
+    |   `git config --global credential.https://<host>.helper /usr/local/libexec/nexus/glab-credential`.
 + a/personas/c2.telemetry.json  f 600
     | {}
 + a/personas/telemetry-ca.pem  f 644

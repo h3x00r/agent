@@ -20,7 +20,8 @@ SB, NAME, ARGS = sys.argv[1], sys.argv[2], sys.argv[3:]
 WORLD = os.path.join(SB, "world.json")
 LOG = os.path.join(SB, "calls.jsonl")
 ENV_KEYS = ("PROJECTS_ROOT", "AGENT_UID", "AGENT_GID", "DOCKER_GID", "SSH_AUTH_SOCK", "AGENT_CA_CERTS",
-            "REGISTRY", "CLAUDE_VERSION", "CLAUDE_TAG", "GROK_VERSION", "GROK_TAG", "COMPOSE_PROJECT_NAME")
+            "REGISTRY", "CLAUDE_VERSION", "CLAUDE_TAG", "GROK_VERSION", "GROK_TAG", "COMPOSE_PROJECT_NAME",
+            "NEXUS_SCRATCH_ROOT")
 
 
 def short(a):
@@ -132,6 +133,7 @@ def new_id(w, ref):
 
 ASK_TARGET = "/etc/claude-code/managed-settings.d/16-ask.json"
 DROPIN_TARGET = "/etc/claude-code/managed-settings.d/50-telemetry.json"
+NOTES_TARGETS = ("/etc/claude-code/CLAUDE.md", "/etc/grok/rules/00-nexus.md")
 
 
 def service_text(files, service):
@@ -191,7 +193,10 @@ def compose(world, args):
         img = w["images"].get(ref, {}).get("id") or new_id(w, ref)
         name = "agent-" + service
         text = service_text(files, service)
-        mounts = [t for t in (ASK_TARGET, DROPIN_TARGET) if t in text]
+        mounts = [t for t in (ASK_TARGET, DROPIN_TARGET) + NOTES_TARGETS if t in text]
+        # The scratch dir, where compose would put it: the root interpolated from the environment nexus gave it.
+        if 'target: "${NEXUS_SCRATCH_ROOT:-/srv/nexus-scratch}/%s"' % service in text:
+            mounts.append((os.environ.get("NEXUS_SCRATCH_ROOT") or "/srv/nexus-scratch") + "/" + service)
         w["containers"][name] = {
             "state": "running", "status": "Up Less than a second (health: starting)", "image": img,
             "env": dict({"PROJECTS_ROOT": os.environ.get("PROJECTS_ROOT", "")},

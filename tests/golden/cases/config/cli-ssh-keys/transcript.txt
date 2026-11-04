@@ -7,6 +7,7 @@ Personas:
   NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
   g1                              grok     docker   yes        the VM's             personas/g1.key
   c1                              claude   docker   yes        the VM's             your agent
+  published ports: g1 20000-20099, c1 20100-20199
 
 Start one from a project directory:  cd <P>/<project> && nexus g1
 Day-to-day use, upgrades and troubleshooting: runbook.md
@@ -23,6 +24,7 @@ Personas:
   NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
   g1                              grok     docker   yes        the VM's             personas/g1.key
   c1                              claude   docker   yes        the VM's             <HOME>/keys/c1
+  published ports: g1 20000-20099, c1 20100-20199
 
 Start one from a project directory:  cd <P>/<project> && nexus g1
 c1: changed; `nexus c1 restart` applies it (that ends its tmux sessions)
@@ -60,6 +62,7 @@ Personas:
   g1                              grok     docker   yes        the VM's             personas/g1.key
   c1                              claude   docker   yes        the VM's             <HOME>/keys/c1
   x1                              claude   docker   yes        the VM's             personas/x1.key
+  published ports: g1 20000-20099, c1 20100-20199, x1 20200-20299
 
 Start one from a project directory:  cd <P>/<project> && nexus g1
 x1: making its ssh key failed (see above); retry with: ssh-keygen -t ed25519 -N '' -f <A>/personas/x1.key

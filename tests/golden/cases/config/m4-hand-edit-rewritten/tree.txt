@@ -12,10 +12,13 @@
     |     build: { target: claude, args: { CONTEXT: docker } }
     |     container_name: agent-c1
     |     env_file: personas/c1.env
-    |     environment: { AGENT_PERSONA: "c1", AGENT_COLOUR: colour25 }
+    |     environment: { AGENT_PERSONA: "c1", AGENT_COLOUR: colour25, NEXUS_SCRATCH: "${NEXUS_SCRATCH_ROOT:-/srv/nexus-scratch}/c1", NEXUS_PORTS: "20000-20099" }
     |     labels: { agent.persona: "c1", agent.flavour: claude, agent.context: docker }
     |     volumes:
     |       - c1-home:/home/dev
+    |       # The shared scratch dir (NEXUS_SCRATCH), at the same path here as on the VM, so a container it starts can
+    |       # bind-mount files from it. nexus makes it before compose up; Docker mustn't (it would make it root's).
+    |       - { type: bind, source: "${NEXUS_SCRATCH_ROOT:-/srv/nexus-scratch}/c1", target: "${NEXUS_SCRATCH_ROOT:-/srv/nexus-scratch}/c1", bind: { create_host_path: false } }
     |       # The Claude Code settings that hold in every Claude persona, personas/claude.managed.json, as a
     |       # managed drop-in: they win over its own settings (the defaults in personas/claude.json don't: nexus
     |       # merges those into them). A single-file mount, so a change (a git pull too) needs a restart.
@@ -25,6 +28,9 @@
     |       # so a change to statusline/claude/settings.json needs `nexus <persona> restart`.
     |       - ./statusline/claude:/etc/claude-code/statusline:ro
     |       - ./statusline/claude/settings.json:/etc/claude-code/managed-settings.d/20-statusline.json:ro
+    |       # The Nexus notes (personas/notes.md, filled in for it by nexus --config) as Claude Code's managed
+    |       # CLAUDE.md, read in every session. Rewritten in place, so a new session reads a change.
+    |       - { type: bind, source: ./personas/c1.notes.md, target: /etc/claude-code/CLAUDE.md, read_only: true, bind: { create_host_path: false } }
     | 
     |   "c2":
     |     extends: { file: compose.yml, service: _agent }
@@ -33,10 +39,13 @@
     |     build: { target: claude, args: { CONTEXT: docker } }
     |     container_name: agent-c2
     |     env_file: personas/c2.env
-    |     environment: { AGENT_PERSONA: "c2", AGENT_COLOUR: colour28 }
+    |     environment: { AGENT_PERSONA: "c2", AGENT_COLOUR: colour28, NEXUS_SCRATCH: "${NEXUS_SCRATCH_ROOT:-/srv/nexus-scratch}/c2", NEXUS_PORTS: "20100-20199" }
     |     labels: { agent.persona: "c2", agent.flavour: claude, agent.context: docker }
     |     volumes:
     |       - c2-home:/home/dev
+    |       # The shared scratch dir (NEXUS_SCRATCH), at the same path here as on the VM, so a container it starts can
+    |       # bind-mount files from it. nexus makes it before compose up; Docker mustn't (it would make it root's).
+    |       - { type: bind, source: "${NEXUS_SCRATCH_ROOT:-/srv/nexus-scratch}/c2", target: "${NEXUS_SCRATCH_ROOT:-/srv/nexus-scratch}/c2", bind: { create_host_path: false } }
     |       # The Claude Code settings that hold in every Claude persona, personas/claude.managed.json, as a
     |       # managed drop-in: they win over its own settings (the defaults in personas/claude.json don't: nexus
     |       # merges those into them). A single-file mount, so a change (a git pull too) needs a restart.
@@ -46,6 +55,9 @@
     |       # so a change to statusline/claude/settings.json needs `nexus <persona> restart`.
     |       - ./statusline/claude:/etc/claude-code/statusline:ro
     |       - ./statusline/claude/settings.json:/etc/claude-code/managed-settings.d/20-statusline.json:ro
+    |       # The Nexus notes (personas/notes.md, filled in for it by nexus --config) as Claude Code's managed
+    |       # CLAUDE.md, read in every session. Rewritten in place, so a new session reads a change.
+    |       - { type: bind, source: ./personas/c2.notes.md, target: /etc/claude-code/CLAUDE.md, read_only: true, bind: { create_host_path: false } }
     | 
     | volumes:
     |   "c1-home":

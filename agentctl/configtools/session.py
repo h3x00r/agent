@@ -2,11 +2,13 @@
 
 A Session reads the checkout (open(): the root refusal, the lock, personas.json or the `# persona:` lines
 from before it, the telemetry settings in .env), checks the VM (preflight()), applies the flags (--remove,
---persona, --ssh, --permissions, the --telemetry ones), and saves:
-- stage_env(), then env_vm(): .env staged, with what the VM decides (DDEV_VERSION, AGENT_CPUS);
-- prepare(): the settings files checked, each grok persona's config, the telemetry files of the personas that
-  send it (and the collector's CA, copied in), personas.json and the compose file generated from it staged,
-  and all of it checked with `docker compose config`;
+--persona, --ssh, --permissions, --ports, the --telemetry ones), gives each persona without a port range one
+(fill_ports()), and saves:
+- stage_env(), then env_vm(): .env staged, with what the VM decides (DDEV_VERSION, AGENT_CPUS), and the two
+  settings only a hand edit sets (NEXUS_SCRATCH_ROOT, DOCKER_GUARD) held to their rules;
+- prepare(): the settings files checked, each grok persona's config, every persona's Nexus notes (domain/notes.py),
+  the telemetry files of the personas that send it (and the collector's CA, copied in), personas.json and the
+  compose file generated from it staged, and all of it checked with `docker compose config`;
 - commit(): every staged file in place at once, signals ignored meanwhile, and the notes on what that
   means for the personas (a restart, the move from the `# persona:` lines).
 Until commit() nothing is written but the staged files (removed on the way out, staging.cleanup()) and
@@ -60,6 +62,31 @@ Pitfalls (each pinned where named):
 - a persona that comes to send tool content without tool details is told so once: a claude one that what Claude
   Code writes to files then stays out, a grok one that grok sends its commands all the same (golden
   config/telemetry-content-flags)
+- NEXUS_SCRATCH_ROOT and DOCKER_GUARD, in the shell or in .env, that their rules refuse: nothing written
+  (test_configtools.VmSettings.test_refused, golden config/vm-settings-refused)
+- the scratch root and the guard as a persona gets them: the shell's, else the staged .env's (else the committed one's,
+  once the staged one is in place), else the default (test_configtools.VmSettings.test_resolved)
+- personas/notes.md missing, or with a placeholder nexus doesn't fill in: nothing written (golden config/notes-template)
+- every persona's notes written in place, as its grok config is, so a running container sees them at its CLI's next
+  session; mode 644, nothing secret in them (golden config/notes-template)
+- notes that say the guard is the other way than DOCKER_GUARD now does (changed since they were written): a restart
+  note, as a container's guard is what it was made with; notes written by another template say nothing
+  (test_configtools.VmSettings.test_guard_changed, golden config/vm-settings-refused)
+- a grok persona's config gets the [paths] table that reads the notes, unless personas/grok.toml has a [paths] of its
+  own (a second would be invalid TOML): then none, and a warning unless that one lists the notes' dir
+  (test_adapters.Telemetry.test_grok_has_paths, golden config/notes-grok-paths)
+- a removed persona's notes and scratch dir named among what stays only when they are there, the dir's removal with
+  sudo (a container it started may have left root's files in it), and what it made on the daemon named by its label
+  (golden config/remove-scratch-notes)
+- a persona without a port range gets one on every writing run, after the flags (so --ports wins, and the others
+  fill around it; one --persona adds, too), with no "changed" note of its own: its service's restart note covers it
+  (test_configtools.Ports.test_fill, test_configtools.Ports.test_flags, golden config/ports-flags)
+- --ports: every one applied, then each checked against the other ranges (so two can swap); one that overlaps,
+  refused before anything is written (test_configtools.Ports.test_flags)
+- a service as nexus --config wrote it before the scratch dir, the port range and the notes: a restart note that
+  says so, not the hand-edit one (test_configtools.Ports.test_rewritten_notes, golden config/ports-older-checkout)
+- a grok config changed by the notes' [paths] table alone, in a compose file without the notes' mount yet: no note of
+  its own, as its service's restart note brings both in (test_configtools.Ports.test_paths_alone)
 """
 import json
 import os
@@ -76,7 +103,9 @@ from agentctl.configtools.host import (cpus_ok, ddev_version, nproc, pad, read_b
 from agentctl.core import dotenv, lock
 from agentctl.core.errors import NexusError
 from agentctl.core.shellcompat import mkdir_p, printf_q, read_fields
+from agentctl.domain import notes as nts
 from agentctl.domain import persona as rules
+from agentctl.domain import scratch as scr
 from agentctl.domain import telemetry as tele
 from agentctl.domain.persona import Persona
 from agentctl.ui.prompts import Prompter
@@ -91,12 +120,22 @@ def die(msg):
     raise NexusError(msg)
 
 
+def _settings(text):
+    return [l for l in text.split("\n") if not l.lstrip().startswith("#")]
+
+
 def _same_settings(a, b):
     """Whether two grok configs hold the same settings: their lines but the comments (which named config-tools,
     in the header and in the tracked files copied in, before it was `nexus --config`)."""
-    def settings(path):
-        return [l for l in read_or_empty(path).split("\n") if not l.lstrip().startswith("#")]
-    return settings(a) == settings(b)
+    return _settings(read_or_empty(a)) == _settings(read_or_empty(b))
+
+
+def paths_alone(n, new, old):
+    """Whether grok persona N's config NEW differs from OLD by the notes' [paths] table alone (nts.GROK_PATHS), while
+    compose.personas.yml doesn't mount N's notes yet: the restart its service is told then brings both in."""
+    text = read_or_empty(new)
+    return (text.endswith(nts.GROK_PATHS) and "./%s," % nts.file(n) not in read_or_empty(PERSONAS_FILE)
+            and _settings(text[:-len(nts.GROK_PATHS)]) == _settings(read_or_empty(old)))
 
 
 class Session:
@@ -108,9 +147,13 @@ class Session:
         self.home = os.environ.get("HOME", "")
         self.launcher = os.path.join(checkout, "nexus")
         self.personas = []
-        self.loaded = {}          # name → (flavour, context, statusline, root, ssh, permissions, telemetry) as read
+        self.loaded = {}          # name → (flavour, context, statusline, root, ssh, permissions, telemetry, ports) as read
+        self.unranged = set()     # the names read without a port range: fill_ports() gives them one without a note
         self.staged = {}          # name → its staged env file
         self.gstaged = {}         # name → its staged grok config
+        self.nstaged = {}         # name → its staged notes (personas/NAME.notes.md)
+        self.nguard = {}          # name → the guard state its notes say now, where the ones there say the other
+        self.scratch_tried = False   # whether this run tried to make the scratch root (after.scratch_root)
         self.backup = set()       # names whose env file is replaced, the old one kept as a .bak
         self.later = []
         self.first = False
@@ -173,10 +216,22 @@ class Session:
     def norm_dir(self, d):
         return rules.norm_dir(d, self.home)
 
+    def dotenv_now(self, key):
+        """KEY in .env as this run has it: the staged one, until it is in place (then the one in place)."""
+        return dotenv.get(self.env_new if self.env_new and os.path.exists(self.env_new) else ".env", key)
+
+    def scratch_root(self):
+        """The shared scratch root, as nexus finds it: NEXUS_SCRATCH_ROOT in the shell, else in .env, else the default."""
+        return scr.root(os.environ.get(scr.VAR, "") or self.dotenv_now(scr.VAR), "")
+
+    def guard(self):
+        """The Docker guard, on or off, as a persona's entrypoint gets it (DOCKER_GUARD: the shell's, else .env's)."""
+        return nts.guard(os.environ.get("DOCKER_GUARD", "") or self.dotenv_now("DOCKER_GUARD"), "")
+
     @staticmethod
     def state(p):
         return (p.flavour, p.context, "yes" if p.statusline else "no", p.root, p.ssh, p.permissions,
-                "yes" if p.telemetry else "no")
+                "yes" if p.telemetry else "no", p.ports)
 
     def list(self):
         if not self.personas:
@@ -200,6 +255,9 @@ class Session:
             names = [p.name for p in self.personas if tele.extra_on(p, x, self.all_on(x))]
             if names:
                 self.say("  sends %s too (%s): %s" % (x.name, x.what, ", ".join(names)))
+        ranges = ["%s %s" % (p.name, p.ports) for p in self.personas if p.ports]
+        if ranges:
+            self.say("  published ports: " + ", ".join(ranges))
 
     def restarts(self):
         """The personas this run's notes tell to restart: `nexus NAME restart` is the mark the notes go by."""
@@ -226,14 +284,20 @@ class Session:
 
     def rewritten_notes(self, old):
         """compose.personas.yml written again over one that wasn't what personas.json gives (a hand edit; nexus
-        warned at an attach): the personas whose service that changes need a restart for it, and are told so
-        (one told already, by a change of its own, isn't). The managed mount, there or not, doesn't count, nor
-        the telemetry CA's (whether .env names a CA is told apart by the telemetry notes)."""
+        warned at an attach), or that an older nexus --config wrote, before the scratch dir, the port range and the
+        notes (a git pull, then nexus --update or --yes): the personas whose service that changes need a restart for
+        it, and are told so, and why (one told already, by a change of its own, isn't). The managed mount, there or
+        not, doesn't count, nor the telemetry CA's (whether .env names a CA is told apart by the telemetry notes)."""
         told = "\n".join(self.later)
+        both = [(m, ca) for m in (True, False) for ca in (True, False)]
         for p in self.personas:
             if p.name not in self.loaded or "`nexus %s restart`" % p.name in told:
                 continue
-            if any(service_in(compose_render.service(p, m, ca), old) for m in (True, False) for ca in (True, False)):
+            if any(service_in(compose_render.service(p, m, ca), old) for m, ca in both):
+                continue
+            if any(service_in(compose_render.service(p, m, ca, older=True), old) for m, ca in both):
+                self.later.append("%s: its service has the shared scratch dir, its port range and the Nexus notes now; "
+                                  "`nexus %s restart` applies them (that ends its tmux sessions)" % (p.name, p.name))
                 continue
             self.later.append("%s: its service in %s wasn't what personas.json gives (edited by hand?); `nexus %s restart` "
                               "applies the one written now (that ends its tmux sessions)" % (p.name, PERSONAS_FILE, p.name))
@@ -248,6 +312,10 @@ class Session:
             n, _, v = spec.partition(":")
             if not rules.valid_name(n) or v not in rules.PERMISSIONS:
                 die("--permissions %s: it takes NAME:ask or NAME:bypass" % spec)
+        for spec in self.o.ports:
+            n, _, v = spec.partition(":")
+            if not rules.valid_name(n) or rules.port_range(v) is None:
+                die("--ports %s: it takes NAME:%s" % (spec, rules.PORTS_RULE))
         if self.o.root:
             self.o.root = self.norm_dir(self.o.root)
             if not rules.root_ok(self.o.root):
@@ -337,10 +405,11 @@ class Session:
         if i is not None:
             old = self.personas[i]
             col, keep, key, sl, perm, tel = old.colour, old.root, old.ssh, old.statusline, old.permissions, old.telemetry
-            det, con = old.tool_details, old.tool_content
+            det, con, ports = old.tool_details, old.tool_content, old.ports
         else:
             col, keep, key, sl, perm, tel = rules.next_colour(self.personas), "", "", True, "bypass", False
             det = con = False
+            ports = ""        # fill_ports() gives it one after the flags, around the ranges --ports set
         if self.o.statusline:
             sl = self.o.statusline == "yes"
         if spec.count(":") >= 3:
@@ -352,7 +421,7 @@ class Session:
                     die("--persona %s: can't create the projects root '%s'" % (spec, r))
         else:
             r = keep
-        self.put(Persona(n, f, c, col, sl, r, key, perm if f == "claude" else "bypass", tel, det, con))
+        self.put(Persona(n, f, c, col, sl, r, key, perm if f == "claude" else "bypass", tel, det, con, ports))
 
     def ssh_flag(self, spec):
         n, _, k = spec.partition(":")
@@ -371,6 +440,38 @@ class Session:
         if v == "ask" and self.personas[i].flavour != "claude":
             die("--permissions %s: %s is a grok persona, and grok takes its approval mode from personas/grok.toml" % (spec, n))
         self.personas[i].permissions = v
+
+    def ports_flags(self):
+        """Every --ports in place, then each checked against the other personas' ranges: all of them at once, so that
+        two personas can swap theirs."""
+        for spec in self.o.ports:
+            n, _, v = spec.partition(":")
+            i = self.idx(n)
+            if i is None:
+                die("--ports %s: no persona %s (add it with --persona)" % (spec, n))
+            self.personas[i].ports = v
+        for spec in self.o.ports:
+            p = self.personas[self.idx(spec.partition(":")[0])]
+            q = rules.ports_overlap(p, self.personas)
+            if q:
+                die("--ports %s: that range overlaps %s's (%s), so nothing was written: give each persona a range of "
+                    "its own" % (spec, q.name, q.ports))
+
+    def fill_ports(self):
+        """A port range for each persona without one (a personas.json from before them, one edited by hand, or one
+        --persona adds): a block of its own (rules.next_ports), in persona order. One read without a range is taken to
+        have been read with this one, so it brings no "changed" note: the restart its service is told (rewritten_notes)
+        brings NEXUS_PORTS in. One that had a range (removed and given again with --persona) is changed."""
+        for p in self.personas:
+            if p.ports:
+                continue
+            p.ports = rules.next_ports(self.personas)
+            if not p.ports:
+                self.warn_once("no block of %d ports is free from %d to %d, so %s has no port range: give it one with "
+                               "--ports %s:FROM-TO" % (rules.PORTS_BLOCK, rules.PORTS_BASE, rules.PORTS_MAX, p.name,
+                                                      p.name))
+            elif p.name in self.loaded and p.name in self.unranged:
+                self.loaded[p.name] = self.loaded[p.name][:-1] + (p.ports,)
 
     def telemetry_flag(self, spec):
         n, _, v = spec.partition(":")
@@ -448,6 +549,7 @@ class Session:
             self.ssh_flag(spec)
         for spec in self.o.permissions:
             self.permissions_flag(spec)
+        self.ports_flags()
         o = self.o
         self.tele_unsaid = []
         if o.tele_endpoint == "none":
@@ -504,6 +606,7 @@ class Session:
                 "context=ddev|docker colour=colourN statusline=yes|no [root=/dir] [ssh=none|/path|personas/NAME.key]"
                 % (PERSONAS_FILE, e.name, e.line))
         self.loaded = {p.name: self.state(p) for p in self.personas}
+        self.unranged = {p.name for p in self.personas if not p.ports}
         self.read_tele()
         self.extras_saved = {p.name: (p.flavour, self.extras_on(p)) for p in self.personas}
 
@@ -547,11 +650,18 @@ class Session:
             if self.idx(n) is not None:
                 continue
             what = "env file" + (", ssh key" if os.path.exists("personas/%s.key" % n) else "")
-            exts = ["env", "key", "key.pub", "grok.toml"] + [e for e in ("telemetry.json", "telemetry.env")
+            exts = ["env", "key", "key.pub", "grok.toml"] + [e for e in ("telemetry.json", "telemetry.env", "notes.md")
                                                             if os.path.exists("personas/%s.%s" % (n, e))]
+            what += ", notes" if os.path.exists(nts.file(n)) else ""
+            d = scr.path(self.scratch_root(), n)
+            d = d if os.path.isdir(d) else ""
             files = " ".join(printf_q("%s/personas/%s.%s" % (self.a, n, ext)) for ext in exts)
-            self.later.append("%s: removed. Its %s and home volume stay; to delete them:" % (n, what))
-            self.later.append("    docker rm -f agent-%s; docker volume rm agents_%s-home; rm -f %s " % (n, n, files))
+            self.later.append("%s: removed. Its %s%s and home volume stay; to delete them:"
+                              % (n, what, ", scratch dir %s" % d if d else ""))
+            self.later.append("    docker rm -f agent-%s; docker volume rm agents_%s-home; rm -f %s%s"
+                              % (n, n, files, "; sudo rm -rf %s" % printf_q(d) if d else " "))
+            self.later.append("    what it made with docker stays too: docker ps -a --filter label=nexus.persona=%s lists "
+                              "it (docker volume ls and docker network ls take the filter too)" % n)
 
     # --- the shared settings, as .env has them ---
     def read_shared(self):
@@ -586,7 +696,9 @@ class Session:
             set_kv(self.env_new, "GROK_TAG", "")
 
     def env_vm(self):
-        """What the VM decides in .env: ddev's version for the ddev personas, and AGENT_CPUS within nproc."""
+        """What the VM decides in .env: ddev's version for the ddev personas, and AGENT_CPUS within nproc; the
+        settings only a hand edit sets, checked."""
+        self.vm_problem()
         if self.has("ddev"):
             dv = self.vm_ddev or dotenv.get(self.env_new, "DDEV_VERSION")
             if not dv:
@@ -597,6 +709,19 @@ class Session:
         if not cpus_ok(cpus, n):
             set_kv(self.env_new, "AGENT_CPUS", str(n if n < 4 else 4))
         self.env_tele()
+
+    def vm_problem(self):
+        """NEXUS_SCRATCH_ROOT and DOCKER_GUARD, in the shell and in the staged .env, held to their rules (nothing
+        is written otherwise): nexus --config never sets them, a hand edit does."""
+        for where, env in (("your shell", os.environ), ("%s/.env" % self.a, None)):
+            fix = "unset it, or fix it" if env is not None else "fix it there"
+            v = env.get(scr.VAR, "") if env is not None else dotenv.get(self.env_new, scr.VAR)
+            if v and not scr.root_ok(scr.root(v, "")):
+                die("NEXUS_SCRATCH_ROOT in %s must be %s (empty: %s), not '%s', so nothing was written: %s"
+                    % (where, scr.RULE, scr.DEFAULT, v, fix))
+            v = env.get("DOCKER_GUARD", "") if env is not None else dotenv.get(self.env_new, "DOCKER_GUARD")
+            if v not in ("", "on", "off"):
+                die("DOCKER_GUARD in %s is neither on nor off (nor empty: on), so nothing was written: %s" % (where, fix))
 
     def env_tele(self):
         """The telemetry settings into the staged .env: each that changed (an empty one only over one there)."""
@@ -636,6 +761,11 @@ class Session:
             why = self.settings_problem("personas/grok.toml", "toml", "personas/grok.toml")
             if why:
                 die("personas/grok.toml isn't TOML grok can read, so nothing was written (grok would stop on it): " + why)
+        template = self.notes_template()
+        own_paths = self.has("grok") and checks.grok_has_paths("personas/grok.toml")
+        if own_paths and not any(q + nts.GROK_RULES + q in read_or_empty("personas/grok.toml") for q in "\"'"):
+            self.warn_once("personas/grok.toml has a [paths] table of its own, so nexus --config adds none, and the grok "
+                           "personas don't read the Nexus notes: add \"%s\" to its extra_rule_dirs" % nts.GROK_RULES)
         for p in self.personas:
             if p.flavour != "grok":
                 continue
@@ -650,16 +780,20 @@ class Session:
                 text += b"\n" + read_bytes("statusline/grok/settings.toml")
             if p.telemetry:
                 text += tele.grok_table(self.tele["endpoint"], bool(self.tele["ca"]), self.extras_on(p)).encode()
+            if not own_paths:
+                text += nts.GROK_PATHS.encode()
             with open(tmp, "wb") as fh:
                 fh.write(text)
             why = self.settings_problem(tmp, "toml", "personas/grok.toml")
             if why:
                 adds = " and ".join(([] if not p.statusline or checks.grok_sets_statusline("personas/grok.toml")
-                                     else ["the statusline"]) + (["the [telemetry] table"] if p.telemetry else [])) or "what"
-                die("personas/grok.toml is TOML, but with %s nexus --config adds for %s it isn't (does it set ui.status_line "
-                    "or telemetry in a way nexus --config missed?), so nothing was written; at personas/%s.grok.toml as it "
-                    "would be: %s" % (adds, p.name, p.name, why))
+                                     else ["the statusline"]) + (["the [telemetry] table"] if p.telemetry else [])
+                                    + ([] if own_paths else ["the [paths] table"])) or "what"
+                die("personas/grok.toml is TOML, but with %s nexus --config adds for %s it isn't (does it set ui.status_line, "
+                    "telemetry or paths in a way nexus --config missed?), so nothing was written; at personas/%s.grok.toml "
+                    "as it would be: %s" % (adds, p.name, p.name, why))
             self.gstaged[p.name] = tmp
+        self.stage_notes(template)
         for f in sorted(set(self.unchecked)):
             self.warn_once("couldn't check %s (no python3 for it here, nor a persona image yet): a broken one stops the CLI; "
                       "re-run nexus --config after the build to check it" % f)
@@ -689,6 +823,39 @@ class Session:
         rc, err = Docker(self.a).compose_check(self.env_new, files, env)
         if rc:
             die("the new settings don't pass docker compose config, so nothing was written:\n" + err)
+
+    def notes_template(self):
+        """personas/notes.md, the Nexus notes every persona gets ("" with no persona); missing or unreadable, nothing
+        is written."""
+        if not self.personas:
+            return ""
+        try:
+            return read_bytes(nts.TEMPLATE).decode("utf-8", "surrogateescape")
+        except OSError as e:
+            die("%s/%s can't be read (%s), and every persona's Nexus notes are made from it, so nothing was written: "
+                "git checkout %s restores it" % (self.a, nts.TEMPLATE, e.strerror, nts.TEMPLATE))
+
+    def stage_notes(self, template):
+        """Each persona's notes from TEMPLATE, staged (mode 644: its CLI reads them through a read-only mount, and
+        they hold nothing secret): its projects root, its scratch dir, its ports, the guard. One read whose notes there
+        are these but for the guard (DOCKER_GUARD changed since they were written) is kept in nguard: its container's
+        guard is the one it was made with."""
+        vm_root = self.dotenv_now("PROJECTS_ROOT") or self.home + "/projects"
+        root, guard = self.scratch_root(), self.guard()
+        other = "off" if guard == "on" else "on"
+        for p in self.personas:
+            values = (p.name, nts.CLI[p.flavour], p.root or vm_root, scr.path(root, p.name), p.ports)
+            try:
+                text = nts.render(template, *(values + (guard,)))
+            except nts.BadTemplate as e:
+                die("%s/%s %s, so nothing was written" % (self.a, nts.TEMPLATE, e))
+            if p.name in self.loaded and \
+                    read_or_empty(nts.file(p.name)) == nts.render(template, *(values + (other,))) != text:
+                self.nguard[p.name] = guard
+            tmp = staging.stage(nts.file(p.name))
+            os.chmod(tmp, 0o644)
+            staging.write(tmp, text)
+            self.nstaged[p.name] = tmp
 
     def tele_problem(self):
         """Why the telemetry settings can't be saved as they are (nothing is written then), if they can't. A CA file to
@@ -785,7 +952,8 @@ class Session:
     def commit(self):
         """Every staged file in place, all of it or none of it: signals are ignored until it is done."""
         for t in [".", "personas", ".env", JSON_FILE, PERSONAS_FILE] + ["personas/%s.env" % n for n in self.staged] \
-                + ["personas/%s.grok.toml" % n for n in self.gstaged] + [self.tele_target(n) for n in self.tstaged] \
+                + ["personas/%s.grok.toml" % n for n in self.gstaged] + [nts.file(n) for n in self.nstaged] \
+                + [self.tele_target(n) for n in self.tstaged] \
                 + list(self.tneutral) + ([tele.CA_FILE] if self.ca_new else []):
             if os.path.exists(t) and not os.access(t, os.W_OK):
                 die("can't write %s/%s (check its owner and mode), so nothing was written" % (self.a, t))
@@ -818,9 +986,12 @@ class Session:
                 if n in self.loaded and not os.path.exists(t):
                     what = "grok settings" + (" and statusline" if p.statusline else "")
                     self.later.append("%s: its %s come through %s now; `nexus %s restart` brings them in" % (n, what, t, n))
-                elif n in self.loaded and self.loaded[n] == self.state(p) and not _same_settings(tmp, t) and not told:
+                elif n in self.loaded and self.loaded[n] == self.state(p) and not _same_settings(tmp, t) and not told \
+                        and not paths_alone(n, tmp, t):
                     self.later.append("%s: its grok settings changed; the next grok started in it reads them" % n)
                 put(tmp, t)
+            for n, tmp in self.nstaged.items():     # in place: a running container sees them at its next session
+                put(tmp, nts.file(n))
             # A compose.personas.yml that isn't one nexus --config generated (the `# persona:` lines from before
             # personas.json, or one made by hand) is kept first, as .bak or .bak.N: before anything is written, so
             # a run cut short still has it. Then personas.json (the one before as personas.json.bak), then the
@@ -852,9 +1023,19 @@ class Session:
             elif kept:
                 self.later.append("personas: the %s that was here isn't one nexus --config wrote; it is kept as %s"
                                   % (PERSONAS_FILE, kept))
+            self.guard_notes()
         finally:
             for s, h in handlers.items():
                 signal.signal(s, h)
+
+    def guard_notes(self):
+        """A restart for each persona whose notes now say the guard is the other way (nguard), unless a note asks it
+        to restart already: its container's guard is the one it was made with."""
+        told = "\n".join(self.later)
+        for n, g in self.nguard.items():
+            if "`nexus %s restart`" % n not in told:
+                self.later.append("%s: the Docker guard is %s now (DOCKER_GUARD), as its notes say; `nexus %s restart` "
+                                  "applies it (that ends its tmux sessions)" % (n, g, n))
 
     def commit_tele(self, put):
         """The telemetry files in place: a persona's own by a rename (a running container keeps the one it was made
@@ -903,6 +1084,7 @@ class Session:
     def saved(self):
         """After a commit: what is saved is what the next save compares with."""
         self.loaded = {p.name: self.state(p) for p in self.personas}
+        self.unranged = set()
         self.extras_saved = {p.name: (p.flavour, self.extras_on(p)) for p in self.personas}
         self.tele_saved, self.ca_from = dict(self.tele), ""
         self.where = "json" if self.personas else "none"
@@ -910,6 +1092,7 @@ class Session:
         self.unstage()
 
     def unstage(self):
-        self.staged, self.gstaged, self.backup, self.unchecked = {}, {}, set(), []
+        self.staged, self.gstaged, self.nstaged, self.backup, self.unchecked = {}, {}, {}, set(), []
+        self.nguard = {}
         self.env_new = self.json_new = self.personas_new = None
         self.tstaged, self.ca_new, self.tgone, self.tneutral = {}, None, [], {}

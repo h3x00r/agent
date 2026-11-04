@@ -44,6 +44,17 @@
     | AGENT_CPUS=3
     | AGENT_MEMORY=8g
     | 
+    | # The shared scratch root: each persona gets <root>/<name> ($NEXUS_SCRATCH inside it), at the identical path inside
+    | # and on the VM, for files a container it starts must mount. nexus --config creates the root (with sudo when its
+    | # parent isn't yours), ./nexus each persona's dir in it. Empty: /srv/nexus-scratch.
+    | #NEXUS_SCRATCH_ROOT=/srv/nexus-scratch
+    | # The Docker guard in every persona: on (the default), the containers, volumes and networks a persona creates are
+    | # labelled as its own, its prunes reach only those, and it can't stop or remove what isn't its own, nor remove a
+    | # persona image, another persona's, or one a container not its own uses; off, docker there reaches the VM's socket as
+    | # it is. A change: re-run nexus --config (it writes the guard's state into each persona's notes, and names the
+    | # personas to restart), then `nexus <persona> restart` for each.
+    | #DOCKER_GUARD=on
+    | 
     | # Telemetry: OpenTelemetry from the personas that send it to one collector (nexus --config: telemetry in its
     | # menu, or --telemetry-endpoint and the like). Empty: none. Its OTLP/HTTP address, e.g. https://collector.lan:4318;
     | # its bearer token (this file is made private, mode 600, once it holds one); the CA its certificate is signed by,
@@ -74,10 +85,13 @@
     |     build: { target: claude, args: { CONTEXT: docker } }
     |     container_name: agent-c1
     |     env_file: personas/c1.env
-    |     environment: { AGENT_PERSONA: "c1", AGENT_COLOUR: colour25 }
+    |     environment: { AGENT_PERSONA: "c1", AGENT_COLOUR: colour25, NEXUS_SCRATCH: "${NEXUS_SCRATCH_ROOT:-/srv/nexus-scratch}/c1", NEXUS_PORTS: "20000-20099" }
     |     labels: { agent.persona: "c1", agent.flavour: claude, agent.context: docker }
     |     volumes:
     |       - c1-home:/home/dev
+    |       # The shared scratch dir (NEXUS_SCRATCH), at the same path here as on the VM, so a container it starts can
+    |       # bind-mount files from it. nexus makes it before compose up; Docker mustn't (it would make it root's).
+    |       - { type: bind, source: "${NEXUS_SCRATCH_ROOT:-/srv/nexus-scratch}/c1", target: "${NEXUS_SCRATCH_ROOT:-/srv/nexus-scratch}/c1", bind: { create_host_path: false } }
     |       # The Claude Code settings that hold in every Claude persona, personas/claude.managed.json, as a
     |       # managed drop-in: they win over its own settings (the defaults in personas/claude.json don't: nexus
     |       # merges those into them). A single-file mount, so a change (a git pull too) needs a restart.
@@ -87,6 +101,9 @@
     |       # so a change to statusline/claude/settings.json needs `nexus <persona> restart`.
     |       - ./statusline/claude:/etc/claude-code/statusline:ro
     |       - ./statusline/claude/settings.json:/etc/claude-code/managed-settings.d/20-statusline.json:ro
+    |       # The Nexus notes (personas/notes.md, filled in for it by nexus --config) as Claude Code's managed
+    |       # CLAUDE.md, read in every session. Rewritten in place, so a new session reads a change.
+    |       - { type: bind, source: ./personas/c1.notes.md, target: /etc/claude-code/CLAUDE.md, read_only: true, bind: { create_host_path: false } }
     | 
     |   "d1":
     |     extends: { file: compose.yml, service: _agent-ddev }
@@ -95,10 +112,13 @@
     |     build: { target: claude, args: { CONTEXT: ddev } }
     |     container_name: agent-d1
     |     env_file: personas/d1.env
-    |     environment: { AGENT_PERSONA: "d1", AGENT_COLOUR: colour90 }
+    |     environment: { AGENT_PERSONA: "d1", AGENT_COLOUR: colour90, NEXUS_SCRATCH: "${NEXUS_SCRATCH_ROOT:-/srv/nexus-scratch}/d1", NEXUS_PORTS: "20200-20299" }
     |     labels: { agent.persona: "d1", agent.flavour: claude, agent.context: ddev }
     |     volumes:
     |       - d1-home:/home/dev
+    |       # The shared scratch dir (NEXUS_SCRATCH), at the same path here as on the VM, so a container it starts can
+    |       # bind-mount files from it. nexus makes it before compose up; Docker mustn't (it would make it root's).
+    |       - { type: bind, source: "${NEXUS_SCRATCH_ROOT:-/srv/nexus-scratch}/d1", target: "${NEXUS_SCRATCH_ROOT:-/srv/nexus-scratch}/d1", bind: { create_host_path: false } }
     |       # The Claude Code settings that hold in every Claude persona, personas/claude.managed.json, as a
     |       # managed drop-in: they win over its own settings (the defaults in personas/claude.json don't: nexus
     |       # merges those into them). A single-file mount, so a change (a git pull too) needs a restart.
@@ -108,6 +128,9 @@
     |       # so a change to statusline/claude/settings.json needs `nexus <persona> restart`.
     |       - ./statusline/claude:/etc/claude-code/statusline:ro
     |       - ./statusline/claude/settings.json:/etc/claude-code/managed-settings.d/20-statusline.json:ro
+    |       # The Nexus notes (personas/notes.md, filled in for it by nexus --config) as Claude Code's managed
+    |       # CLAUDE.md, read in every session. Rewritten in place, so a new session reads a change.
+    |       - { type: bind, source: ./personas/d1.notes.md, target: /etc/claude-code/CLAUDE.md, read_only: true, bind: { create_host_path: false } }
     | 
     | volumes:
     |   "c1-home":
@@ -120,13 +143,15 @@
     |       "flavour": "claude",
     |       "context": "docker",
     |       "colour": "colour25",
-    |       "statusline": true
+    |       "statusline": true,
+    |       "ports": "20000-20099"
     |     },
     |     "d1": {
     |       "flavour": "claude",
     |       "context": "ddev",
     |       "colour": "colour90",
-    |       "statusline": true
+    |       "statusline": true,
+    |       "ports": "20200-20299"
     |     }
     |   }
     | }
@@ -139,14 +164,16 @@
     |       "context": "docker",
     |       "colour": "colour25",
     |       "statusline": true,
-    |       "telemetry": true
+    |       "telemetry": true,
+    |       "ports": "20000-20099"
     |     },
     |     "d1": {
     |       "flavour": "claude",
     |       "context": "ddev",
     |       "colour": "colour90",
     |       "statusline": true,
-    |       "telemetry": true
+    |       "telemetry": true,
+    |       "ports": "20200-20299"
     |     }
     |   }
     | }
@@ -171,6 +198,12 @@
     | # Optional.
     | # gh CLI (PRs, issues) and APM (private GitHub packages) as this persona's account:
     | # GH_TOKEN=
+    | # glab (merge requests, pipelines) and git over https to GitLab as this persona's account. One token, one host:
+    | # gitlab.com's, or the GITLAB_HOST below's.
+    | # GITLAB_TOKEN=
+    | # Only for a self-managed GitLab: its host, e.g. gitlab.example.org. GITLAB_TOKEN is then that host's, and git over
+    | # https to gitlab.com doesn't get it; git over https to this host takes a `git config` in the persona (runbook §4).
+    | # GITLAB_HOST=
     | # Context ddev: never block an unattended run on a ddev prompt:
     | # DDEV_NONINTERACTIVE=true
     | # Default model for this persona:
@@ -193,6 +226,12 @@
     | # Optional.
     | # gh CLI (PRs, issues) and APM (private GitHub packages) as this persona's account:
     | # GH_TOKEN=
+    | # glab (merge requests, pipelines) and git over https to GitLab as this persona's account. One token, one host:
+    | # gitlab.com's, or the GITLAB_HOST below's.
+    | # GITLAB_TOKEN=
+    | # Only for a self-managed GitLab: its host, e.g. gitlab.example.org. GITLAB_TOKEN is then that host's, and git over
+    | # https to gitlab.com doesn't get it; git over https to this host takes a `git config` in the persona (runbook §4).
+    | # GITLAB_HOST=
     | # Context ddev: never block an unattended run on a ddev prompt:
     | # DDEV_NONINTERACTIVE=true
 + a/personas/c1.grok.toml  f 600
@@ -263,6 +302,10 @@
     | otel_protocol = "http/protobuf"
     | otel_endpoint = "https://127.0.0.2:1"
     | otel_certificate = "/etc/nexus/telemetry-ca.pem"
+    | 
+    | # The Nexus notes, /etc/grok/rules/00-nexus.md: nexus --config adds this table.
+    | [paths]
+    | extra_rule_dirs = ["/etc/grok/rules"]
 + a/personas/c1.telemetry.json  f 600
     | {}
 + a/personas/d1.telemetry.json  f 600
@@ -335,6 +378,10 @@
     | otel_protocol = "http/protobuf"
     | otel_endpoint = "https://127.0.0.2:1"
     | otel_certificate = "/etc/nexus/telemetry-ca.pem"
+    | 
+    | # The Nexus notes, /etc/grok/rules/00-nexus.md: nexus --config adds this table.
+    | [paths]
+    | extra_rule_dirs = ["/etc/grok/rules"]
 + a/personas/g1.telemetry.env  f 600
     | # personas/g1.telemetry.env: written by nexus --config from TELEMETRY_TOKEN in .env, for grok's telemetry
     | # (it takes the token from the environment only; as the metrics and logs headers, which nothing but an

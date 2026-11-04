@@ -1,10 +1,11 @@
 """Where the personas set up on this VM are kept, read as each tool has read them.
 
 personas.json (in the checkout, not in git) holds them: {"version": 1, "personas": {NAME: {flavour,
-context, colour, statusline, root?, ssh?}}}, in persona order (the order of their colours, of --list and
+context, colour, statusline, root?, ssh?, …, ports?}}}, in persona order (the order of their colours, of --list and
 of the hints).
 - load_json(): the personas, each held to persona.from_record's rules; a name or key that comes twice,
-  a key it doesn't take, another version, or JSON that doesn't parse is BadPersonasJson, for both tools.
+  a key it doesn't take, another version, JSON that doesn't parse, or two personas whose port ranges overlap is
+  BadPersonasJson, for both tools.
 - dumps(): the file's text, as nexus --config writes it (indented, a newline at the end).
 
 Before personas.json, they were the `# persona: NAME key=value …` lines in compose.personas.yml; nexus --config
@@ -17,6 +18,8 @@ A file that can't be read is an error (exit 2, as sed's); NUL bytes in it are dr
 
 Pitfalls (each pinned where named):
 - personas.json: a name or key twice, a key it doesn't take, another version, not JSON: refused
+  (test_adapters.PersonasJson.test_what_it_refuses)
+- personas.json: two personas whose port ranges overlap (a hand edit): refused, the later one named, for both tools
   (test_adapters.PersonasJson.test_what_it_refuses)
 - personas.json keeps the personas' order, and a byte that isn't UTF-8 (surrogateescape) round trip
   (test_adapters.PersonasJson.test_a_round_trip_keeps_order_and_bytes)
@@ -80,6 +83,10 @@ def load_json(path):
             out.append(rules.from_record(name, rec))
         except rules.BadRecord as e:
             raise BadPersonasJson("persona '%s' %s" % (name, e))
+    for i, p in enumerate(out):     # each a range of its own: two stacks can't publish on one port
+        q = rules.ports_overlap(p, out[:i])
+        if q:
+            raise BadPersonasJson("persona '%s' has ports %s, which overlap %s's (%s)" % (p.name, p.ports, q.name, q.ports))
     return out
 
 

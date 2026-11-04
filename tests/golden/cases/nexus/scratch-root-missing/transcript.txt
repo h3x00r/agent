@@ -1,0 +1,93 @@
+## run 1: nexus c1 start  (NEXUS_SCRATCH_ROOT=<S>/none in the shell)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: the shared scratch root <S>/none isn't there (NEXUS_SCRATCH_ROOT in your shell): <A>/nexus --config creates it, or run: sudo install -d -o $(id -u) -g $(id -g) -m 755 <S>/none; or point NEXUS_SCRATCH_ROOT (.env, or your shell) at a directory of your own
+## run 2: nexus c1 start  (NEXUS_SCRATCH_ROOT=<S>/afile, a file)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: the shared scratch root <S>/afile isn't a directory (NEXUS_SCRATCH_ROOT in your shell): move it aside (nexus --config then creates the root), or point NEXUS_SCRATCH_ROOT (.env, or your shell) at a directory of your own
+## run 3: nexus c1 start  (NEXUS_SCRATCH_ROOT=rel/dir)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: the shared scratch root must be an absolute directory other than /, without ':' or whitespace, not 'rel/dir' (NEXUS_SCRATCH_ROOT in your shell)
+## run 4: nexus c1 start  (NEXUS_SCRATCH_ROOT=/)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: the shared scratch root must be an absolute directory other than /, without ':' or whitespace, not '/' (NEXUS_SCRATCH_ROOT in your shell)
+## run 5: nexus c1 start  (NEXUS_SCRATCH_ROOT=/srv/a:b)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: the shared scratch root must be an absolute directory other than /, without ':' or whitespace, not '/srv/a:b' (NEXUS_SCRATCH_ROOT in your shell)
+## run 6: nexus c1 start  (NEXUS_SCRATCH_ROOT=/srv/a b)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: the shared scratch root must be an absolute directory other than /, without ':' or whitespace, not '/srv/a b' (NEXUS_SCRATCH_ROOT in your shell)
+## run 7: nexus c1 start  (NEXUS_SCRATCH_ROOT=<S>/gone in .env)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: the shared scratch root <S>/gone isn't there (NEXUS_SCRATCH_ROOT in <A>/.env): <A>/nexus --config creates it, or run: sudo install -d -o $(id -u) -g $(id -g) -m 755 <S>/gone; or point NEXUS_SCRATCH_ROOT (.env, or your shell) at a directory of your own
+## run 8: nexus c1  (not running: the attach would start it)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: the shared scratch root <S>/gone isn't there (NEXUS_SCRATCH_ROOT in <A>/.env): <A>/nexus --config creates it, or run: sudo install -d -o $(id -u) -g $(id -g) -m 755 <S>/gone; or point NEXUS_SCRATCH_ROOT (.env, or your shell) at a directory of your own
+## run 9: nexus c1  (running; the root <S>/gone in .env)  [pipe]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s projects -c <P>]
+--- stderr
+nexus: warning: the shared scratch root <S>/gone isn't there (NEXUS_SCRATCH_ROOT in <A>/.env): <A>/nexus --config creates it, or run: sudo install -d -o $(id -u) -g $(id -g) -m 755 <S>/gone; or point NEXUS_SCRATCH_ROOT (.env, or your shell) at a directory of your own (c1 runs on as it is; starting or restarting it is refused until then)
+nexus: warning: c1's container was made without its scratch dir <S>/gone/c1: `nexus c1 restart` adds it (that ends its tmux sessions)
+## run 10: nexus c1 headless 'nxt say hi'  (the same)  [pipe]
+rc: 0
+--- stdout
+FAKE-REPLY
+--- stderr
+nexus: warning: the shared scratch root <S>/gone isn't there (NEXUS_SCRATCH_ROOT in <A>/.env): <A>/nexus --config creates it, or run: sudo install -d -o $(id -u) -g $(id -g) -m 755 <S>/gone; or point NEXUS_SCRATCH_ROOT (.env, or your shell) at a directory of your own (c1 runs on as it is; starting or restarting it is refused until then)
+nexus: warning: c1's container was made without its scratch dir <S>/gone/c1: `nexus c1 restart` adds it (that ends its tmux sessions)
+## run 11: nexus c1  (running; NEXUS_SCRATCH_ROOT=<S>/afile, a file)  [pipe]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s projects -c <P>]
+--- stderr
+nexus: warning: the shared scratch root <S>/afile isn't a directory (NEXUS_SCRATCH_ROOT in your shell): move it aside (nexus --config then creates the root), or point NEXUS_SCRATCH_ROOT (.env, or your shell) at a directory of your own (c1 runs on as it is; starting or restarting it is refused until then)
+nexus: warning: c1's container was made without its scratch dir <S>/afile/c1: `nexus c1 restart` adds it (that ends its tmux sessions)
+## run 12: nexus c1 start  (running; the root gone)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: the shared scratch root <S>/gone isn't there (NEXUS_SCRATCH_ROOT in <A>/.env): <A>/nexus --config creates it, or run: sudo install -d -o $(id -u) -g $(id -g) -m 755 <S>/gone; or point NEXUS_SCRATCH_ROOT (.env, or your shell) at a directory of your own
+## run 13: nexus c1 restart  (the same)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: the shared scratch root <S>/gone isn't there (NEXUS_SCRATCH_ROOT in <A>/.env): <A>/nexus --config creates it, or run: sudo install -d -o $(id -u) -g $(id -g) -m 755 <S>/gone; or point NEXUS_SCRATCH_ROOT (.env, or your shell) at a directory of your own
+## run 14: nexus c1 stop  (the same: no checks)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-c1  Stopped
+## run 15: nexus g1 start  (NEXUS_SCRATCH_ROOT=<S>/ro, mode 555)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: can't create g1's scratch dir <S>/ro/g1 (Permission denied): you can't write in the shared scratch root <S>/ro (NEXUS_SCRATCH_ROOT in your shell); make it yours: sudo install -d -o $(id -u) -g $(id -g) -m 755 <S>/ro, or point NEXUS_SCRATCH_ROOT (.env, or your shell) at a directory of your own

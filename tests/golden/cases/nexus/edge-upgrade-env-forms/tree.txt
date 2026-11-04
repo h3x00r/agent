@@ -1,3 +1,4 @@
 ~ a/.env  f 600 inode=same
     | CLAUDE_VERSION=latest
 + home/projects  d 755
++ scratch/c1  d 755

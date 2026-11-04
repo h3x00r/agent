@@ -12,6 +12,7 @@ Shared by every persona
 Personas
   NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
   c1                              claude   docker   yes        the VM's             your agent
+  published ports: c1 20000-20099
   personas/o1.env (a claude one) is no persona's (one removed earlier?): add one named o1 to use it again
 
 What next?
@@ -46,6 +47,7 @@ Shared by every persona
 Personas
   NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
   c1                              claude   docker   yes        the VM's             your agent
+  published ports: c1 20000-20099
   personas/o1.env (a claude one) is no persona's (one removed earlier?): add one named o1 to use it again
 
 What next?

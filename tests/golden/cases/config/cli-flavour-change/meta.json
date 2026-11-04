@@ -1,3 +1,3 @@
 {
-  "provenance": "accepted: personas/grok.toml turns every [compat.claude] cell off: mcps, hooks and sessions too, with a comment on what grok still reads"
+  "provenance": "accepted: docker-work docs: the persona env templates' GITLAB_TOKEN and GITLAB_HOST lines (one token, one host); before that: docker-work: nexus gives compose NEXUS_SCRATCH_ROOT, so every docker call's env has it (fake.py ENV_KEYS); port ranges: \"ports\" in personas.json, NEXUS_PORTS in the service; the summary's and --list's published-ports line; a grok persona's config gets the [paths] table for the notes; the persona env templates' GITLAB_TOKEN and GITLAB_HOST lines (image part)"
 }

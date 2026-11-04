@@ -35,6 +35,7 @@ Shared by every persona
 Personas
   NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
   grok-docker                     grok     docker   no         the VM's             personas/grok-docker.key
+  published ports: grok-docker 20000-20099
 
 What next?
   1) list      the shared settings and the personas, again

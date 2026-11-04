@@ -12,3 +12,4 @@
     |   "a\u0000b": 1,
     |   "theme": "dark"
     | }
++ scratch/c1  d 755

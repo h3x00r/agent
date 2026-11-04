@@ -8,13 +8,15 @@
     |       "context": "docker",
     |       "colour": "colour25",
     |       "statusline": true,
-    |       "permissions": "ask"
+    |       "permissions": "ask",
+    |       "ports": "20000-20099"
     |     },
     |     "c2": {
     |       "flavour": "claude",
     |       "context": "docker",
     |       "colour": "colour28",
-    |       "statusline": true
+    |       "statusline": true,
+    |       "ports": "20100-20199"
     |     }
     |   }
     | }

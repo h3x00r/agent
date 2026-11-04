@@ -1,3 +1,3 @@
 {
-  "provenance": "oracle@a8e58fc; then accepted: cfg M2: the rename to nexus --config only"
+  "provenance": "accepted: docker-work: nexus gives compose NEXUS_SCRATCH_ROOT, so every docker call's env has it (fake.py ENV_KEYS); nexus's preflight (a start, an attach, a headless run, an upgrade) makes the persona's scratch dir (+ scratch/<name>); at a running persona nexus reads its mounts (the warning for one made without its scratch dir or the notes)"
 }

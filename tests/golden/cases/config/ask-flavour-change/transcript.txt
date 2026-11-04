@@ -13,6 +13,7 @@ Personas
   NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
   c1                              claude   docker   yes        the VM's             your agent
   c2                              claude   docker   yes        the VM's             your agent
+  published ports: c1 20000-20099, c2 20100-20199
 
 What next?
   1) list      the shared settings and the personas, again
@@ -93,6 +94,7 @@ Personas
   NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
   c1                              grok     docker   yes        the VM's             your agent
   c2                              claude   docker   yes        the VM's             your agent
+  published ports: c1 20000-20099, c2 20100-20199
 
 What next?
   1) list      the shared settings and the personas, again
@@ -167,6 +169,7 @@ Personas
   NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
   c1                              grok     docker   yes        the VM's             your agent
   c2                              grok     docker   yes        the VM's             your agent
+  published ports: c1 20000-20099, c2 20100-20199
 
 What next?
   1) list      the shared settings and the personas, again

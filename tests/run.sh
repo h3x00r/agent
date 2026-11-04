@@ -31,15 +31,23 @@
 #              hangup, detached daemons, concurrent runs), telemetry to a stand-in collector
 #              (tests/fake-otlp.py, over TLS, with a CA made by openssl; tool details and content on and off),
 #              sessions, ls, top, start and stop; the grok persona has an ssh key of its own, the Claude
-#              one this run's (empty) ssh-agent, and a third one, on the grok persona's image, no ssh at all
+#              one this run's (empty) ssh-agent, and a third one, on the grok persona's image, no ssh at all;
+#              and in them: the scratch dir (a container a persona starts sees it), the Nexus notes (Claude
+#              Code's managed CLAUDE.md, a grok rule), the docker guard (labels, refusals for containers,
+#              volumes and images, its restart by the entrypoint, `docker system prune -af --volumes` against
+#              a stand-in daemon (tests/fake-dockerd.py), DOCKER_GUARD=off), compose project names (two personas
+#              up the same project at once, one with a fixed host port overridden) and the image's tools (venv,
+#              uv, glab and its gitlab.com credential helper, nexus-apm installing a version where PyPI is
+#              reachable). What the image predates is skipped, saying so
 #
-# What it makes is named after its pid: personas nxt-<pid>-c, -g and -n, image tags
-# nxt-<pid>.invalid/…, their home volumes, the API's container nxt-<pid>-api and a throwaway ssh-agent;
-# exactly those are removed at the end. The test personas share compose project "agents" with the real
-# ones, which compose then calls orphans: a warning only, as COMPOSE_* variables are cleared for the
-# tests (COMPOSE_REMOVE_ORPHANS would act on it).
+# What it makes is named after its pid and a random number (ID, nxt-<pid>-<n>: personas each have pids of their
+# own, so a pid alone may be another run's): personas nxt-<id>-c, -g and -n, image tags nxt-<id>.invalid/…,
+# their home volumes, the API's container nxt-<id>-api, the containers, volumes, images and compose stacks the
+# docker checks make (nxt-<id>-*) and a throwaway ssh-agent; exactly those are removed at the end. The test
+# personas share compose project "agents" with the real ones, which compose then calls orphans: a warning only,
+# as COMPOSE_* variables are cleared for the tests (COMPOSE_REMOVE_ORPHANS would act on it).
 # Needs Docker with compose and ssh-keygen; for the personas stage also ssh-agent, script (util-linux)
-# and an image built for this user's uid. All of it takes about two minutes.
+# and an image built for this user's uid. All of it takes about four minutes.
 #
 # The checks and waits are bash in single quotes, evaluated when they run: shellcheck can't see into them.
 # shellcheck disable=SC2016,SC2034,SC2329
@@ -94,28 +102,49 @@ wait_for() { local i; for (( i = 0; i < $1 * 5; i++ )); do eval "$2" && return 0
 git -C "$REPO" rev-parse --is-inside-work-tree >/dev/null 2>&1 \
   || { echo "tests: $REPO isn't a git checkout, and the tests copy its files from git" >&2; exit 2; }
 T="$(mktemp -d "${TMPDIR:-/tmp}/nxt.XXXXXX")" || exit 2
-ID="nxt-$$"
+ID="nxt-$$-$RANDOM"
 PC="$ID-c" PG="$ID-g" PN="$ID-n" PX="$ID-x" REG="$ID.invalid" API="$ID-api" OTLP="$ID-otlp"
 A="$T/agents" P="$T/agents/compose.personas.yml" J="$T/agents/personas.json" ROOT="$T/projects" S="$T/projects/.nxt-bin" SOCK="$T/ssh.sock"
-AGENT_PID="" TAGS=() BG=() BG_PID=""
+AGENT_PID="" TAGS=() IMGS=() BG=() BG_PID="" AV=""
+# The compose projects of the docker checks: a dir named after the run, so a regressed shim's unprefixed stack
+# ($ID-cproj) is this run's too, and cleaned up with it.
+CPN="$ID-cproj" FPN="$ID-fproj"
 
 cleanup() {
   local p
   cd / || true
   for p in "${BG[@]}"; do kill "$p" 2>/dev/null; done
   if (( KEEP )); then
-    echo "kept: $T; containers agent-$PC agent-$PG agent-$PN $API $OTLP; volumes agents_$PC-home agents_$PG-home agents_$PN-home;" \
-         "tags ${TAGS[*]:-none}; ssh-agent ${AGENT_PID:-none}"
+    echo "kept: $T; containers agent-$PC agent-$PG agent-$PN $API $OTLP $ID-bare $ID-gc $ID-gm $ID-ga $ID-gu" \
+         "$PC-$CPN-web-1 $PG-$CPN-web-1 $PC-$FPN-web-1 $PG-$FPN-web-1; volumes agents_$PC-home agents_$PG-home" \
+         "agents_$PN-home $ID-gv ${AV:-} $ID-off $PC-${CPN}_data $PG-${CPN}_data; networks $PC-${CPN}_default" \
+         "$PG-${CPN}_default $PC-${FPN}_default $PG-${FPN}_default; tags ${TAGS[*]:-none}; images ${IMGS[*]:-none};" \
+         "ssh-agent ${AGENT_PID:-none}"
     return
   fi
   if command -v docker >/dev/null; then
-    docker rm -f "agent-$PC" "agent-$PG" "agent-$PN" "$API" "$OTLP" >/dev/null 2>&1
-    docker volume rm "agents_$PC-home" "agents_$PG-home" "agents_$PN-home" >/dev/null 2>&1
-    for p in "${TAGS[@]}"; do docker image rm "$p" >/dev/null 2>&1; done   # the tag: the image keeps its own
+    # Run in a persona behind its docker guard, this goes to the VM's socket: what the test personas made is
+    # labelled theirs, not this persona's, and the guard won't remove an image's last tag. Exact names only.
+    local d=(docker)
+    [[ ${DOCKER_HOST-} != unix:///run/nexus/docker.sock || ! -S /var/run/docker.sock ]] || d=(docker -H unix:///var/run/docker.sock)
+    # The compose stacks under their prefixed names, and unprefixed ($CPN…), as a shim that didn't prefix makes them.
+    "${d[@]}" rm -f "agent-$PC" "agent-$PG" "agent-$PN" "$API" "$OTLP" "$ID-bare" "$ID-gc" "$ID-gm" "$ID-ga" "$ID-gu" "$ID-sib" \
+      "$PC-$CPN-web-1" "$PG-$CPN-web-1" "$CPN-web-1" "$PC-$FPN-web-1" "$PG-$FPN-web-1" "$FPN-web-1" >/dev/null 2>&1
+    "${d[@]}" network rm "$PC-${CPN}_default" "$PG-${CPN}_default" "${CPN}_default" "$PC-${FPN}_default" \
+      "$PG-${FPN}_default" "${FPN}_default" >/dev/null 2>&1
+    "${d[@]}" volume rm "agents_$PC-home" "agents_$PG-home" "agents_$PN-home" "$ID-gv" "$ID-off" "$PC-${CPN}_data" \
+      "$PG-${CPN}_data" "${CPN}_data" ${AV:+"$AV"} >/dev/null 2>&1
+    # The persona images' tags (the image keeps its own), then the throwaway images the guard checks made, by id
+    # (one a check moved a tag off has none left).
+    for p in "${TAGS[@]}" "${IMGS[@]}"; do "${d[@]}" image rm "$p" >/dev/null 2>&1; done
   fi
   [[ -z "$AGENT_PID" ]] || kill "$AGENT_PID" 2>/dev/null
   rm -rf "$T" 2>/dev/null || echo "tests: couldn't remove all of $T" >&2
 }
+# Another run's personas under these names (the odds are slim): stop here, before the trap would remove them.
+if command -v docker >/dev/null && docker container inspect "agent-$PC" >/dev/null 2>&1; then
+  echo "tests: agent-$PC is there already, another run's: run again (a new ID)" >&2; rm -rf "$T"; exit 2
+fi
 trap cleanup EXIT
 trap 'exit 130' INT TERM HUP
 
@@ -128,13 +157,14 @@ git -C "$REPO" ls-files -z --cached --others --exclude-standard \
   || { echo "tests: can't copy the checkout to $A" >&2; exit 2; }
 
 # nexus and nexus --config run as from a fresh login: a scratch HOME and TMPDIR, this run's ssh-agent, and
-# none of the variables a shell may export that would beat the scratch .env or steer compose.
+# none of the variables a shell may export that would beat the scratch .env or steer compose. The shared scratch
+# root is $T/scratch, so nothing here makes (or asks sudo for) the VM's /srv/nexus-scratch.
 NX_ENV=(-u PROJECTS_ROOT -u REGISTRY -u CLAUDE_VERSION -u CLAUDE_TAG -u GROK_VERSION -u GROK_TAG -u APM_VERSION
         -u DDEV_VERSION -u AGENTS_DIR -u AGENT_UID -u AGENT_GID -u DOCKER_GID -u AGENT_CPUS -u AGENT_MEMORY
-        -u AGENT_CA_CERTS -u NO_COLOR -u XDG_RUNTIME_DIR)
+        -u AGENT_CA_CERTS -u NO_COLOR -u XDG_RUNTIME_DIR -u NEXUS_SCRATCH -u DOCKER_GUARD)
 for v in $(compgen -e | grep '^COMPOSE_'); do NX_ENV+=(-u "$v"); done
 NX_ENV+=(HOME="$T/home" DOCKER_CONFIG="${DOCKER_CONFIG:-$HOME/.docker}" SSH_AUTH_SOCK="$SOCK" TMPDIR="$T/tmp"
-         TERM=xterm-256color)
+         TERM=xterm-256color NEXUS_SCRATCH_ROOT="$T/scratch")
 nx()  { env "${NX_ENV[@]}" "$A/nexus" "$@"; }
 cfg() { env "${NX_ENV[@]}" "$A/nexus" --config "$@"; }
 # pj line NAME | pj names: personas.json read back (python3 -I, nothing else): NAME's settings in the order
@@ -158,11 +188,12 @@ compose_t() {
 
 # --- lint ------------------------------------------------------------------------------------------
 stage "lint"
-for f in nexus install.sh entrypoint.sh statusline/claude/statusline.sh statusline/grok/statusline.sh tests/run.sh tests/secrets.sh; do
+for f in nexus install.sh entrypoint.sh image/nexus-apm statusline/claude/statusline.sh statusline/grok/statusline.sh tests/run.sh tests/secrets.sh; do
   if out="$(bash -n "$REPO/$f" 2>&1)"; then ok "bash -n $f"; else fail "bash -n $f" "$out"; fi
 done
-for f in tests/fake-grok claude-mode.sh; do
-  if out="$(sh -n "$REPO/$f" 2>&1)"; then ok "sh -n $f"; else fail "sh -n $f" "$out"; fi
+for f in tests/fake-grok claude-mode.sh image/glab-credential; do
+  sh="sh"; [[ $(head -n 1 "$REPO/$f" 2>/dev/null) != *bash* ]] || sh="bash"     # as its #! line has it
+  if out="$("$sh" -n "$REPO/$f" 2>&1)"; then ok "$sh -n $f"; else fail "$sh -n $f" "$out"; fi
 done
 # Every .py, as Python 3.8 (the oldest the tools run on) reads it. Parsed, never compiled: no __pycache__.
 if command -v python3 >/dev/null; then
@@ -199,7 +230,8 @@ elif (( docker_ok )) && docker image inspect koalaman/shellcheck:stable >/dev/nu
   SC=(docker run --rm -v "$REPO:/mnt:ro" -w /mnt koalaman/shellcheck:stable)
 fi
 if (( ${#SC[@]} )); then
-  for f in nexus install.sh entrypoint.sh claude-mode.sh statusline/grok/statusline.sh tests/run.sh tests/secrets.sh tests/fake-grok; do
+  for f in nexus install.sh entrypoint.sh image/nexus-apm image/glab-credential claude-mode.sh statusline/grok/statusline.sh \
+           tests/run.sh tests/secrets.sh tests/fake-grok; do
     if out="$(cd "$REPO" && "${SC[@]}" "$f" 2>&1)"; then ok "shellcheck $f"; else fail "shellcheck $f" "$out"; fi
   done
   # Claude's statusline.sh keeps its colours in printf formats (SC2059).
@@ -571,6 +603,11 @@ legacy() {   # legacy config.sh|install.sh: $L afresh, its compose.personas.yml 
     | tar -C "$L" -xf - || fail "a copy of $A in $L"
   { printf '%s\n' "$OLD_HEADER"; for n in $(pj names); do echo "# persona: $(pj line "$n")"; done; tail -n +4 "$P"; } > "$LP"
   sed -i -e '/^ *#/s/config-tools/config.sh/g' -e '/^ *#/s/nexus --config/config.sh/g' "$LP"   # its comments named the tool then
+  # The lines hold no port ranges, so the move gives them afresh, in persona order, from 20000; the services
+  # copied here got theirs with $PX still there. They get the ranges the move gives, as if from that run.
+  awk '/NEXUS_PORTS: "[0-9]+-[0-9]+"/ { a = 20000 + 100 * n++; sub(/NEXUS_PORTS: "[0-9]+-[0-9]+"/, "NEXUS_PORTS: \"" a "-" a + 99 "\"") }
+       { print }' "$LP" > "$LP.tmp" || fail "the port ranges in $LP"
+  mv "$LP.tmp" "$LP"
   if [[ $1 == install.sh ]]; then
     sed -i -e '/statusline\/claude\/settings.json:/d' -e 's|\./statusline/claude:/etc/claude-code/statusline:ro|./statusline:/etc/claude-code/statusline:ro|' \
            -e 's|source: \./personas/claude\.managed\.json, target: /etc/claude-code/managed-settings\.d/15-personas\.json, read_only: true, bind: { create_host_path: false }|source: ./personas/claude.json, target: /etc/claude-code/managed-settings.d/15-personas.json|' "$LP"
@@ -743,6 +780,15 @@ if [[ -z "$why" ]]; then
 fi
 if [[ -n "$why" ]]; then skip "personas: $why"; summary; fi
 echo "image: $IMAGE"
+# What of the newer tools $IMAGE has (has NAME): the checks of one it was built before are skipped, saying so.
+# shellcheck disable=SC2016  # expanded by sh in the image
+feat="$(docker run --rm --network none --entrypoint sh "$IMAGE" -c '
+  [ -x /usr/local/libexec/nexus/docker-guard ] && echo guard
+  [ -x /usr/local/lib/docker/cli-plugins/docker-compose ] && echo compose-shim
+  [ -x /usr/local/libexec/nexus/glab-credential ] && echo glab-credential
+  for c in uv uvx glab nexus-apm; do command -v "$c" >/dev/null && echo "$c"; done
+  python3 -c "import venv, ensurepip" 2>/dev/null && echo venv; true' 2>/dev/null)"
+has() { grep -qx -- "$1" <<< "$feat"; }
 
 stage "the image's claude: claude-mode.sh in front of Claude Code"
 # Claude Code swapped for a script that says what it was given, as root, in a throwaway container.
@@ -994,6 +1040,324 @@ check "  leaves the other running" 'alive c2.pid && kill -0 "$p2" 2>/dev/null'
 kill -TERM "$p2"; bg_end "$p2" c2
 check "  until it gets its own signal" 'rc 143 && gone c2.pid'
 
+stage "in a persona: its scratch dir, the Nexus notes, the docker guard, compose project names, tools"
+SCR="$T/scratch"
+# ports_of NAME: the range personas.json gives NAME. label KIND NAME: the nexus.persona label of a container,
+# volume or network. running NAME: that container runs. guard_line PERSONA: what its entrypoint last said of the
+# docker guard. absent KIND NAME: there is no such container, volume or network.
+ports_of() { python3 -I -c 'import json, sys; print(json.load(open(sys.argv[1]))["personas"][sys.argv[2]].get("ports", ""))' "$J" "$1" 2>/dev/null; }
+label() {
+  if [[ $1 == container ]]; then docker container inspect -f '{{index .Config.Labels "nexus.persona"}}' "$2" 2>/dev/null
+  else docker "$1" inspect -f '{{index .Labels "nexus.persona"}}' "$2" 2>/dev/null; fi
+}
+running() { [[ $(docker container inspect -f '{{.State.Running}}' "$1" 2>/dev/null) == true ]]; }
+guard_line() { docker logs "agent-$1" 2>&1 | grep -F "[$1] docker guard" | tail -n 1; }   # what the entrypoint said last
+absent() { ! docker "$1" inspect "$2" >/dev/null 2>&1; }
+t docker exec "agent-$PC" sh -c 'printf "%s\n" "$NEXUS_SCRATCH"; echo nxt-scratch > "$NEXUS_SCRATCH/f"'
+check "scratch: NEXUS_SCRATCH is its dir under the shared root, and it writes there" 'rc 0 && out_is "$SCR/$PC"'
+check "  the same dir on the VM, made by nexus: yours, 755, the file in it yours" \
+      '[[ -O $SCR/$PC && $(stat -c %a "$SCR/$PC") == 755 && $(cat "$SCR/$PC/f" 2>/dev/null) == nxt-scratch && -O $SCR/$PC/f ]]'
+t docker exec "agent-$PC" sh -c 'docker run --rm --pull never --name "$1" --network none -v "$NEXUS_SCRATCH:/x" "$2" cat /x/f' \
+  sh "$ID-sib" "$IMAGE"
+check "  a container it starts sees it: docker run -v \"\$NEXUS_SCRATCH:/x\" … cat /x/f" 'rc 0 && out_is nxt-scratch'
+t docker exec "agent-$PC" ls -A "$SCR"
+check "  the other personas' aren't mounted in it: the root there holds its own dir alone" \
+      'rc 0 && out_is "$PC" && [[ -d $SCR/$PG && -d $SCR/$PN ]]'
+
+pc_ports="$(ports_of "$PC")" pg_ports="$(ports_of "$PG")"
+t docker exec "agent-$PC" cat /etc/claude-code/CLAUDE.md
+check "notes: $PC's /etc/claude-code/CLAUDE.md is personas/$PC.notes.md: its name, projects root, scratch dir, range, guard" \
+      'rc 0 && [[ $OUT == "$(cat "$A/personas/$PC.notes.md")" ]] && out_has "You are persona \`$PC\` (Claude Code)" \
+       && out_has "the projects root \`$ROOT\`" && out_has "your scratch dir \`$SCR/$PC\`" \
+       && [[ $pc_ports =~ ^[0-9]+-[0-9]+$ ]] && out_has "Yours are \`$pc_ports\`" && out_has "The Docker guard is \`on\` here"'
+t docker exec "agent-$PC" printenv NEXUS_PORTS
+check "  its range is NEXUS_PORTS in it, and the grok persona's another" 'rc 0 && out_is "$pc_ports" && [[ -n $pg_ports && $pg_ports != "$pc_ports" ]]'
+check "  and Claude Code sends it: a headless run's request to the API holds it" 'api_got "You are persona \`$PC\` (Claude Code)"'
+t docker exec "agent-$PG" cat /etc/grok/rules/00-nexus.md
+check "  $PG's /etc/grok/rules/00-nexus.md is personas/$PG.notes.md: its name, scratch dir and range" \
+      'rc 0 && [[ $OUT == "$(cat "$A/personas/$PG.notes.md")" ]] && out_has "You are persona \`$PG\` (Grok Build)" \
+       && out_has "your scratch dir \`$SCR/$PG\`" && out_has "Yours are \`$pg_ports\`"'
+t docker exec "agent-$PG" cat /etc/grok/managed_config.toml
+check "  and its managed config has grok read that dir: [paths] extra_rule_dirs" \
+      'rc 0 && out_line "[paths]" && out_line "extra_rule_dirs = [\"/etc/grok/rules\"]"'
+
+t docker exec "agent-$PC" docker version --format '{{.Server.Version}}'
+check "docker in it reaches the VM's daemon" 'rc 0 && [[ -n $OUT ]]'
+if ! has guard; then
+  skip "the docker guard: $IMAGE was built before it (nexus <persona> build)"
+else
+  t docker exec "agent-$PC" sh -c 'echo "$DOCKER_HOST"; [ -S /run/nexus/docker.sock ] && [ ! -L /run/nexus/docker.sock ] && echo socket'
+  ERR2="$(guard_line "$PC")"
+  check "guard: on in $PC (the entrypoint says so), the docker CLI's DOCKER_HOST, its socket" \
+        'rc 0 && out_line unix:///run/nexus/docker.sock && out_line socket && [[ $ERR2 == *"docker guard on: /run/nexus/docker.sock"* ]]'
+  t docker run -d --pull never --name "$ID-bare" --network none "$IMAGE" sleep 300
+  check "  (a container made outside the test personas, for the checks below)" 'rc 0 && running "$ID-bare"'
+  t docker exec "agent-$PC" docker run -d --pull never --name "$ID-gc" --network none "$IMAGE" sleep 300
+  check "  a container $PC starts is labelled nexus.persona=$PC" 'rc 0 && [[ $(label container "$ID-gc") == "$PC" ]]'
+  t docker exec "agent-$PC" docker rm -f "$ID-bare"
+  check "  removing one that isn't: refused, saying why, and it still runs" '(( RC != 0 )) && err_has "nexus guard: " && running "$ID-bare"'
+  t docker exec "agent-$PC" docker stop -t 1 "$ID-bare"
+  check "  stopping it: refused too" '(( RC != 0 )) && err_has "nexus guard: " && running "$ID-bare"'
+  t docker exec "agent-$PG" docker rm -f "$ID-gc"
+  check "  another persona's ($PG removing $PC's): refused, and it still runs" '(( RC != 0 )) && err_has "nexus guard: " && running "$ID-gc"'
+  t docker exec "agent-$PC" docker rm -f "$ID-gc"
+  check "  its own: removed" 'rc 0 && absent container "$ID-gc"'
+  t docker exec "agent-$PC" docker volume create "$ID-gv"
+  check "  a volume it creates: labelled" 'rc 0 && [[ $(label volume "$ID-gv") == "$PC" ]]'
+  t docker exec "agent-$PG" docker volume rm "$ID-gv"
+  check "    $PG can't remove it" '(( RC != 0 )) && err_has "nexus guard: " && ! absent volume "$ID-gv"'
+  t docker exec "agent-$PG" docker run --rm --pull never --name "$ID-gm" --network none -v "$ID-gv:/x" "$IMAGE" true
+  check "    nor mount it in a container of its own: refused, nothing made" \
+        '(( RC != 0 )) && err_has "nexus guard: " && absent container "$ID-gm"'
+  t docker exec "agent-$PC" docker run --rm --pull never --name "$ID-gm" --network none -v "$ID-gv:/x" "$IMAGE" true
+  check "    $PC can mount it" 'rc 0'
+  t docker exec "agent-$PG" docker volume create "$ID-gv"
+  check "    $PG creating it as its own: refused, and it stays $PC's" \
+        '(( RC != 0 )) && err_has "nexus guard: " && [[ $(label volume "$ID-gv") == "$PC" ]]'
+  t docker exec "agent-$PC" docker volume rm "$ID-gv"
+  check "    and remove it" 'rc 0 && absent volume "$ID-gv"'
+  # A container of $PC's, made and never started: its anonymous volume, --volumes-from it, its network, a commit of it.
+  t docker exec "agent-$PC" docker create --pull never --name "$ID-ga" -v /data "$IMAGE" true
+  AV="$(docker container inspect -f '{{range .Mounts}}{{if eq .Destination "/data"}}{{.Name}}{{end}}{{end}}' "$ID-ga" 2>/dev/null)"
+  check "  an anonymous volume (-v /data): labelled $PC's too" 'rc 0 && [[ -n $AV && $(label volume "$AV") == "$PC" ]]'
+  t docker exec "agent-$PG" docker run --rm --pull never --name "$ID-gm" --network none --volumes-from "$ID-ga" "$IMAGE" true
+  check "    $PG taking it with --volumes-from $PC's container: refused, nothing made" \
+        '(( RC != 0 )) && err_has "nexus guard: " && absent container "$ID-gm"'
+  nets() { docker container inspect -f '{{range $k, $v := .NetworkSettings.Networks}}{{$k}} {{end}}' "$1" 2>/dev/null; }
+  t docker exec "agent-$PG" docker network disconnect bridge "$ID-ga"
+  check "  $PG disconnecting $PC's container from a network: refused, it stays on it" \
+        '(( RC != 0 )) && err_has "nexus guard: " && [[ $(nets "$ID-ga") == *bridge* ]]'
+  t docker exec "agent-$PC" docker network disconnect bridge "$ID-ga"
+  check "    $PC can" 'rc 0 && [[ $(nets "$ID-ga") != *bridge* ]]'
+  t docker exec "agent-$PG" docker network connect bridge "$ID-ga"
+  check "    $PG connecting it: refused too" '(( RC != 0 )) && err_has "nexus guard: " && [[ $(nets "$ID-ga") != *bridge* ]]'
+  t docker exec "agent-$PG" docker stop -t 1 "agent-$PC"
+  check "  $PG stopping persona $PC itself: refused, naming \`nexus $PC stop\`, and it runs on" \
+        '(( RC != 0 )) && err_has "nexus guard: " && err_has "nexus $PC stop" && running "agent-$PC"'
+  # Images, made here for the checks: `docker import` of nothing (no label comes from $IMAGE), one tag each, so a
+  # removal by that tag is the image's. A persona image (agent.flavour), $PG's (its label), $PG's compose build (its
+  # project's label), and no one's.
+  mkimage() {
+    local c=() id; [[ -z $1 ]] || c=(--change "LABEL $1")
+    id="$(tar -cf - --files-from /dev/null | docker import "${c[@]}" - "$2")" && TAGS+=("$2") IMGS+=("$id")
+  }
+  image_id() { docker image inspect -f '{{.Id}}' "$1" 2>/dev/null; }
+  mkimage "agent.flavour=claude" "$REG/nxt-flavour:1"; mkimage "nexus.persona=$PG" "$REG/nxt-pg:1"
+  mkimage "com.docker.compose.project=$PG-app" "$REG/nxt-pgbuild:1"; mkimage "" "$REG/nxt-plain:1"
+  mkimage "" "$REG/nxt-used:1"
+  fid="$(image_id "$REG/nxt-flavour:1")" pgid="$(image_id "$REG/nxt-pg:1")"
+  t docker exec "agent-$PC" docker image rm "$REG/nxt-flavour:1"
+  check "  removing a persona image (agent.flavour): refused, and it is still there" \
+        '(( RC != 0 )) && err_has "nexus guard: " && [[ -n $fid && $(image_id "$REG/nxt-flavour:1") == "$fid" ]]'
+  t docker exec "agent-$PC" docker rmi -f "$fid"
+  check "    by its id, with -f: refused too" '(( RC != 0 )) && err_has "nexus guard: " && [[ $(image_id "$REG/nxt-flavour:1") == "$fid" ]]'
+  docker tag "$REG/nxt-flavour:1" "$REG/nxt-flavour:2" && TAGS+=("$REG/nxt-flavour:2")
+  t docker exec "agent-$PC" docker image rm "$REG/nxt-flavour:2"
+  check "    a second tag of it: untagged, the image stays" \
+        'rc 0 && [[ -z $(image_id "$REG/nxt-flavour:2") && $(image_id "$REG/nxt-flavour:1") == "$fid" ]]'
+  t docker exec "agent-$PC" docker commit "$ID-ga" "$REG/nxt-flavour:1"
+  check "    a commit onto its tag: refused, the tag stays on it" \
+        '(( RC != 0 )) && err_has "nexus guard: " && [[ $(image_id "$REG/nxt-flavour:1") == "$fid" ]]'
+  t docker exec "agent-$PC" docker image rm "$REG/nxt-pg:1"
+  check "  removing $PG's image (its label): refused" \
+        '(( RC != 0 )) && err_has "nexus guard: " && [[ -n $pgid && $(image_id "$REG/nxt-pg:1") == "$pgid" ]]'
+  t docker exec "agent-$PC" docker tag "$REG/nxt-plain:1" "$REG/nxt-pg:1"
+  check "    tagging another image with its name: refused" \
+        '(( RC != 0 )) && err_has "nexus guard: " && [[ $(image_id "$REG/nxt-pg:1") == "$pgid" ]]'
+  t docker exec "agent-$PC" docker image rm "$REG/nxt-pgbuild:1"
+  check "  removing $PG's compose build (project $PG-app): refused" \
+        '(( RC != 0 )) && err_has "nexus guard: " && [[ -n $(image_id "$REG/nxt-pgbuild:1") ]]'
+  t docker exec "agent-$PG" docker image rm "$REG/nxt-pgbuild:1"
+  check "    $PG can" 'rc 0 && [[ -z $(image_id "$REG/nxt-pgbuild:1") ]]'
+  t docker exec "agent-$PC" docker image rm "$REG/nxt-plain:1"
+  check "  an image no one's (what a persona builds or pulls is never labelled): removed" \
+        'rc 0 && [[ -z $(image_id "$REG/nxt-plain:1") ]]'
+  t docker exec "agent-$PC" docker create --pull never --name "$ID-gu" --network none "$REG/nxt-used:1" true
+  t docker exec "agent-$PG" docker rmi -f "$REG/nxt-used:1"
+  check "    but not while a container of $PC's uses it, for $PG: refused" \
+        '(( RC != 0 )) && err_has "nexus guard: " && [[ -n $(image_id "$REG/nxt-used:1") ]]'
+  t docker exec "agent-$PC" docker rm "$ID-gu"
+  t docker exec "agent-$PG" docker rmi "$REG/nxt-used:1"
+  check "    once $PC removes the container, $PG can" 'rc 0 && [[ -z $(image_id "$REG/nxt-used:1") ]]'
+  t docker exec "agent-$PC" docker rm -v "$ID-ga"
+  check "  $PC's docker rm -v: its container and that container's anonymous volume, gone" \
+        'rc 0 && absent container "$ID-ga" && [[ -n $AV ]] && absent volume "$AV"'
+  # Prunes on this shared daemon only ever with a label nothing has: whatever the guard makes of it, nothing goes.
+  # (The label it adds to a prune's filters: tests/unit/test_guard.py, and the stand-in daemon below.)
+  t docker exec "agent-$PC" sh -c 'docker container prune -f --filter "label=$1" && docker volume prune -f --filter "label=$1" \
+                                   && docker network prune -f --filter "label=$1"' sh "$ID-none=1"
+  check "  prunes go through it" 'rc 0'
+  # A prune of everything, as an agent might run it, through a guard of $PC's (its image's, its AGENT_PERSONA) in
+  # front of a stand-in daemon that logs what reaches it (tests/fake-dockerd.py): nothing real is pruned.
+  cp "$A/tests/fake-dockerd.py" "$S/fake-dockerd.py" && : > "$S/prune.log"
+  t timeout 60 docker exec "agent-$PC" sh -c '
+    d="$(mktemp -d)" || exit 9
+    python3 -I "$1" "$d/up.sock" "$2" & f=$!
+    i=0; while [ ! -S "$d/up.sock" ] && [ "$i" -lt 50 ]; do sleep 0.1; i=$((i + 1)); done
+    NEXUS_GUARD_UPSTREAM="$d/up.sock" NEXUS_GUARD_LISTEN="$d/g.sock" /usr/local/libexec/nexus/docker-guard 2>/dev/null & g=$!
+    i=0; while [ ! -S "$d/g.sock" ] && [ "$i" -lt 50 ]; do sleep 0.1; i=$((i + 1)); done
+    DOCKER_HOST="unix://$d/g.sock" docker system prune -af --volumes; r=$?
+    kill "$g" "$f"; rm -rf "$d"; exit "$r"' sh "$S/fake-dockerd.py" "$S/prune.log"
+  pruned() { grep -qE "^POST /v[0-9.]+/$1/prune\?filters=.*\"nexus\.persona=$PC\":true" "$S/prune.log"; }
+  check "  docker system prune -af --volumes, to a stand-in daemon: each prune only what is labelled $PC's; the build cache's refused" \
+        '(( RC != 0 )) && err_has "nexus guard: " && pruned containers && pruned networks && pruned volumes && pruned images \
+         && [[ $(grep -c /prune "$S/prune.log") == 4 ]] && ! grep -q /build/prune "$S/prune.log"'
+  # The entrypoint's supervision: a guard that dies is started again a second later. TERM, which has it remove its
+  # socket (after a KILL the old socket would pass for the new one); pkill straight from docker exec, never in an sh -c
+  # whose text names the guard (it would match itself).
+  n0="$(docker logs "agent-$PC" 2>&1 | grep -cF "[$PC] docker guard exited")"
+  t docker exec "agent-$PC" pkill -TERM -f /usr/local/libexec/nexus/docker-guard
+  wait_for 10 '(( $(docker logs "agent-$PC" 2>&1 | grep -cF "[$PC] docker guard exited") > n0 ))' \
+    && wait_for 10 'docker exec "agent-$PC" docker version >/dev/null 2>&1'
+  t docker exec "agent-$PC" sh -c 'docker version --format "{{.Server.Version}}" >/dev/null && [ -S /run/nexus/docker.sock ] \
+                                   && [ ! -L /run/nexus/docker.sock ] && echo socket'
+  check "  a guard that dies is started again a second later (the entrypoint says so), and docker works through it" \
+        'rc 0 && out_line socket && [[ $(guard_line "$PC") == *"docker guard exited (status "*"): starting it again in a second"* ]]'
+fi
+
+prefixed=0
+if ! has compose-shim || ! has guard; then
+  skip "compose project names: $IMAGE was built before the compose shim and the guard (nexus <persona> build)"
+else
+  CP="$ROOT/$CPN" FP="$ROOT/$FPN"
+  mkdir -p "$CP" "$FP" "$ROOT/cnamed"
+  printf 'services:\n  web:\n    image: %s\n    pull_policy: never\n    init: true\n    command: ["sleep", "300"]\n    ports: ["127.0.0.1::80"]\n    volumes: ["data:/data"]\nvolumes:\n  data:\n' \
+    "$IMAGE" > "$CP/compose.yml"
+  printf 'name: nxtnamed\nservices:\n  web:\n    image: %s\n' "$IMAGE" > "$ROOT/cnamed/compose.yml"
+  # cname ARGS…: the project name in `docker exec -w $CP ARGS… config --format json` (nothing made on the daemon).
+  cname() { docker exec -w "$CP" "$@" config --format json | python3 -I -c 'import json, sys; print(json.load(sys.stdin)["name"])'; }
+  t cname "agent-$PC" docker compose
+  check "compose in a persona: the project is <persona>-<dir>" 'rc 0 && out_is "$PC-$CPN"'
+  [[ $RC == 0 && $OUT == "$PC-$CPN" ]] && prefixed=1
+  t cname "agent-$PC" docker compose -f "$ROOT/cnamed/compose.yml"
+  check "  <persona>-<name> for a name: in the file" 'rc 0 && out_is "$PC-nxtnamed"'
+  t cname "agent-$PC" docker compose -p "$ID-explicit"
+  check "  -p wins" 'rc 0 && out_is "$ID-explicit"'
+  t cname -e COMPOSE_PROJECT_NAME="$ID-env" "agent-$PC" docker compose
+  check "  and COMPOSE_PROJECT_NAME" 'rc 0 && out_is "$ID-env"'
+fi
+# Two personas up the same project, from the same dir, at the same time: only once each gets a project of its own,
+# or they would up (and take down) one stack between them.
+if has compose-shim && has guard && (( ! prefixed )); then
+  fail "two personas up the same project dir at once: not run, as the project name isn't prefixed (above)"
+elif has compose-shim && has guard; then
+  docker exec -w "$CP" "agent-$PC" docker compose up -d > "$T/up-c.out" 2>&1 & u1=$!
+  docker exec -w "$CP" "agent-$PG" docker compose up -d > "$T/up-g.out" 2>&1 & u2=$!
+  wait "$u1"; r1=$?; wait "$u2"; r2=$?
+  RC=$(( r1 || r2 )) OUT="$(cat "$T/up-c.out" "$T/up-g.out")" ERR=""
+  check "$PC and $PG up the same project dir at once: two stacks, both up" \
+        'rc 0 && running "$PC-$CPN-web-1" && running "$PG-$CPN-web-1"'
+  check "  each its own: container, volume and network labelled for the persona that made them" \
+        '[[ $(label container "$PC-$CPN-web-1") == "$PC" && $(label container "$PG-$CPN-web-1") == "$PG" \
+            && $(label volume "$PC-${CPN}_data") == "$PC" && $(label volume "$PG-${CPN}_data") == "$PG" \
+            && $(label network "$PC-${CPN}_default") == "$PC" && $(label network "$PG-${CPN}_default") == "$PG" ]]'
+  t docker exec -w "$CP" "agent-$PC" docker compose port web 80; pc_port="$OUT"
+  t docker exec -w "$CP" "agent-$PG" docker compose port web 80; pg_port="$OUT"
+  check "  each published on a port of 127.0.0.1 Docker picked, not the same one" \
+        '[[ $pc_port =~ ^127\.0\.0\.1:[0-9]+$ && $pg_port =~ ^127\.0\.0\.1:[0-9]+$ && $pc_port != "$pg_port" ]]'
+  t docker exec -w "$CP" "agent-$PC" docker compose -p "$PG-$CPN" down -v
+  check "  $PC naming $PG's stack (-p) to take it down: refused, and it still runs" \
+        '(( RC != 0 )) && err_has "nexus guard: " && running "$PG-$CPN-web-1"'
+  t docker exec -w "$CP" "agent-$PC" sh -c 'docker compose down -v && docker container prune -f --filter "label=$1" \
+                                             && docker volume prune -f --filter "label=$1"' sh "$ID-none=1"
+  check "  $PC's clean-up (compose down -v, filtered prunes): its stack goes" \
+        'rc 0 && absent container "$PC-$CPN-web-1" && absent volume "$PC-${CPN}_data" && absent network "$PC-${CPN}_default"'
+  check "    $PG's stays: its container runs, its volume and network are there" \
+        'running "$PG-$CPN-web-1" && ! absent volume "$PG-${CPN}_data" && ! absent network "$PG-${CPN}_default"'
+  t docker exec -w "$CP" "agent-$PG" docker compose down -v
+  check "  and $PG's own down -v takes its" \
+        'rc 0 && absent container "$PG-$CPN-web-1" && absent volume "$PG-${CPN}_data" && absent network "$PG-${CPN}_default"'
+  # A project whose compose file publishes a fixed host port (no variable for it): the recipe the notes give, a
+  # compose.override.yaml next to it with `ports: !override [...]` (a plain ports: there adds to the project's, the
+  # fixed one stays), a port Docker picks, shared by everyone working in the dir. The fixed one is never bound.
+  printf 'services:\n  web:\n    image: %s\n    pull_policy: never\n    init: true\n    command: ["sleep", "300"]\n    ports: ["127.0.0.1:39999:80"]\n' \
+    "$IMAGE" > "$FP/compose.yml"
+  printf 'services:\n  web:\n    ports: !override ["127.0.0.1::80"]\n' > "$FP/compose.override.yaml"
+  docker exec -w "$FP" "agent-$PC" docker compose up -d > "$T/up-c.out" 2>&1 & u1=$!
+  docker exec -w "$FP" "agent-$PG" docker compose up -d > "$T/up-g.out" 2>&1 & u2=$!
+  wait "$u1"; r1=$?; wait "$u2"; r2=$?
+  up=$(( r1 || r2 )) upout="$(cat "$T/up-c.out" "$T/up-g.out")"
+  t docker exec -w "$FP" "agent-$PC" docker compose port web 80; pc_port="$OUT"
+  t docker exec -w "$FP" "agent-$PG" docker compose port web 80; pg_port="$OUT"
+  RC=$up OUT="$upout|$pc_port|$pg_port" ERR=""
+  check "  a project with a fixed host port, overridden in a compose.override.yaml (!override): both up, on ports Docker picked" \
+        'rc 0 && running "$PC-$FPN-web-1" && running "$PG-$FPN-web-1" && [[ $pc_port =~ ^127\.0\.0\.1:[0-9]+$ \
+         && $pg_port =~ ^127\.0\.0\.1:[0-9]+$ && $pc_port != "$pg_port" && $pc_port != *:39999 && $pg_port != *:39999 ]]'
+  t docker exec -w "$FP" "agent-$PC" docker compose down; r1=$RC
+  t docker exec -w "$FP" "agent-$PG" docker compose down
+  check "    and each one's down takes its own" \
+        '(( r1 == 0 && RC == 0 )) && absent container "$PC-$FPN-web-1" && absent container "$PG-$FPN-web-1" \
+         && absent network "$PC-${FPN}_default" && absent network "$PG-${FPN}_default"'
+fi
+
+if ! has venv; then skip "python3 -m venv: $IMAGE was built before python3-venv"; else
+  t docker exec "agent-$PC" sh -c 'python3 -m venv /tmp/nxt-venv && /tmp/nxt-venv/bin/python -c "import sys; print(sys.prefix)"
+                                   r=$?; rm -rf /tmp/nxt-venv; exit $r'
+  check "tools: python3 -m venv makes a venv" 'rc 0 && out_is /tmp/nxt-venv'
+fi
+if ! has uv || ! has uvx; then skip "uv and uvx: $IMAGE was built before them"; else
+  t docker exec "agent-$PC" sh -c 'uv --version && uvx --version && uv venv -q --python /usr/bin/python3 /tmp/nxt-uv \
+                                   && /tmp/nxt-uv/bin/python -c "import sys; print(sys.prefix)"; r=$?; rm -rf /tmp/nxt-uv; exit $r'
+  check "  uv and uvx, and uv makes a venv on the image's python3" \
+        'rc 0 && out_re "^uv [0-9]+\.[0-9]+\.[0-9]+ " && out_re "^uvx [0-9]+\.[0-9]+\.[0-9]+ " && out_line /tmp/nxt-uv'
+fi
+if ! has glab; then skip "glab: $IMAGE was built before it"; else
+  t docker exec -e GLAB_SEND_TELEMETRY=false "agent-$PC" sh -c 'glab --version && git config --system --get-all credential.https://gitlab.com.helper'
+  if ! has glab-credential; then
+    check "  glab" 'rc 0 && out_re "^glab [0-9]+\.[0-9]+\.[0-9]+ "'
+    skip "glab's credential helper for https://gitlab.com: $IMAGE was built before it (nexus <persona> build)"
+  else
+    check "  glab, and git's credential helper for https://gitlab.com (the image's, in front of glab's)" \
+          'rc 0 && out_re "^glab [0-9]+\.[0-9]+\.[0-9]+ " && out_has "/usr/local/libexec/nexus/glab-credential"'
+    # What git's helpers hand https://gitlab.com, with a fake token in GITLAB_TOKEN (no terminal: no prompt).
+    fill='printf "protocol=https\nhost=gitlab.com\n\n" | git credential fill'
+    t docker exec -e GITLAB_TOKEN=glpat-nxtfake -e GITLAB_HOST=gitlab.example.org -e GIT_TERMINAL_PROMPT=0 "agent-$PC" sh -c "$fill"
+    check "    GITLAB_HOST another GitLab: the token is that host's, gitlab.com doesn't get it" \
+          '! out_has "password=" && ! out_has glpat-nxtfake'
+    t docker exec -e GITLAB_TOKEN=glpat-nxtfake -e GIT_TERMINAL_PROMPT=0 "agent-$PC" sh -c "unset GITLAB_HOST GITLAB_URI GL_HOST GITLAB_REPO; $fill"
+    check "    no GITLAB_HOST: gitlab.com gets it" 'rc 0 && out_line "password=glpat-nxtfake"'
+  fi
+fi
+if ! has nexus-apm; then skip "nexus-apm: $IMAGE was built before it"; else
+  t docker exec "agent-$PC" nexus-apm --help
+  check "  nexus-apm: its usage" 'rc 0 && out_has "usage: nexus-apm X.Y.Z"'
+  t docker exec "agent-$PC" nexus-apm 0.8.2
+  check "    a version without the switch for its self-update: refused" 'rc 2 && err_has "older than 0.9.0"'
+  # Installing one takes PyPI, which the rest of this suite never needs: skipped where it can't be reached. In a
+  # throwaway XDG_DATA_HOME, so the test persona's home isn't written.
+  if ! docker exec "agent-$PC" python3 -I -c 'import urllib.request; urllib.request.urlopen("https://pypi.org/simple/apm-cli/", timeout=10)' \
+       >/dev/null 2>&1; then
+    skip "nexus-apm installing a version: agent-$PC can't reach PyPI"
+  else
+    v=/tmp/nxt-apm/nexus/apm/0.9.0
+    t timeout 300 docker exec -e XDG_DATA_HOME=/tmp/nxt-apm "agent-$PC" nexus-apm 0.9.0 --version
+    ino="$(docker exec "agent-$PC" stat -c %i "$v" 2>/dev/null)"
+    check "    a version it hasn't got: installed (uv, from PyPI), then run" 'rc 0 && out_has "version 0.9.0" && [[ -n $ino ]]'
+    t docker exec "agent-$PC" "$v/bin/python" -I -c 'import apm_cli.update_policy as u; print(u.is_self_update_enabled())'
+    check "      with its self-update off, as the image's apm has it" 'rc 0 && out_is False'
+    t timeout 60 docker exec -e XDG_DATA_HOME=/tmp/nxt-apm "agent-$PC" nexus-apm 0.9.0 --version
+    check "      the next time, the one installed, as it was" \
+          'rc 0 && out_has "version 0.9.0" && [[ $(docker exec "agent-$PC" stat -c %i "$v" 2>/dev/null) == "$ino" ]]'
+    docker exec "agent-$PC" rm -rf /tmp/nxt-apm
+  fi
+fi
+# DOCKER_GUARD=off in the .env, for one persona's next start: docker straight to the VM's socket. Then on again.
+if has guard; then
+  echo "DOCKER_GUARD=off" >> "$A/.env"
+  t nx "$PN" restart </dev/null
+  wait_for 10 '[[ $(guard_line "$PN") == *"docker guard off"* ]]'; ERR2="$(guard_line "$PN")"
+  t docker exec "agent-$PN" sh -c 'readlink /run/nexus/docker.sock; docker volume create "$1" >/dev/null && docker volume inspect -f "{{json .Labels}}" "$1"' \
+    sh "$ID-off"
+  check "DOCKER_GUARD=off, $PN restarted: no guard (the entrypoint says so), a link to the socket, nothing labelled" \
+        'rc 0 && [[ $ERR2 == *"docker guard off (DOCKER_GUARD=off)"* ]] && out_line /var/run/docker.sock && ! out_has nexus.persona'
+  docker exec "agent-$PN" docker volume rm "$ID-off" >/dev/null 2>&1
+  sed -i '/^DOCKER_GUARD=off$/d' "$A/.env"
+  t nx "$PN" restart </dev/null
+  wait_for 10 '[[ $(guard_line "$PN") == *"docker guard on: "* ]]'; ERR2="$(guard_line "$PN")"
+  t docker exec "agent-$PN" sh -c '[ -S /run/nexus/docker.sock ] && [ ! -L /run/nexus/docker.sock ] && echo socket'
+  check "  without it again: on at its next restart" 'rc 0 && out_is socket && [[ $ERR2 == *"docker guard on: "* ]]'
+fi
+
 stage "telemetry ($PC and $PG, a stand-in collector over TLS)"
 TD="$T/otlp"
 if ! command -v openssl >/dev/null; then
@@ -1136,6 +1500,8 @@ docker exec -i -e TMUX_PANE="$pane" -e CLAUDE_CODE_AUTO_COMPACT_WINDOW=150k "age
 EOF
 t nx top --once </dev/null
 check "  with CLAUDE_CODE_AUTO_COMPACT_WINDOW: that window, in top too" 'rc 0 && out_re "^$PC +billing +Opus 5\.5 +38k/150k +12% "'
+check "  a grok persona: state, CPU, memory; no grok running, statusline off" \
+      'out_re "^$PN +(starting|healthy|running) +[0-9.]+% +[0-9.]+[kKMG]i?B +no grok running, statusline off$"'
 docker exec "agent-$PC" sh -c 'mkdir -p /tmp/acw/.claude && printf "%s" "{\"modelSettings\": {\"claude-opus-5-5\": {\"autoCompactWindow\": 120000}}}" > /tmp/acw/.claude/settings.json'
 OUT="$(docker exec -i -e HOME=/tmp/acw "agent-$PC" bash /etc/claude-code/statusline/statusline.sh <<EOF | sed 's/\x1b\[[0-9;]*m//g'
 {"model": {"id": "claude-opus-5-5[1m]", "display_name": "Opus"}, "workspace": {"current_dir": "$ROOT/app"},
@@ -1143,8 +1509,6 @@ OUT="$(docker exec -i -e HOME=/tmp/acw "agent-$PC" bash /etc/claude-code/statusl
 EOF
 )" RC=0 ERR=""
 check "  with /autocompact's setting for the model: that window" 'out_has "Ctx 38k/120k"'
-check "  a grok persona: state, CPU, memory; no grok running, statusline off" \
-      'out_re "^$PN +(starting|healthy|running) +[0-9.]+% +[0-9.]+[kKMG]i?B +no grok running, statusline off$"'
 # A pane started as grok in the grok persona, and one status line draw in it, with the payload grok
 # 1.0.62 sends (taken from a real run): no limits, and no cost before a priced request.
 gpane="$(docker exec "agent-$PG" tmux new-session -d -P -F '#{pane_id}' -s gtop -c "$ROOT/app" "grok '--single=hold gtop'")"   # the stand-in waits, as grok does
@@ -1171,7 +1535,7 @@ check "  a pane whose context grok hasn't sent yet: its model, and - for the res
 pty "$ROOT/app" top --once
 pty_end 30
 plain="${OUT//$'\e['[0-9][0-9]m/}"; plain="${plain//$'\e['[0-9]m/}"   # the T_* codes nexus uses
-hdr="$(grep -E '^PERSONA +SESSION' <<< "$plain")" row="$(grep -E -- "$re" <<< "$plain")"
+hdr="$(grep -E '^PERSONA +SESSION' <<< "$plain")" row="$(grep -E -- "^$PC +billing +Opus 5\.5 +38k/150k " <<< "$plain")"
 check "  on a terminal: coloured, and the colours take no room (the right-aligned rows end level)" \
       'rc 0 && [[ $OUT == *$'"'"'\e[32m'"'"'* && -n $row ]] && (( ${#hdr} == ${#row} )) && [[ $(grep -c "^PERSONA " <<< "$plain") == 2 ]]'
 t nx ls </dev/null

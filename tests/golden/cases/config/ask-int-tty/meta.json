@@ -1,3 +1,3 @@
 {
-  "provenance": "accepted: telemetry M3: TELEMETRY_TOOL_CONTENT in .env.example and --tool-content in --help, reworded after review"
+  "provenance": "accepted: docker-work docs: .env.example's DOCKER_GUARD comment (what the guard covers; a change takes nexus --config, then the restarts); before that: docker-work: nexus gives compose NEXUS_SCRATCH_ROOT, so every docker call's env has it (fake.py ENV_KEYS); .env.example's NEXUS_SCRATCH_ROOT and DOCKER_GUARD lines"
 }

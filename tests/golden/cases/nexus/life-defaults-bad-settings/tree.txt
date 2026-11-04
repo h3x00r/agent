@@ -2,3 +2,7 @@
     | {broken
 + ctr/c4  d 755
 + ctr/c4/home  d 755
++ scratch/c1  d 755
++ scratch/c2  d 755
++ scratch/c3  d 755
++ scratch/c4  d 755

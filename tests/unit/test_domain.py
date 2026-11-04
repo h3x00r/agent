@@ -1,9 +1,10 @@
 import os
+import re
 import unittest
 
 import json
 
-from agentctl.domain import flavour, persona, roots
+from agentctl.domain import flavour, notes, persona, roots, scratch
 from agentctl.domain import telemetry as tele
 from agentctl.domain.persona import Persona
 
@@ -50,6 +51,41 @@ class Rules(unittest.TestCase):
         self.assertEqual(persona.next_colour(full), persona.COLOURS[0])
         self.assertEqual(persona.suggest_name([Persona("claude-docker", "claude", "docker", "c")], "claude", "docker"),
                          "claude-docker-2")
+
+    def test_ports(self):
+        for v, want in (("20000-20099", (20000, 20099)), ("1024-1024", (1024, 1024)), ("1024-65535", (1024, 65535)),
+                        ("65535-65535", (65535, 65535))):
+            self.assertEqual(persona.port_range(v), want, v)
+        for v in ("", "20000", "20000-", "-20099", "20099-20000", "1023-2000", "1000-2000", "20000-65536",
+                  "020000-20099", "02000-20099", "20000 -20099", "20000-20099\n", "20000:20099", "２0000-20099",
+                  "100000-100001"):
+            self.assertIsNone(persona.port_range(v), repr(v))
+        a, b, c = (Persona("a", "claude", "docker", "c", ports="20000-20099"),
+                   Persona("b", "grok", "docker", "c", ports="20099-20150"), Persona("c", "grok", "docker", "c"))
+        self.assertIs(persona.ports_overlap(b, [a, b, c]), a)          # one port in common is an overlap
+        self.assertIsNone(persona.ports_overlap(c, [a, b, c]))         # none: nothing to overlap
+        b.ports = "20100-20199"
+        self.assertIsNone(persona.ports_overlap(b, [a, b, c]))
+        self.assertIsNone(persona.ports_overlap(a, [a]))               # itself doesn't count
+
+    def test_next_ports(self):
+        def nxt(*ranges):
+            return persona.next_ports([Persona("p%d" % i, "claude", "docker", "c", ports=r) for i, r in enumerate(ranges)])
+        self.assertEqual(nxt(), "20000-20099")
+        self.assertEqual(nxt(""), "20000-20099")                       # one without a range counts for nothing
+        self.assertEqual(nxt("20000-20099"), "20100-20199")
+        self.assertEqual(nxt("20100-20199", "20000-20099"), "20200-20299")          # the highest, in any order
+        self.assertEqual(nxt("20000-20099", "20200-20299"), "20300-20399")          # a gap isn't handed on
+        self.assertEqual(nxt("25050-25149"), "25200-25299")                         # by hand: the next whole block
+        self.assertEqual(nxt("25050-25099"), "25100-25199")
+        self.assertEqual(nxt("8000-8099"), "20000-20099")                           # below the base: from the base
+        self.assertEqual(nxt("20000-20099", "65300-65399"), "65400-65499")          # the last whole block
+        # Past 65535: the first free block from 20000, around what is there.
+        self.assertEqual(nxt("20000-20099", "65400-65499"), "20100-20199")
+        self.assertEqual(nxt("20050-20060", "20150-20250", "60000-65535"), "20300-20399")
+        every = ["%d-%d" % (a, a + 99) for a in range(20000, 65500, 100)]
+        self.assertEqual(nxt(*every), "")                                           # none free
+        self.assertEqual(nxt(*[r for r in every if r != "43200-43299"]), "43200-43299")
 
 
 class Lines(unittest.TestCase):
@@ -210,3 +246,56 @@ class Telemetry(unittest.TestCase):
     def test_bundle(self):
         self.assertEqual(tele.bundle(b"CA", b"MK\n"), b"CA\nMK\n")
         self.assertEqual(tele.bundle(b"CA\n", b""), b"CA\n")
+
+
+class Scratch(unittest.TestCase):
+    def test_root(self):
+        self.assertEqual(scratch.root("", ""), "/srv/nexus-scratch")
+        self.assertEqual(scratch.root("/sh", "/dot"), "/sh")              # the shell's, as with PROJECTS_ROOT
+        self.assertEqual(scratch.root("", "/dot/"), "/dot")               # an empty one is unset; one / goes
+        self.assertEqual(scratch.root("//", ""), "/")                     # and the rules then refuse it
+        # Cleaned as the daemon cleans a mount's destination, or a container made with it never shows the mount.
+        for r in ("/srv//x", "//srv/x", "/srv/./x", "/srv/x//", "/srv/y/../x", "///srv/x/"):
+            self.assertEqual(scratch.root("", r), "/srv/x", r)
+        self.assertEqual(scratch.root("rel/x/", ""), "rel/x")              # not absolute: as it is, for root_ok
+        self.assertEqual(scratch.path("/srv/nexus-scratch", "c1"), "/srv/nexus-scratch/c1")
+        self.assertEqual(scratch.COMPOSE, "${NEXUS_SCRATCH_ROOT:-/srv/nexus-scratch}")
+        self.assertEqual(scratch.install_cmd("/srv/s"), "sudo install -d -o $(id -u) -g $(id -g) -m 755 /srv/s")
+        # Pasted into a shell: quoted, as root_ok lets $ ; & through.
+        self.assertTrue(scratch.root_ok("/srv/$U;x&y"))
+        self.assertEqual(scratch.install_cmd("/srv/$U;x&y"),
+                         "sudo install -d -o $(id -u) -g $(id -g) -m 755 /srv/\\$U\\;x\\&y")
+
+    def test_root_ok(self):
+        for r in ("/srv/nexus-scratch", "/s", "//x"):
+            self.assertTrue(scratch.root_ok(r), r)
+        for r in ("", "/", "rel/x", "/a:b", "/a b", "/a\tb", "/a\n"):
+            self.assertFalse(scratch.root_ok(r), repr(r))
+
+
+class Notes(unittest.TestCase):
+    def test_render(self):
+        t = "{{persona}} {{cli}} {{projects_root}} {{scratch}} {{ports}} {{guard}} {{persona}}"
+        self.assertEqual(notes.render(t, "c1", "Claude Code", "/p", "/s/c1", "20000-20099", "on"),
+                         "c1 Claude Code /p /s/c1 20000-20099 on c1")
+        self.assertIn(" none assigned ", notes.render(t, "c1", "x", "/p", "/s", "", "off"))
+        # A value is no placeholder: replaced once, never read again.
+        self.assertEqual(notes.render("{{projects_root}}", "c1", "x", "/p/{{guard}}", "/s", "", "on"), "/p/{{guard}}")
+        for bad, named in (("{{persona}} {{port}}", "{{port}}"), ("{{ persona }}", "{{ persona }}"),
+                           ("{{}} {{x-y}}", "{{x-y}}, {{}}")):
+            with self.assertRaises(notes.BadTemplate) as e:
+                notes.render(bad, "c1", "x", "/p", "/s", "", "on")
+            self.assertIn("has " + named + ",", str(e.exception))
+        # The template as committed: every placeholder known, every one filled.
+        with open(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+                               notes.TEMPLATE), encoding="utf-8") as f:
+            text = f.read()
+        out = notes.render(text, "g1", notes.CLI["grok"], "/p", "/s/g1", "20100-20199", "on")
+        self.assertNotIn("{{", out)
+        self.assertEqual(sorted(set(re.findall(r"\{\{(\w+)\}\}", text))), sorted(notes.KNOWN))
+        self.assertEqual(notes.file("c1"), "personas/c1.notes.md")
+
+    def test_guard(self):
+        for shell, dot, want in (("", "", "on"), ("", "off", "off"), ("on", "off", "on"), ("off", "on", "off"),
+                                 ("", "on", "on"), ("OFF", "", "on"), ("no", "", "on")):
+            self.assertEqual(notes.guard(shell, dot), want, (shell, dot))

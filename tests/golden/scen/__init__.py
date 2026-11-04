@@ -9,7 +9,8 @@ The Sandbox, in short (golden.py has the rest):
   sb.run(tool, *args, mode="pipe"|"tty-in"|"tty-all", stdin=, steps=[(substring, answer)…], cwd=,
          env={K: V or None}, merge=False, via=PATH, timeout=30, label=)      a recorded run
          tool is "nexus", "config", or the path of an executable (a wrapper script, say)
-  sb.container(persona, state="running", root=, sessions=[…], **fields)  a container in the docker world
+  sb.container(persona, state="running", root=, sessions=[…], nexus_mounts=True, **fields)  a container in the
+         docker world (with its scratch dir and the notes mounted, unless nexus_mounts=False)
   sb.load_world() / sb.world / sb.save_world()                           the world itself (fake.py)
   sb.write(rel, text, mode=)  sb.path(rel)  sb.symlink(rel, target)  sb.script(rel, body)  sb.agent_socket()
   sb.hold_lock()              a context manager: the tools' lock taken, as another run would hold it

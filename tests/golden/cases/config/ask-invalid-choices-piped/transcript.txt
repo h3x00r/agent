@@ -41,6 +41,7 @@ Shared by every persona
 Personas
   NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
   g1                              grok     docker   yes        the VM's             your agent
+  published ports: g1 20000-20099
 
 What next?
   1) list      the shared settings and the personas, again

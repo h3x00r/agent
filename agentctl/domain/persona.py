@@ -7,7 +7,9 @@ permissions: bypass (personas/claude.managed.json's bypassPermissions; the defau
 (personas/claude.ask.json's mode over it); and whether it sends telemetry (OpenTelemetry, to the collector
 TELEMETRY_ENDPOINT in .env names; domain/telemetry.py), and with it its tool details (the commands, file paths and
 other input its tools ran with) and its tool content (what they read, wrote and printed), each when .env doesn't
-turn it on for every persona (TELEMETRY_TOOL_DETAILS, TELEMETRY_TOOL_CONTENT).
+turn it on for every persona (TELEMETRY_TOOL_DETAILS, TELEMETRY_TOOL_CONTENT); and its port range, FROM-TO
+(NEXUS_PORTS in its container): the ports its stacks publish on the VM's network, which every persona shares.
+nexus --config gives each persona without one a block of 100 of its own (next_ports()); --ports sets one.
 
 Pitfalls (each pinned where named):
 - valid_name() is a fullmatch: a trailing newline is no name (test_domain.Rules.test_names)
@@ -30,6 +32,13 @@ Pitfalls (each pinned where named):
   (test_adapters.PersonasJson.test_a_round_trip_keeps_order_and_bytes, test_adapters.PersonasJson.test_what_it_refuses)
 - tool_details and tool_content: written only when true, true or false, and only for a persona that sends
   telemetry (test_adapters.PersonasJson.test_what_it_refuses, golden config/telemetry-hand-edits)
+- ports: written only when set, so a personas.json from before it reads the same; FROM-TO in ASCII digits, no
+  leading 0, 1024 <= FROM <= TO <= 65535 (test_adapters.PersonasJson.test_a_round_trip_keeps_order_and_bytes,
+  test_adapters.PersonasJson.test_what_it_refuses, test_domain.Rules.test_ports)
+- next_ports(): the block of 100 after the highest one in use (a range set by hand counts, rounded up to the next
+  block), never a lower free one, so a removed persona's range (its container may still publish there) isn't handed
+  on, unless it was the highest; past 65535, the first free block from 20000; none free, ""
+  (test_domain.Rules.test_next_ports)
 """
 import os
 import re
@@ -47,6 +56,8 @@ NAME_RULE = ("a lowercase letter, then lowercase letters, digits or -; at most 3
              "not ls, top, all or start")
 ROOT_RULE = "an absolute directory other than /, without ':' or spaces"
 KEY_RULE = "an absolute path (or ~/…) without spaces, ':', quotes or $"
+PORTS_RULE = "FROM-TO, two ports from 1024 to 65535 with FROM no higher than TO (e.g. 20000-20099)"
+PORTS_BASE, PORTS_BLOCK, PORTS_MAX = 20000, 100, 65535
 
 _SPACE = " \t\n\r\f\v"
 
@@ -64,6 +75,7 @@ class Persona:
     telemetry: bool = False
     tool_details: bool = False
     tool_content: bool = False
+    ports: str = ""           # FROM-TO, or "" for none (yet): last, as the positional calls don't give it
 
     @property
     def container(self):
@@ -123,6 +135,38 @@ def valid_registry(r):
     return r == "local" or _REGISTRY.fullmatch(r) is not None
 
 
+def port_range(v):
+    """FROM-TO as two ints, or None when it isn't one (PORTS_RULE)."""
+    m = re.fullmatch(r"([1-9][0-9]{3,4})-([1-9][0-9]{3,4})", v)
+    if m is None:
+        return None
+    a, b = int(m.group(1)), int(m.group(2))
+    return (a, b) if 1024 <= a <= b <= PORTS_MAX else None
+
+
+def ports_overlap(p, personas):
+    """The first other persona whose range overlaps P's, or None."""
+    r = port_range(p.ports)
+    for q in personas:
+        o = port_range(q.ports) if q.name != p.name else None
+        if r and o and r[0] <= o[1] and o[0] <= r[1]:
+            return q
+    return None
+
+
+def next_ports(personas):
+    """A block of PORTS_BLOCK ports for a new range: the one after the highest in use (from PORTS_BASE), or, past
+    PORTS_MAX, the first from PORTS_BASE that no range overlaps; "" when none is free."""
+    used = [r for r in (port_range(p.ports) for p in personas) if r]
+    top = max([b for _, b in used] + [PORTS_BASE - 1])
+    a = PORTS_BASE + -(-(top + 1 - PORTS_BASE) // PORTS_BLOCK) * PORTS_BLOCK     # rounded up to a block
+    starts = [a] if a + PORTS_BLOCK - 1 <= PORTS_MAX else range(PORTS_BASE, PORTS_MAX - PORTS_BLOCK + 2, PORTS_BLOCK)
+    for a in starts:
+        if not any(a <= y and x <= a + PORTS_BLOCK - 1 for x, y in used):
+            return "%d-%d" % (a, a + PORTS_BLOCK - 1)
+    return ""
+
+
 def next_colour(personas):
     used = {p.colour for p in personas}
     for c in COLOURS:
@@ -163,7 +207,8 @@ def parse_meta_line(line):
 
 
 TOOL_FIELDS = ("tool_details", "tool_content")     # what telemetry may carry besides its defaults (domain/telemetry.py)
-FIELDS = ("flavour", "context", "colour", "statusline", "root", "ssh", "permissions", "telemetry") + TOOL_FIELDS
+FIELDS = ("flavour", "context", "colour", "statusline", "root", "ssh", "permissions", "telemetry") + TOOL_FIELDS \
+    + ("ports",)
 
 
 class BadRecord(ValueError):
@@ -183,7 +228,8 @@ def _text_ok(v):
 
 def to_record(p):
     """The persona as personas.json holds it under its name: root and ssh only when it has them, permissions
-    only when it asks, telemetry only when it sends, tool_details and tool_content only when it sends them."""
+    only when it asks, telemetry only when it sends, tool_details and tool_content only when it sends them, ports
+    only when it has a range."""
     d = {"flavour": p.flavour, "context": p.context, "colour": p.colour, "statusline": p.statusline}
     if p.root:
         d["root"] = p.root
@@ -196,6 +242,8 @@ def to_record(p):
         for k in TOOL_FIELDS:
             if getattr(p, k):
                 d[k] = True
+    if p.ports:
+        d["ports"] = p.ports
     return d
 
 
@@ -210,7 +258,7 @@ def from_record(name, d):
     for k in FIELDS[:4]:
         if k not in d:
             raise BadRecord("has no %s" % k)
-    for k in ("flavour", "context", "colour", "root", "ssh", "permissions"):
+    for k in ("flavour", "context", "colour", "root", "ssh", "permissions", "ports"):
         if k in d and not isinstance(d[k], str):
             raise BadRecord("has a %s that isn't a string" % k)
         if k in d and not _text_ok(d[k]):
@@ -244,8 +292,10 @@ def from_record(name, d):
         raise BadRecord("has permissions '%s', not bypass or ask" % perm)
     if perm == "ask" and f != "claude":
         raise BadRecord("has permissions 'ask', which only a claude persona takes (grok's come from personas/grok.toml)")
+    if "ports" in d and port_range(d["ports"]) is None:
+        raise BadRecord("has ports '%s': it takes %s" % (d["ports"], PORTS_RULE))
     return Persona(name, f, c, col, d["statusline"], r, k, perm, d.get("telemetry", False), d.get("tool_details", False),
-                   d.get("tool_content", False))
+                   d.get("tool_content", False), d.get("ports", ""))
 
 
 def key_file(p, checkout):

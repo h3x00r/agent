@@ -10,6 +10,7 @@ Personas:
   c1                              claude   docker   yes        the VM's             your agent
   c2                              claude   docker   yes        the VM's             your agent
   asks before running tools (not bypassPermissions): c1
+  published ports: c1 20000-20099, c2 20100-20199
 
 Start one from a project directory:  cd <HOME>/projects/<project> && nexus c1
 Day-to-day use, upgrades and troubleshooting: runbook.md
@@ -22,6 +23,7 @@ rc: 0
   c1                              claude   docker   yes        the VM's             your agent
   c2                              claude   docker   yes        the VM's             your agent
   asks before running tools (not bypassPermissions): c1
+  published ports: c1 20000-20099, c2 20100-20199
 --- stderr
 (empty)
 ## run 3: grep managed-settings.d|^  " compose.personas.yml  [pipe, cwd a]
@@ -41,7 +43,7 @@ rc: 0
 ## run 4: grep permissions personas.json  [pipe, cwd a]
 rc: 0
 --- stdout
-      "permissions": "ask"
+      "permissions": "ask",
 --- stderr
 (empty)
 ## run 5: config --yes --no-link --no-build --persona c1:claude:docker  [pipe]
@@ -54,6 +56,7 @@ Personas:
   c1                              claude   docker   yes        the VM's             your agent
   c2                              claude   docker   yes        the VM's             your agent
   asks before running tools (not bypassPermissions): c1
+  published ports: c1 20000-20099, c2 20100-20199
 
 Start one from a project directory:  cd <HOME>/projects/<project> && nexus c1
 Day-to-day use, upgrades and troubleshooting: runbook.md
@@ -69,6 +72,7 @@ Personas:
   c1                              claude   docker   yes        the VM's             your agent
   c2                              claude   docker   yes        the VM's             your agent
   asks before running tools (not bypassPermissions): c2
+  published ports: c1 20000-20099, c2 20100-20199
 
 Start one from a project directory:  cd <HOME>/projects/<project> && nexus c1
 c1: changed; `nexus c1 restart` applies it (that ends its tmux sessions)
@@ -97,6 +101,7 @@ Personas:
   NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
   c1                              claude   docker   yes        the VM's             your agent
   c2                              grok     docker   yes        the VM's             your agent
+  published ports: c1 20000-20099, c2 20100-20199
 
 Start one from a project directory:  cd <HOME>/projects/<project> && nexus c1
 c2: changed; `nexus c2 restart` applies it (that ends its tmux sessions)

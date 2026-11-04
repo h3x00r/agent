@@ -1,0 +1,103 @@
+## run 1: config --yes --persona c2:claude:docker  (NEXUS_SCRATCH_ROOT=<S>/ro/scratch, <S>/ro mode 555)  [pipe]
+rc: 0
+--- stdout
+nexus --config: setting up <A>
+-- personas/c2.env
+-- creating the shared scratch root <S>/ro/scratch needs sudo
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  c2                              claude   docker   yes        the VM's             your agent
+  published ports: c1 20000-20099, c2 20100-20199
+
+Start one from a project directory:  cd <P>/<project> && nexus c1
+scratch: couldn't create the shared scratch root <S>/ro/scratch, which every persona needs to start; run: sudo install -d -o $(id -u) -g $(id -g) -m 755 <S>/ro/scratch, or point NEXUS_SCRATCH_ROOT (.env, or your shell) at a directory of your own
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+sudo: a password is required
+## run 2: config --no-link --no-build --persona c3:claude:docker  (the same; then quit)  [tty-in]
+rc: 0
+--- stdout
+nexus --config: <A>
+
+== c3: sign-in and identity (personas/c3.env)
+How does c3 sign in to Claude?
+  1) login    interactively, inside the persona (a Claude subscription; kept in its home volume)
+  2) apikey   an Anthropic API key (Console / API billing)
+  3) token    a long-lived token from `claude setup-token` (Pro/Max/Team/Enterprise plan)
+-- saved: what the options said
+-- creating the shared scratch root <S>/ro/scratch needs sudo
+scratch: couldn't create the shared scratch root <S>/ro/scratch, which every persona needs to start; run: sudo install -d -o $(id -u) -g $(id -g) -m 755 <S>/ro/scratch, or point NEXUS_SCRATCH_ROOT (.env, or your shell) at a directory of your own
+
+Shared by every persona
+  projects root   <P>
+  image registry  local (images built on this VM)
+  Claude Code     latest
+  telemetry       off
+  launcher        not on your PATH: link it with launcher, or run <A>/nexus
+Personas
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  c2                              claude   docker   yes        the VM's             your agent
+  c3                              claude   docker   yes        the VM's             your agent
+  published ports: c1 20000-20099, c2 20100-20199, c3 20200-20299
+
+What next?
+  1) list      the shared settings and the personas, again
+  2) add       a new persona
+  3) change    one persona's flavour, context, statusline, projects root, ssh, permissions or telemetry
+  4) remove    one persona (its env file and home volume stay)
+  5) shared    the settings every persona shares: projects root, image registry, Claude Code version
+  6) telemetry send OpenTelemetry to a collector: its address, token and CA, and which personas send
+  7) launcher  link nexus into a directory on your PATH
+  8) images    build (or pull) the image of every persona
+  9) quit
+
+Start one from a project directory:  cd <P>/<project> && nexus c1
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr (no newline at the end)
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+choice [login]: git author name for c3 [Test User]: git author email for c3 [test@example.invalid]: GH_TOKEN for the gh CLI in c3 (hidden; empty to skip): 
+sudo: a password is required
+choice [quit]: 
+--- echo
+\r
+\r
+\r
+\r
+## run 3: config --yes  (NEXUS_SCRATCH_ROOT=<S>/afile, a file)  [pipe]
+rc: 0
+--- stdout
+nexus --config: setting up <A>
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  c2                              claude   docker   yes        the VM's             your agent
+  c3                              claude   docker   yes        the VM's             your agent
+  published ports: c1 20000-20099, c2 20100-20199, c3 20200-20299
+
+Start one from a project directory:  cd <P>/<project> && nexus c1
+scratch: the shared scratch root <S>/afile isn't a directory, and every persona needs it to start: move it aside (nexus --config then creates the root), or point NEXUS_SCRATCH_ROOT (.env, or your shell) at a directory of your own
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+## run 4: config --yes  (NEXUS_SCRATCH_ROOT=<S>/ro, there, mode 555)  [pipe]
+rc: 0
+--- stdout
+nexus --config: setting up <A>
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  c2                              claude   docker   yes        the VM's             your agent
+  c3                              claude   docker   yes        the VM's             your agent
+  published ports: c1 20000-20099, c2 20100-20199, c3 20200-20299
+
+Start one from a project directory:  cd <P>/<project> && nexus c1
+scratch: you can't write in the shared scratch root <S>/ro, so nexus can't make a persona's dir in it; run: sudo install -d -o $(id -u) -g $(id -g) -m 755 <S>/ro, or point NEXUS_SCRATCH_ROOT (.env, or your shell) at a directory of your own
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside

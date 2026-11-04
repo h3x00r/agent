@@ -6,7 +6,8 @@
     |       "flavour": "claude",
     |       "context": "docker",
     |       "colour": "colour25",
-    |       "statusline": true
+    |       "statusline": true,
+    |       "ports": "20000-20099"
     |     }
     |   }
     | }

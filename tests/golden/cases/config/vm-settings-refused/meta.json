@@ -1,0 +1,3 @@
+{
+  "provenance": "accepted: docker-work docs: the Nexus notes rewritten (its runs grep the guard's line, which now says how to see the guard's live state); .env.example's DOCKER_GUARD comment (what the guard covers; a change takes nexus --config, then the restarts); before that: docker-work fix: DOCKER_GUARD changed since the notes were written (runs 8, 10): a restart note for each persona, as a container's guard is the one it was made with; before that: docker-work: new: nexus --config makes the shared scratch root (mkdir when its parent is yours, else sudo, -n under --yes; a failure is a note with the command) and refuses a NEXUS_SCRATCH_ROOT or DOCKER_GUARD its rules don't take"
+}

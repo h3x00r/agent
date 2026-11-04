@@ -3,8 +3,8 @@
 
   1. refuse root; take the lock (not for --list); read the personas; --list stops here
   2. preflight: Docker, its compose plugin, the ssh-agent, ddev on the VM
-  3. the personas: --remove, --persona, --ssh, --permissions, then the telemetry settings, --telemetry,
-     --tool-details and --tool-content
+  3. the personas: --remove, --persona, --ssh, --permissions, --ports, then the telemetry settings, --telemetry,
+     --tool-details and --tool-content; then a port range for each persona that has none
   4. .env staged: the VM's projects root, the registry, the Claude Code version, DDEV_VERSION, AGENT_CPUS
   5. env files staged for the personas without a fitting one (sign-in and git identity)
   6. the settings files checked (JSON for Claude Code, TOML for grok), each grok persona's config staged
@@ -12,7 +12,7 @@
   8. the last questions: the launcher link, mkcert, the images
   9. commit: every staged file in place, signals ignored meanwhile (all of it or none of it)
  10. after the commit, failures are notes: ssh keys made, the collector tried (when its settings changed, or a
-     persona sends now), the launcher linked, mkcert, the images
+     persona sends now), the launcher linked, the shared scratch root made, mkcert, the images
  11. the summary: the personas, how to start one, and the notes (LATER)
 """
 from agentctl.configtools import after
@@ -38,6 +38,7 @@ def run(s):
     hint = o.root or dotenv.get(".env", "PROJECTS_ROOT")
     s.vm_root_hint = "now " + hint if hint else "asked below"
     s.apply_flags()
+    s.fill_ports()
     if not s.personas:
         s.warn("no personas configured; add some with nexus --config (or --persona NAME:FLAVOUR:CONTEXT)")
     s.change_notes(old_names)
@@ -68,6 +69,7 @@ def run(s):
     after.ssh_keys(s)
     after.telemetry_check(s)
     after.link(s, target)
+    after.scratch_root(s)
     if mkcert:
         after.mkcert(s)
     failed = 0

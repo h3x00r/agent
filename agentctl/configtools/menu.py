@@ -21,6 +21,8 @@ Pitfalls (each pinned where named):
 - a first persona refused: the menu all the same (golden config/menu-first-refused)
 - a run brings the generated files up to date first, saying which it wrote; one the check refuses, the menu all
   the same (golden config/menu-refresh, golden config/menu-refused)
+- the port ranges filled after the options (so --ports wins); a refused first save puts the personas back as read,
+  and fills their ranges again, so the next save tells no "changed" for them (not pinned)
 - a save that writes nothing says so (golden config/menu-shared-kept)
 - a new persona's ssh key told as a new one's, not a restart (golden config/menu-add-key)
 - a build that failed makes the exit code 1, at quit too (golden config/menu-images)
@@ -76,11 +78,13 @@ class Menu:
             s.say("nexus --config: setting up %s for the first time%s" % (s.a, ddev))
         else:
             s.say("nexus --config: %s%s" % (s.a, ddev))
-        flags = bool(o.add or o.ssh or o.permissions or o.remove or o.root or o.registry or o.claude or o.telemetry
-                     or o.tele_endpoint or o.tele_token_file or o.tele_ca or o.tool_details or o.tool_content)
+        flags = bool(o.add or o.ssh or o.permissions or o.ports or o.remove or o.root or o.registry or o.claude
+                     or o.telemetry or o.tele_endpoint or o.tele_token_file or o.tele_ca or o.tool_details
+                     or o.tool_content)
         before = set(p.name for p in s.personas)
         read = copy.deepcopy(s.personas)
         s.apply_flags()
+        s.fill_ports()                         # after the flags, so --ports wins; saved by the first save
         if s.tele_unsaid:
             self.q.collector(s.tele_unsaid)
         if first:
@@ -103,6 +107,7 @@ class Menu:
                     raise
                 s.out.note(e.message)
                 s.personas = read
+                s.fill_ports()                 # as read, without the options': their ranges again
                 s.read_shared()
                 s.read_tele()
                 staging.cleanup()
@@ -173,7 +178,8 @@ class Menu:
 
     def save(self, what, env_staged=False):
         """What the action changed, saved: .env (staged already, for the shared settings), the env files a
-        persona still needs, the rest; then the ssh keys asked for. The Session is then as saved."""
+        persona still needs, the rest; then the ssh keys asked for, and the shared scratch root (once a run). The
+        Session is then as saved."""
         s = self.s
         s.change_notes(list(s.loaded))
         if not env_staged:
@@ -191,6 +197,7 @@ class Menu:
             s.say("-- brought up to date: " + ", ".join(s.wrote))
         after.ssh_keys(s)
         after.telemetry_check(s)
+        after.scratch_root(s)
         s.saved()
 
     # --- what is set up ---

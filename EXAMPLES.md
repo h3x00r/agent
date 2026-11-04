@@ -39,6 +39,7 @@ You talk to all of it through one command: `nexus`.
 | **flavour** | Which agent a persona runs: `claude` (Claude Code) or `grok` (Grok Build). |
 | **context** | What kind of projects it works on: `ddev` or `docker`. ddev is a tool that runs PHP web sites in containers; your project uses it if its folder has a `.ddev` folder inside. If it doesn't, or you're not sure, pick `docker` (docker compose, Go, Node, …). |
 | **bypassPermissions** | Claude Code's name for running its tools (editing files, running commands) without asking you first. Every Claude persona works this way unless you set it to ask (example 11). |
+| **Docker guard** | A gatekeeper between each persona and the VM's Docker. It marks every container, volume and network a persona makes as that persona's, and stops one persona from removing another's, or yours, or from using another persona's data. Images a persona downloads or builds aren't marked, so they stay removable while nothing else uses them. It stops accidents; it is not a lock (example 13). |
 
 ## Example 1: set up a VM for the first time
 
@@ -76,6 +77,11 @@ It asks a few questions. For each one, the default is shown in `[brackets]`, and
    - `GH_TOKEN`: press Enter to skip it. What you type here is hidden, so the screen stays empty. That is
      normal.
 4. **Build its image now?** Say yes. The first build takes a few minutes; later ones take seconds.
+
+Along the way it may ask for your password once more, for sudo: it creates `/srv/nexus-scratch`, a folder each
+persona gets a part of, for files the containers it starts need to see (example 13). If that doesn't work, it
+prints a command at the end, `sudo install -d … /srv/nexus-scratch`: run it once, as printed. Until then the
+personas won't start.
 
 Then it shows what is set up and a small menu. Type `quit` (or press Enter) to finish. You can run
 `nexus --config` again at any time to add or change things (example 9).
@@ -207,12 +213,13 @@ It shows what is set up, then a menu:
 What next?
   1) list      the shared settings and the personas, again
   2) add       a new persona
-  3) change    one persona's flavour, context, statusline, projects root, ssh or permissions
+  3) change    one persona's flavour, context, statusline, projects root, ssh, permissions or telemetry
   4) remove    one persona (its env file and home volume stay)
   5) shared    the settings every persona shares: projects root, image registry, Claude Code version
-  6) launcher  link nexus into a directory on your PATH
-  7) images    build (or pull) the image of every persona
-  8) quit
+  6) telemetry send OpenTelemetry to a collector: its address, token and CA, and which personas send
+  7) launcher  link nexus into a directory on your PATH
+  8) images    build (or pull) the image of every persona
+  9) quit
 choice [quit]:
 ```
 
@@ -353,6 +360,49 @@ reach the collector. Read [Tool content](runbook.md#tool-content) before you tur
 nexus --config --yes --tool-content claude-team:on
 ```
 
+## Example 13: your project's containers, from a persona
+
+Your project runs in containers: a `compose.yaml` with a web server and a database, say. The agent can start
+them itself:
+
+```bash
+cd ~/projects/shop
+nexus claude-docker -- claude
+```
+
+Ask it, for example: *"Start the stack with docker compose and run the integration tests."*
+
+Every persona, and you, share the one Docker on the VM. Nexus keeps them out of each other's way:
+
+- **Its own copy of the stack.** In a persona, `docker compose` puts the persona's name in front of the project's:
+  `shop` becomes `claude-docker-shop`. So `grok-docker` can run its own copy of `shop` at the same time, and
+  neither one's `docker compose down` touches the other's.
+- **Its own ports.** Two copies can't both use port 8080 on the VM. Each persona has ports of its own (inside it,
+  `echo $NEXUS_PORTS` shows them, e.g. `20000-20099`), and the agent is told to use those, or to let Docker pick a
+  free port. To see which port a service got: `docker compose port web 80`.
+- **Its own scratch folder.** A container started from a persona sees files only from your projects folder and
+  from the persona's scratch folder, `$NEXUS_SCRATCH` (`/srv/nexus-scratch/claude-docker`). The agent's `/tmp`
+  isn't there for it.
+- **It removes only what it made.** If the agent tries to stop or remove a container that another persona (or
+  you) started, Docker refuses:
+
+  ```text
+  Error response from daemon: nexus guard: container … isn't labelled nexus.persona=claude-docker (…)
+  ```
+
+  That is the Docker guard doing its job, and nothing was removed. If it really should go, do it yourself, on the
+  VM ([When something goes wrong](#when-something-goes-wrong) says how).
+- **Its own names.** Names on the VM's Docker are shared: a volume called `pgdata` is the same one for every
+  persona. The agent is told to start its own with its persona's name, and the guard won't let one persona use
+  another's volume.
+
+The agent learns all this from the Nexus notes, a page it reads at the start of every session. You can
+read it too: `/opt/agents/personas/claude-docker.notes.md`.
+
+A stack started before your VM's Nexus had this (`nexus --update`, example 10, brings it) keeps its old name, so
+the persona can't stop it. Take it down once on the VM, then start it again from the persona: runbook §10,
+[Stacks started before the prefix and the guard](runbook.md#stacks-started-before-the-prefix-and-the-guard).
+
 ## When something goes wrong
 
 | You see | What it means | What to do |
@@ -366,6 +416,9 @@ nexus --config --yes --tool-content claude-team:on
 | `required variable SSH_AUTH_SOCK is missing a value: run an ssh-agent on the VM, …` | The persona was set up to borrow your ssh keys for git (SSH `agent`), and this login has no keys to lend. | Easiest: `nexus --config` → `change` → the persona → SSH `none`, then `nexus <persona> restart`. Or connect with `ssh -A you@your-vm`, which lends your laptop's keys to the VM for that login only: you have to do it every time, and a persona started with it needs `nexus <persona> restart` after you reconnect. |
 | `nothing was started: claude-team's image was built before nexus had --skip-bypass-permissions` (or `… --bypass-permissions`) | The persona's image was built before Nexus had the words `--skip-bypass-permissions` and `--bypass-permissions`. | Rebuild it once: `nexus claude-team build` (if your team uses an image registry: `nexus claude-team pull`), then `nexus claude-team restart`. That closes its sessions, so finish your work first. |
 | `session billing already runs its tools without asking (…)` or `… already asks before running tools (…)`, or `session main is claude-team's shell, in its own mode …` | You asked for the other mode, but that session is already open, and an open session can't switch (example 11). | Give the new session a name of its own, with the same word you typed: e.g. `nexus claude-team --skip-bypass-permissions billing-careful -- claude`. For `billing`, you can also end the old one first; for `main`, change the persona's setting instead (example 11). |
+| `the shared scratch root /srv/nexus-scratch isn't there …` | The folder the personas share with their containers is missing: the setup couldn't create it without your password. Until it is there, no persona starts; one that is running already still opens, with this as a warning. | Run the `sudo install -d …` command in the message, once (example 1). |
+| `Error response from daemon: nexus guard: … isn't labelled nexus.persona=…` | The agent tried to stop or remove something it didn't make, or to use another persona's volume. The Docker guard stopped it; nothing was removed (example 13). | Leave it. If it really should go, do it yourself on the VM. The message says whose it is, and `docker compose ls` shows the stacks' names: a persona's is `<persona>-<project>` (e.g. `grok-docker-shop`); yours, or one from before the update, is the bare `shop` (runbook §10). Then `docker compose -p <that name> down`. |
+| `… port is already allocated` | Another stack on the VM already uses that port. | Have the stack use a port Docker picks, or one from `$NEXUS_PORTS` (example 13). `docker ps --filter publish=8080` shows who has 8080. If the project's compose file fixes the port, the agent can override it in a file of its own: runbook §4, [Compose project names](runbook.md#compose-project-names). |
 
 Anything else: the message usually says what to run. The full list is in
 [runbook.md, Troubleshooting](runbook.md#troubleshooting).
@@ -392,6 +445,10 @@ Anything else: the message usually says what to run. The full list is in
 | update Nexus itself | `nexus --update` |
 | see which Nexus this VM runs | `nexus --version` |
 | apply a change to a running persona | `nexus <persona> restart` |
+| see a persona's scratch folder and ports | `echo $NEXUS_SCRATCH $NEXUS_PORTS`, inside it |
+| find the port a service of the stack got | `docker compose port <service> <port>`, in the project folder |
+| see what a persona made on Docker | `docker ps -a --filter label=nexus.persona=<persona>` |
+| run the APM version a project needs | `nexus-apm X.Y.Z install`, inside the persona |
 
 The persona names on this page (`claude-docker`, `claude-team`, `claude-max`, `grok-docker`), the repo address
 and `you@your-vm` are examples: use your own, and the persona names `nexus ls` shows on your VM.

@@ -1,0 +1,3 @@
+{
+  "provenance": "accepted: docker-work docs: the Nexus notes rewritten (a fixed host port's !override recipe, the names that are global, labelling and clean-up by the guard's state, images, the guard's live state, other personas' secrets, DOCKER_HOST's socket, ddev's shared router, one GitLab token for one host); before that: docker-work: new: port ranges (--ports, the fill, overlaps and bad ranges refused by both tools) and the restart note an older checkout's personas get after a pull"
+}

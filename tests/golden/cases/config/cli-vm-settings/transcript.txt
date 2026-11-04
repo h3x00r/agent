@@ -6,6 +6,7 @@ nexus --config: setting up <A>
 Personas:
   NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
   c1                              claude   docker   yes        the VM's             your agent
+  published ports: c1 20000-20099
 
 Start one from a project directory:  cd <HOME>/p2/<project> && nexus c1
 Day-to-day use, upgrades and troubleshooting: runbook.md
@@ -27,6 +28,7 @@ nexus --config: setting up <A>
 Personas:
   NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
   c1                              claude   docker   yes        the VM's             your agent
+  published ports: c1 20000-20099
 
 Start one from a project directory:  cd <S>/p3/<project> && nexus c1
 Day-to-day use, upgrades and troubleshooting: runbook.md
@@ -48,6 +50,7 @@ nexus --config: setting up <A>
 Personas:
   NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
   c1                              claude   docker   yes        the VM's             your agent
+  published ports: c1 20000-20099
 
 Start one from a project directory:  cd <S>/p 4/<project> && nexus c1
 Day-to-day use, upgrades and troubleshooting: runbook.md
@@ -69,10 +72,12 @@ nexus --config: setting up <A>
 Personas:
   NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
   g1                              grok     docker   yes        the VM's             your agent
+  published ports: g1 20000-20099
 
 Start one from a project directory:  cd <S>/p 4/<project> && nexus g1
-c1: removed. Its env file and home volume stay; to delete them:
-    docker rm -f agent-c1; docker volume rm agents_c1-home; rm -f <A>/personas/c1.env <A>/personas/c1.key <A>/personas/c1.key.pub <A>/personas/c1.grok.toml 
+c1: removed. Its env file, notes and home volume stay; to delete them:
+    docker rm -f agent-c1; docker volume rm agents_c1-home; rm -f <A>/personas/c1.env <A>/personas/c1.key <A>/personas/c1.key.pub <A>/personas/c1.grok.toml <A>/personas/c1.notes.md 
+    what it made with docker stays too: docker ps -a --filter label=nexus.persona=c1 lists it (docker volume ls and docker network ls take the filter too)
 g1: add XAI_API_KEY to <A>/personas/g1.env
 Day-to-day use, upgrades and troubleshooting: runbook.md
 --- stderr

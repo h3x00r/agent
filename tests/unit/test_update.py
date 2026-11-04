@@ -18,7 +18,9 @@ class Plan(unittest.TestCase):
         with open(os.path.join(REPO, "Dockerfile")) as f:
             self.assertEqual(update.image_inputs(f.read()),
                              {"Dockerfile": "", "compose.yml": "", "tmux.conf": "", "entrypoint.sh": "",
-                              "claude-mode.sh": "claude"})
+                              "claude-mode.sh": "claude", "image/docker-guard.py": "",
+                              "image/docker-compose-persona.py": "", "image/nexus-apm": "",
+                              "image/glab-credential": ""})
 
     def test_image_inputs_by_stage(self):
         d = ("FROM --platform=linux/amd64 debian AS base\nCOPY ./a.sh b.conf /x/\nCOPY --from=base /x /y\n"
@@ -33,7 +35,9 @@ class Plan(unittest.TestCase):
                           ("personas/claude.ask.json", "c2"), ("personas/grok.toml", "g1"),
                           ("statusline/claude/settings.json", "c1 c2 c3"), ("statusline/grok/settings.toml", ""),
                           ("statusline/claude/statusline.sh", ""), ("ssh/none.conf", "g1"), ("ssh/key.conf", "c3"),
-                          ("personas/claude.env.example", ""), ("agentctl/nexus/cli.py", ""), ("Dockerfile", "")):
+                          ("personas/claude.env.example", ""), ("agentctl/nexus/cli.py", ""), ("Dockerfile", ""),
+                          # the notes: written in place by the config run, read at the next session
+                          ("personas/notes.md", ""), ("personas/c1.notes.md", "")):
             self.assertEqual(" ".join(p.name for p in (c, g, ask, key) if update.read_at_start(path, p)), who, path)
 
     def test_plan(self):
@@ -89,6 +93,89 @@ class Args(unittest.TestCase):
             with self.assertRaises(NexusError) as e:
                 update.main("/nonexistent", argv, None)
             self.assertIn(msg, e.exception.message)
+
+
+class Offer(unittest.TestCase):
+    def offer(self, d, build=None, behind=False):
+        """Apply.offer() under -y for persona c1, whose service changed (and whose image is due a build with BUILD):
+        rc, what it said, the commands it ran."""
+        from unittest import mock
+        said, ran = [], []
+        out = type("Out", (), {"say": lambda self, m="": said.append(m)})()
+        p = type("P", (), {"name": "c1", "container": "agent-c1", "ssh": "", "flavour": "claude", "context": "docker"})()
+        ap = update.Apply(d, "HEAD", True, out)
+        ap.head = "f" * 40
+        ap.rec = {"build": dict(build or {}), "restart": {"c1": {"at": 200, "why": ["its service changed"]}}}
+        ctx = type("Ctx", (), {"scratch_root": os.path.join(d, "scratch")})()
+        with mock.patch.object(update, "started", return_value=100), \
+                mock.patch.object(update, "image", return_value="agent-claude-docker"), \
+                mock.patch.object(update, "image_behind", return_value=behind), \
+                mock.patch.object(update, "sessions", return_value=[]), \
+                mock.patch.object(update, "save_record"), \
+                mock.patch.object(update, "Context", return_value=ctx), \
+                mock.patch.object(update, "is_socket", return_value=True), \
+                mock.patch.object(update.proc, "run", side_effect=lambda argv, **kw: ran.append(argv) or proc_ok()):
+            rc = ap.offer([p], "build", False)
+        return rc, "\n".join(said), ran
+
+    def test_scratch_root_missing(self):
+        # A restart is due, but the shared scratch root isn't there (or is a file, or isn't yours with c1's dir still to
+        # make): the launcher's preflight would refuse it, so it is answered no (under -y too), with what fixes it, and
+        # kept for the next run. A root you can't write in that has c1's dir already is no reason.
+        with tempfile.TemporaryDirectory() as d:
+            root = os.path.join(d, "scratch")
+            rc, text, ran = self.offer(d)
+            self.assertEqual((rc, ran), (0, []))
+            self.assertIn("nexus: but restarting c1 needs the shared scratch root %s, which isn't there: "
+                          "sudo install -d -o $(id -u) -g $(id -g) -m 755 %s; or point NEXUS_SCRATCH_ROOT (.env, or your "
+                          "shell) at a directory of your own" % (root, root), text)
+            self.assertIn("nexus: not applied. It's kept", text)
+            self.assertIn("  nexus c1 restart", text)
+            with open(root, "w"):
+                pass
+            rc, text, ran = self.offer(d)
+            self.assertEqual((rc, ran), (0, []))
+            self.assertIn("nexus: but restarting c1 needs the shared scratch root %s, which isn't a directory: move it "
+                          "aside" % root, text)
+            self.assertNotIn("install -d", text)
+            os.unlink(root)
+            if os.geteuid() != 0:
+                os.mkdir(root, 0o555)
+                try:
+                    rc, text, ran = self.offer(d)
+                    self.assertEqual((rc, ran), (0, []))
+                    self.assertIn("nexus: but restarting c1 needs the shared scratch root %s, which you can't write in, "
+                                  "to make a persona's dir: sudo install -d -o $(id -u) -g $(id -g) -m 755 %s, or point "
+                                  % (root, root), text)
+                    os.chmod(root, 0o755)
+                    os.mkdir(os.path.join(root, "c1"))
+                    os.chmod(root, 0o555)
+                    rc, text, ran = self.offer(d)
+                    self.assertEqual(ran, [[os.path.join(d, "nexus"), "c1", "restart"]])
+                    self.assertNotIn("scratch root", text)
+                finally:
+                    os.chmod(root, 0o755)
+            os.makedirs(root, exist_ok=True)
+            rc, text, ran = self.offer(d)
+            self.assertEqual(ran, [[os.path.join(d, "nexus"), "c1", "restart"]])
+            self.assertNotIn("scratch root", text)
+
+    def test_builds_go_on(self):
+        # What holds the restarts back doesn't hold the builds: they need neither the scratch root nor an ssh-agent.
+        # Built (under -y), then the restarts kept, listed one a step; no build left in the list.
+        with tempfile.TemporaryDirectory() as d:
+            rc, text, ran = self.offer(d, build={"agent-claude-docker": ["Dockerfile"]}, behind=True)
+            self.assertEqual((rc, ran), (0, [[os.path.join(d, "nexus"), "c1", "build"]]))
+            self.assertIn("nexus: but restarting c1 needs the shared scratch root", text)
+            self.assertIn("-- build agent-claude-docker, for c1", text)
+            self.assertIn("nexus: no persona restarted. Its restart is kept: the next nexus --update offers it again.", text)
+            self.assertIn("  nexus c1 restart", text)
+            self.assertNotIn("  nexus c1 build", text)
+            self.assertNotIn("nexus: applied", text)
+
+
+def proc_ok():
+    return type("R", (), {"ok": True, "rc": 0, "out": "", "err": ""})()
 
 
 if __name__ == "__main__":

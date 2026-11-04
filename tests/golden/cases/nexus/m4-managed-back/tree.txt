@@ -34,3 +34,5 @@
     |     "baseRef": "head"
     |   }
     | }
++ scratch/c1  d 755
++ scratch/g1  d 755

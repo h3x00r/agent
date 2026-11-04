@@ -1,2 +1,4 @@
 - a/personas/claude.managed.json
 - a/personas/g1.key
++ scratch/c1  d 755
++ scratch/g1  d 755

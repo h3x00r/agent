@@ -20,6 +20,9 @@ kept in update.json until it is done.
      hasn't started since it was asked for ("at"), or whose container runs an older image than its tag now names
      (Docker's own answer, so a build that changed nothing restarts no one). A stopped persona is let off: its
      next start picks it all up. Asked once, on a terminal; -y doesn't ask; with no terminal, nothing is done.
+     A restart that would fail at once isn't offered as doable: one that needs an ssh-agent this shell hasn't got,
+     or any while the shared scratch root isn't there, isn't a directory, or can't have a persona's dir made in it
+     (nexus --config couldn't make it: its note says how); the builds still go ahead then, the restarts are kept.
      Each build and restart done comes off the record as it is done, so a run cut short offers only the rest.
 
 Pitfalls (each pinned where named):
@@ -37,6 +40,11 @@ Pitfalls (each pinned where named):
   (test_update.Plan.test_image_inputs_are_the_dockerfiles)
 - a restart asked for again, after more commits, is due from the newest ask: a start in between doesn't cover it
   (test_update.Record.test_a_new_reason_moves_at)
+- the Nexus notes are written in place by the config run (a running persona reads them at its next session), so
+  personas/notes.md is no file read at start (test_update.Plan.test_read_at_start)
+- a restart while the scratch root isn't there (or isn't a directory, or isn't yours with a persona's dir still to
+  make) would fail in the launcher's preflight: the restarts answered no, with what fixes it; the builds, which don't
+  need it, still done (test_update.Offer.test_scratch_root_missing, test_update.Offer.test_builds_go_on)
 """
 import calendar
 import json
@@ -46,6 +54,7 @@ import time
 
 from agentctl.core import dotenv, lock, proc
 from agentctl.core.errors import Exit, NexusError
+from agentctl.domain import scratch
 from agentctl.nexus.context import Context, checkout, is_socket
 from agentctl.nexus.upgrade import _ask
 
@@ -402,15 +411,19 @@ class Apply:
             self.say("  %s isn't running: its next start picks it up%s" % (
                 p.name, ", once its image is %s" % ("built" if verb == "build" else "pulled") if image(p) in build else ""))
 
-        Context(self.out, self.a)     # SSH_AUTH_SOCK as nexus finds it: the shell's, else the usual agent sockets
-        need = [p.name for p, _ in due if not p.ssh]
-        if need and not is_socket(os.environ.get("SSH_AUTH_SOCK", "")):
-            self.say("nexus: but restarting %s needs an ssh-agent, and this shell has none" % " ".join(need))
+        # SSH_AUTH_SOCK as nexus finds it (the shell's, else the usual agent sockets), and the scratch root. What
+        # holds the restarts back leaves the builds to do: they need neither.
+        held = self.held(due)
+        if held and not build:
             answer = "n"
         elif self.yes:
             answer = "y"
+        elif not os.isatty(0):
+            answer = "n"
+        elif held:
+            answer = _ask("Do the %ss now (no persona is restarted)? [y/N] " % verb)
         else:
-            answer = _ask("Apply it now? [y/N] ") if os.isatty(0) else "n"
+            answer = _ask("Apply it now? [y/N] ")
         if answer[:1] not in ("y", "Y"):
             self.say("nexus: not applied. It's kept: the next nexus --update offers it again. Or, when it suits you (a "
                      "restart ends that persona's tmux sessions), a step at a time:")
@@ -429,12 +442,15 @@ class Apply:
                 raise Exit(1)
             del build[k]
             self.save(build, restart)
-        done, bad = [], []
+        same = "its image, if the %s changes it" % verb
+        done, bad, left = [], [], []
         for p, why in due:
-            if why == ["its image, if the %s changes it" % verb] and not image_behind(p.container):
+            if why == [same] and not image_behind(p.container):
                 self.say("-- %s: its image is the same as before; no restart" % p.name)
                 continue
-            if proc.run([self.launcher, p.name, "restart"], capture=False).ok:
+            if held:
+                left.append(p.name)
+            elif proc.run([self.launcher, p.name, "restart"], capture=False).ok:
                 restart.pop(p.name, None)
                 self.save(build, restart)
                 done.append(p.name)
@@ -444,8 +460,39 @@ class Apply:
             self.out.error_line("nexus: restarting %s failed (see above). Once that's fixed, nexus --update carries on "
                                 "from there (or: %s)" % (" ".join(bad), "; ".join("nexus %s restart" % n for n in bad)))
             raise Exit(1)
+        if left:
+            self.say("nexus: no persona restarted. %s kept: the next nexus --update offers %s again. Or, once that's "
+                     "fixed, a step at a time (a restart ends that persona's tmux sessions):"
+                     % (("Its restart is", "it") if len(left) == 1 else ("Their restarts are", "them")))
+            for n in left:
+                self.say("  nexus %s restart" % n)
+            return 0
         self.say("nexus: applied%s" % (": restarted " + " ".join(done) if done else ""))
         return 0
+
+    def held(self, due):
+        """Whether the restarts DUE would fail at once in the launcher, each reason said: one that needs an ssh-agent
+        this shell hasn't got, or the shared scratch root as it is (not there, not a directory, or one you can't
+        write in while a persona's dir is still to be made in it)."""
+        held = False
+        need = [p.name for p, _ in due if not p.ssh]
+        if need and not is_socket(os.environ.get("SSH_AUTH_SOCK", "")):
+            self.say("nexus: but restarting %s needs an ssh-agent, and this shell has none" % " ".join(need))
+            held = True
+        if not due:
+            return held
+        root, names = Context(self.out, self.a).scratch_root, " ".join(p.name for p, _ in due)
+        if os.path.lexists(root) and not os.path.isdir(root):
+            why = "which isn't a directory: " + scratch.NOT_DIR
+        elif not os.path.isdir(root):
+            why = "which isn't there: %s; %s" % (scratch.install_cmd(root), scratch.ELSEWHERE)
+        elif not os.access(root, os.W_OK | os.X_OK) and \
+                any(not os.path.isdir(scratch.path(root, p.name)) for p, _ in due):
+            why = "which you can't write in, to make a persona's dir: %s, %s" % (scratch.install_cmd(root), scratch.ELSEWHERE)
+        else:
+            return held
+        self.say("nexus: but restarting %s needs the shared scratch root %s, %s" % (names, root, why))
+        return True
 
 
 def sessions(container):

@@ -1,3 +1,3 @@
 {
-  "provenance": "accepted: M4: new: the move into personas.json, and both tools refusing a personas.json its rules don't take, naming its .bak only when there is one (no bash to record it from); then accepted: cfg M2: the rename to nexus --config only"
+  "provenance": "accepted: docker-work: port ranges: \"ports\" in personas.json, NEXUS_PORTS in the service; the summary's and --list's published-ports line; the JSON error's offset moves with the ports lines"
 }

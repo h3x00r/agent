@@ -1,3 +1,4 @@
 + home/.local  d 755
 + home/.local/share  d 755
 + home/.local/share/mkcert  d 755
++ scratch/d1  d 755

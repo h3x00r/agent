@@ -37,3 +37,5 @@
 + fresh  d 755
 + fresh/root  d 755
 + home/projects  d 755
++ scratch/c1  d 755
++ scratch/g1  d 755

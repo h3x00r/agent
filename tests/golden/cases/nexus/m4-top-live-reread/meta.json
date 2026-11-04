@@ -1,3 +1,3 @@
 {
-  "provenance": "accepted: M4: tree.txt only (personas.json beside the generated file); top's frames re-read the personas as bash's did; then accepted: cfg M2: the rename to nexus --config only; then its frames counted as they change, not by time"
+  "provenance": "accepted: docker-work: nexus gives compose NEXUS_SCRATCH_ROOT, so every docker call's env has it (fake.py ENV_KEYS); compose.personas.yml: each service's NEXUS_SCRATCH env, scratch bind and notes mount; port ranges: \"ports\" in personas.json, NEXUS_PORTS in the service"
 }

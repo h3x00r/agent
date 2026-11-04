@@ -21,6 +21,7 @@ Personas:
   NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
   g1                              grok     docker   no         the VM's             your agent
   c1                              claude   docker   no         the VM's             your agent
+  published ports: g1 20000-20099, c1 20100-20199
 
 Start one from a project directory:  cd <HOME>/projects/<project> && nexus g1
 g1: add XAI_API_KEY to <A>/personas/g1.env
@@ -37,6 +38,7 @@ Personas:
   NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
   g1                              grok     docker   yes        the VM's             your agent
   c1                              claude   docker   no         the VM's             your agent
+  published ports: g1 20000-20099, c1 20100-20199
 
 Start one from a project directory:  cd <HOME>/projects/<project> && nexus g1
 g1: changed; `nexus g1 restart` applies it (that ends its tmux sessions)
