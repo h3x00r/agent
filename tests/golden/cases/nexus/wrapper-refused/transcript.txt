@@ -1,0 +1,192 @@
+## run 1: nexus g1 --wrapper  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: --wrapper needs a file: --wrapper FILE, or --wrapper=FILE
+## run 2: nexus g1 s1 --wrapper -- grok  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: --wrapper needs a file: --wrapper FILE, or --wrapper=FILE
+## run 3: nexus g1 --wrapper= s1  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: --wrapper needs a file: --wrapper FILE, or --wrapper=FILE
+## run 4: nexus g1 --wrapper -x s1  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: --wrapper needs a file, not '-x': a file whose name starts with - goes as ./-x
+## run 5: nexus g1 --wrapper 'rules/a<newline>b.md' s1  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: --wrapper "rules/a\nb.md": a path with a newline or another control character can't be passed on: rename the file
+## run 6: nexus g1 --wrapper='rules/<ESC>[1m.md' s1  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: --wrapper "rules/\u001b[1m.md": a path with a newline or another control character can't be passed on: rename the file
+## run 7: nexus g1 --wrapper rules/a.md --wrapper=rules/b.md s1  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: --wrapper given twice: give one file
+## run 8: nexus g1 --wrapper rules/a.md twice s1  (the same file: refused too)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: --wrapper given twice: give one file
+## run 9: nexus g1 --wrapper rules/a.md s1 -- grok --wrapper rules/b.md  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: --wrapper given twice, to nexus and to the grok after --: give it to one of them
+## run 10: nexus g1 --wrapper rules/a.md s1 -- /usr/local/bin/agent --wrapper=rules/b.md  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: --wrapper given twice, to nexus and to the agent after --: give it to one of them
+## run 11: nexus g1 --wrapper rules/a.md ls  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: --wrapper is for a session or a headless run, not for ls
+## run 12: nexus g1 --wrapper rules/a.md stop  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: --wrapper is for a session or a headless run, not for stop
+## run 13: nexus g1 --wrapper rules/a.md logs  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: --wrapper is for a session or a headless run, not for logs
+## run 14: nexus g1 --wrapper rules/a.md build  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: --wrapper is for a session or a headless run, not for build
+## run 15: nexus g1 --wrapper rules/a.md pull  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: --wrapper is for a session or a headless run, not for pull
+## run 16: nexus g1 --wrapper rules/a.md start  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: --wrapper is for a session or a headless run, not for start
+## run 17: nexus g1 --wrapper rules/a.md restart  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: --wrapper is for a session or a headless run, not for restart
+## run 18: nexus g1 --wrapper rules/a.md upgrade  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: --wrapper is for a session or a headless run, not for upgrade
+## run 19: nexus g1 start --wrapper=rules/a.md  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: --wrapper is for a session or a headless run, not for start
+## run 20: nexus c1 --wrapper rules/a.md s1  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: --wrapper is for grok personas: c1 is a claude one, whose claude takes no wrapper file
+## run 21: nexus c1 headless nxt hi --wrapper ../rules/a.md  [pipe, cwd projects/app]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: --wrapper is for grok personas: c1 is a claude one, whose claude takes no wrapper file
+## run 22: nexus c1 --wrapper  (no FILE: refused before the flavour)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: --wrapper needs a file: --wrapper FILE, or --wrapper=FILE
+## run 23: nexus c1 --wrapper ls  (ls is its FILE: no subcommand)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: --wrapper is for grok personas: c1 is a claude one, whose claude takes no wrapper file
+## run 24: nexus g1 --skip-bypass-permissions --wrapper rules/a.md s1  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: --skip-bypass-permissions is for claude personas: g1 is a grok one, which takes its approval mode from personas/grok.toml
+## run 25: nexus g1 --skip-bypass-permissions --wrapper rules/a.md s1 -- grok --wrapper rules/b.md  (given twice, before the mode word's refusal)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: --wrapper given twice, to nexus and to the grok after --: give it to one of them
+## run 26: nexus c1 --skip-bypass-permissions --wrapper rules/a.md ls  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: --skip-bypass-permissions is for a session or a headless run, not for ls
+## run 27: nexus c1 --wrapper rules/a.md s1 -- grok --wrapper rules/b.md  (given twice, before claude's)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: --wrapper given twice, to nexus and to the grok after --: give it to one of them
+## run 28: nexus g1 --no-wrapper  [pipe]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s --no-wrapper -c <P>]
+--- stderr
+(empty)
+## run 29: nexus g1 s5 -- echo --wrapper rules/a.md  [pipe]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s s5 -c <P> echo --wrapper rules/a.md]
+--- stderr
+(empty)
+## run 30: nexus g1 s6 -- grok --no-wrapper  [pipe]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s s6 -c <P> grok --no-wrapper]
+--- stderr
+(empty)
+## run 31: nexus c1 --wrapper rules/a.md ls  (not for ls, before the flavour)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: --wrapper is for a session or a headless run, not for ls
+## run 32: nexus g1 --skip-bypass-permissions --wrapper  (no FILE, before the mode word's refusal)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: --wrapper needs a file: --wrapper FILE, or --wrapper=FILE

@@ -191,7 +191,7 @@ stage "lint"
 for f in nexus install.sh entrypoint.sh image/nexus-apm statusline/claude/statusline.sh statusline/grok/statusline.sh tests/run.sh tests/secrets.sh; do
   if out="$(bash -n "$REPO/$f" 2>&1)"; then ok "bash -n $f"; else fail "bash -n $f" "$out"; fi
 done
-for f in tests/fake-grok claude-mode.sh image/glab-credential; do
+for f in tests/fake-grok claude-mode.sh grok-mode.sh image/glab-credential agentctl/probes/wrapper_probe.sh; do
   sh="sh"; [[ $(head -n 1 "$REPO/$f" 2>/dev/null) != *bash* ]] || sh="bash"     # as its #! line has it
   if out="$("$sh" -n "$REPO/$f" 2>&1)"; then ok "$sh -n $f"; else fail "$sh -n $f" "$out"; fi
 done
@@ -230,8 +230,8 @@ elif (( docker_ok )) && docker image inspect koalaman/shellcheck:stable >/dev/nu
   SC=(docker run --rm -v "$REPO:/mnt:ro" -w /mnt koalaman/shellcheck:stable)
 fi
 if (( ${#SC[@]} )); then
-  for f in nexus install.sh entrypoint.sh image/nexus-apm image/glab-credential claude-mode.sh statusline/grok/statusline.sh \
-           tests/run.sh tests/secrets.sh tests/fake-grok; do
+  for f in nexus install.sh entrypoint.sh image/nexus-apm image/glab-credential claude-mode.sh grok-mode.sh \
+           statusline/grok/statusline.sh tests/run.sh tests/secrets.sh tests/fake-grok agentctl/probes/wrapper_probe.sh; do
     if out="$(cd "$REPO" && "${SC[@]}" "$f" 2>&1)"; then ok "shellcheck $f"; else fail "shellcheck $f" "$out"; fi
   done
   # Claude's statusline.sh keeps its colours in printf formats (SC2059).
@@ -828,11 +828,13 @@ ANTHROPIC_BASE_URL=http://127.0.0.1:$(cat "$T/api.port")
 CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
 CLAUDE_CODE_TMPDIR=/home/dev
 EOF
-# The stand-in grok, first on the grok persona's PATH; it keeps its pid files next to itself.
-mkdir -p "$S" && cp "$A/tests/fake-grok" "$S/grok" && chmod 755 "$S/grok"
+# The stand-in grok behind the grok image's shim (grok-mode.sh as grok, first on the grok persona's PATH, with
+# NEXUS_GROK_REAL from its env file naming the stand-in), so nexus → tmux new-session -e / docker exec -e → the shim
+# → the stand-in runs as in a grok image; the stand-in keeps its pid files next to itself.
+mkdir -p "$S" && cp "$A/grok-mode.sh" "$S/grok" && cp "$A/tests/fake-grok" "$S/fake-grok" && chmod 755 "$S/grok" "$S/fake-grok"
 path="$(docker image inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "$IMAGE" | sed -n 's/^PATH=//p')"
-printf '# tests/run.sh: the stand-in grok\nPATH=%s\nNXT_STATE=%s\n' "$S:${path:-/usr/local/bin:/usr/bin:/bin}" "$S" \
-  >> "$A/personas/$PG.env"
+printf '# tests/run.sh: the stand-in grok, behind the shim\nPATH=%s\nNXT_STATE=%s\nNEXUS_GROK_REAL=%s\n' \
+  "$S:${path:-/usr/local/bin:/usr/bin:/bin}" "$S" "$S/fake-grok" >> "$A/personas/$PG.env"
 
 # marked CONTAINER: the processes there that a headless run started (they carry its NEXUS_RUN marker).
 marked() { docker exec "$1" sh -c 'grep -lsz "^NEXUS_RUN=" /proc/[0-9]*/environ; true' 2>/dev/null; }
@@ -1039,6 +1041,45 @@ check "two runs at once: stopping one" 'rc 143 && gone c1.pid'
 check "  leaves the other running" 'alive c2.pid && kill -0 "$p2" 2>/dev/null'
 kill -TERM "$p2"; bg_end "$p2" c2
 check "  until it gets its own signal" 'rc 143 && gone c2.pid'
+
+# A wrapper file, end to end: nexus's -e NEXUS_WRAPPER (docker exec, tmux new-session) or grok's own --wrapper, then
+# the shim, which hands the stand-in --rules=TEXT and NEXUS_WRAPPED. The text: its bytes, less the last newline.
+printf 'nxt wrapper one\nsecond line\n' > "$ROOT/app/.nxt-wrap.md"
+printf 'nxt wrapper outside\n' > "$T/nxt-wrap-out.md"
+t nx "$PG" headless "nxt w" --wrapper .nxt-wrap.md </dev/null
+check "--wrapper FILE, headless: grok gets the file's text in --rules, NEXUS_WRAPPED naming it" \
+      'rc 0 && out_line "rules: 27 nxt wrapper one" && out_line "wrapped: $ROOT/app/.nxt-wrap.md" && out_has "[--single=nxt w]"'
+t nx "$PG" headless "nxt w2" --wrapper "$T/nxt-wrap-out.md" </dev/null
+check "  a file outside the projects root: a copy in its scratch dir goes in its place" \
+      'rc 0 && out_line "rules: 19 nxt wrapper outside" && err_has "a copy of it" \
+       && [[ $(sed -n "s/^wrapped: //p" <<< "$OUT") == "$T/scratch/$PG/wrappers/"[0-9a-f]*-nxt-wrap-out.md ]]'
+t nx "$PG" headless "nxt w3" </dev/null
+check "  without it: no --rules, no NEXUS_WRAPPED" 'rc 0 && out_line "rules: none" && out_line "wrapped: none"'
+pty "$ROOT/app" "$PG" --wrapper .nxt-wrap.md nxt-wrap -- grok "--single=hold ws"
+wait_for 30 '[[ -s $S/ws.pid ]]'
+t docker exec "agent-$PG" tmux capture-pane -p -J -t "=nxt-wrap:"
+check "--wrapper FILE SESSION: a grok started in the session gets the file's text in --rules" \
+      'rc 0 && out_line "rules: 27 nxt wrapper one" && out_line "wrapped: $ROOT/app/.nxt-wrap.md"'
+t nx "$PG" --wrapper "$T/nxt-wrap-out.md" nxt-wrap </dev/null
+check "  that session, with another file: refused" \
+      'rc 1 && err_has "session nxt-wrap already runs under the wrapper file $ROOT/app/.nxt-wrap.md"'
+docker exec "agent-$PG" tmux kill-session -t "=nxt-wrap"
+pty_end 30
+pty "$ROOT/app" "$PG" nxt-dd -- grok --wrapper=.nxt-wrap.md "--single=hold dd"
+wait_for 30 '[[ -s $S/dd.pid ]]'
+t docker exec "agent-$PG" tmux capture-pane -p -J -t "=nxt-dd:"
+check "SESSION -- grok --wrapper=FILE: checked by the shim inside first; the grok gets the file's text in --rules" \
+      'rc 0 && out_line "rules: 27 nxt wrapper one" && out_line "wrapped: $ROOT/app/.nxt-wrap.md"'
+t nx "$PG" nxt-dd -- grok --wrapper=.nxt-wrap.md </dev/null
+check "  that session again: refused, as tmux would attach to it without running grok" \
+      'rc 1 && err_has "session nxt-dd is there already"'
+docker exec "agent-$PG" tmux kill-session -t "=nxt-dd"
+pty_end 30
+t nx "$PG" nxt-dd2 -- grok --wrapper=.nxt-none.md </dev/null
+check "  a file that isn't there: refused with the shim's own words, no session started" \
+      'rc 1 && err_has "would stop at once" && err_has "no such file here" \
+       && ! docker exec "agent-$PG" tmux has-session -t "=nxt-dd2" 2>/dev/null'
+rm -f "$ROOT/app/.nxt-wrap.md"
 
 stage "in a persona: its scratch dir, the Nexus notes, the docker guard, compose project names, tools"
 SCR="$T/scratch"

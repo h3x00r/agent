@@ -29,6 +29,10 @@ Pitfalls (each pinned where named):
 - telemetry: the collector tried with a test export after a save that changed its settings or made a persona send,
   and when the telemetry action changed nothing (to try it again); not otherwise (golden config/telemetry-menu,
   golden config/telemetry-flags)
+- the wrapper file asked for a grok persona only (golden config/ask-menu-change), after its ssh: one the shim would
+  refuse said and asked again; - for none (a restart); another path alone is a change with no restart, its "changed"
+  note instead (golden config/wrapper-menu); the default the one it has, kept unread when taken, so a file gone since
+  doesn't block another change to that persona: the save warns and keeps the copy (golden config/wrapper-menu-gone)
 """
 import copy
 import os
@@ -44,7 +48,8 @@ from agentctl.ui.prompts import EOF_MESSAGE
 
 ACTIONS = ["list      the shared settings and the personas, again",
            "add       a new persona",
-           "change    one persona's flavour, context, statusline, projects root, ssh, permissions or telemetry",
+           "change    one persona's flavour, context, statusline, projects root, ssh, permissions, wrapper file or "
+           "telemetry",
            "remove    one persona (its env file and home volume stay)",
            "shared    the settings every persona shares: projects root, image registry, Claude Code version",
            "telemetry send OpenTelemetry to a collector: its address, token and CA, and which personas send",
@@ -78,8 +83,8 @@ class Menu:
             s.say("nexus --config: setting up %s for the first time%s" % (s.a, ddev))
         else:
             s.say("nexus --config: %s%s" % (s.a, ddev))
-        flags = bool(o.add or o.ssh or o.permissions or o.ports or o.remove or o.root or o.registry or o.claude
-                     or o.telemetry or o.tele_endpoint or o.tele_token_file or o.tele_ca or o.tool_details
+        flags = bool(o.add or o.ssh or o.permissions or o.wrapper or o.ports or o.remove or o.root or o.registry
+                     or o.claude or o.telemetry or o.tele_endpoint or o.tele_token_file or o.tele_ca or o.tool_details
                      or o.tool_content)
         before = set(p.name for p in s.personas)
         read = copy.deepcopy(s.personas)
@@ -275,11 +280,12 @@ class Menu:
         if not n:
             return
         old = s.personas[s.idx(n)]
-        before, extras = s.state(old), (old.tool_details, old.tool_content)    # not in state(): no restart of their own
+        # Not in state(), as they need no restart of their own: the extras, and the wrapper file's path.
+        before, extras = s.state(old), (old.tool_details, old.tool_content, old.wrapper)
         s.section("Change " + n)
         self.q.change(n)
         p = s.personas[s.idx(n)]
-        if s.state(p) == before and (p.tool_details, p.tool_content) == extras:
+        if s.state(p) == before and (p.tool_details, p.tool_content, p.wrapper) == extras:
             s.say("  %s is as it was" % n)
             return
         self.save(n + "'s changes")

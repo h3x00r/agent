@@ -1,3 +1,3 @@
 {
-  "provenance": "accepted: docker-work: nexus gives compose NEXUS_SCRATCH_ROOT, so every docker call's env has it (fake.py ENV_KEYS); image/ in the checkout's listing (the guard, the compose shim, nexus-apm)"
+  "provenance": "accepted: grok wrapper (step 1): grok-mode.sh, the grok shim, is in the checkout's file listing; m4-menu-unmigrated also has the menu's change line naming the wrapper file"
 }

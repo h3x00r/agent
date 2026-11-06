@@ -30,6 +30,7 @@ compose.personas.yml.bak.2
 compose.personas.yml.bak.3
 compose.yml
 entrypoint.sh
+grok-mode.sh
 image
 install.sh
 nexus

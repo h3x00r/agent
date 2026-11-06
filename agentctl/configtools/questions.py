@@ -1,7 +1,8 @@
 """nexus --config's questions, each kind in one place, asked through the Prompter (on a terminal, by piped lines,
 or answered by their defaults under --yes): the VM settings, a persona's flavour, context, name, statusline,
-projects root, ssh, permissions, telemetry, tool details and tool content, its sign-in and git identity, the
-telemetry collector and whose tool details and content it gets, and the launcher, mkcert and image questions.
+projects root, ssh, permissions, wrapper file (a grok one's), telemetry, tool details and tool content, its sign-in
+and git identity, the telemetry collector and whose tool details and content it gets, and the launcher, mkcert and
+image questions.
 
 They change the Session (its personas, its staged files) and return what was decided; saving is the
 Session's, and what happens after a save is after.py's.
@@ -28,6 +29,7 @@ CONTEXTS = ["ddev     ddev projects: ddev inside, sharing the VM's ddev state an
 CONTEXT_Q = "Context: which kind of projects does it work on?"
 SL_Q = "Statusline (statusline/: model, context, cost; what nexus top shows) in"
 PERM_Q = "Let %s run its tools without asking (bypassPermissions; no: it asks first, as personas/claude.ask.json says)?"
+WRAP_Q = "Wrapper file for %s: a text file its grok adds to the system prompt of every new session (-: none)"
 TELE_Q = "Send %s's telemetry (OpenTelemetry: tokens, cost, sessions, tool use; no prompts) to %s?"
 TELE_EP_Q = "The collector's OTLP/HTTP address, e.g. https://collector.lan:4318 (none: no telemetry)"
 TELE_CA_Q = "The CA file its certificate is signed by, PEM (-: none, a publicly trusted certificate)"
@@ -166,6 +168,27 @@ class Questions:
             return "bypass"
         return "bypass" if self.ask.yesno(PERM_Q % name, "y" if current == "bypass" else "n") else "ask"
 
+    def wrapper(self, name, f, current):
+        """A grok persona's wrapper file, an absolute path, or "" for none; a claude one has none. One given again as
+        it was is kept unread: a file gone since, a save warns and keeps its copy (Session.stage_wrappers)."""
+        if f != "grok":
+            return ""
+        s = self.s
+        w = current or "-"
+        while True:
+            w = self.ask.ask(WRAP_Q % name, w)
+            if w in ("", "-"):
+                return ""
+            if w == current:
+                return current
+            path, why = s.wrapper_given(w)
+            if not why:
+                return path
+            if s.o.yes:
+                die("%s's wrapper file %s: %s" % (name, w, why))
+            s.say("  %s: %s" % (w, why))
+            w = current or "-"
+
     def telemetry_for(self, name, current):
         """Whether NAME sends telemetry, asked only while a collector is set."""
         ep = self.s.tele["endpoint"]
@@ -195,10 +218,11 @@ class Questions:
         r = self.root(n, "")
         k = self.ssh(n, "")
         perm = self.permissions(n, f, "bypass")
+        wrap = self.wrapper(n, f, "")
         tel = self.telemetry_for(n, False)
         det, con = (self.extra_for(x, n, tel, False) for x in tele.EXTRAS)
         s.put(Persona(n, f, c, rules.next_colour(s.personas), sl, r, k, perm, tel, det, con,
-                      rules.next_ports(s.personas)))
+                      rules.next_ports(s.personas), wrap))
         return n
 
     def change(self, name):
@@ -209,9 +233,10 @@ class Questions:
         r = self.root(name, p.root)
         k = self.ssh(name, p.ssh)
         perm = self.permissions(name, f, p.permissions)
+        wrap = self.wrapper(name, f, p.wrapper)
         tel = self.telemetry_for(name, p.telemetry)
         det, con = (self.extra_for(x, name, tel, getattr(p, x.field)) for x in tele.EXTRAS)
-        s.put(Persona(name, f, c, p.colour, sl, r, k, perm, tel, det, con, p.ports))     # its range kept, not asked
+        s.put(Persona(name, f, c, p.colour, sl, r, k, perm, tel, det, con, p.ports, wrap))     # its range kept, not asked
 
     # --- telemetry: the collector, and who sends to it ---
     def telemetry(self):

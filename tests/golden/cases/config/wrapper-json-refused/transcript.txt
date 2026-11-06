@@ -1,0 +1,48 @@
+## run 1: config --list  (as nexus --config wrote it)  [pipe]
+rc: 0
+--- stdout
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  g1                              grok     docker   yes        the VM's             your agent
+  published ports: c1 20000-20099, g1 20100-20199
+--- stderr
+(empty)
+## run 2: config --list  (c1's wrapper: '/x/w.md')  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: <A>/personas.json persona 'c1' has a wrapper, which only a grok persona takes (the grok shim reads it): fix it, then run nexus --config again
+## run 3: config --list  (g1's wrapper: 'w.md')  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: <A>/personas.json persona 'g1' has wrapper 'w.md': it takes an absolute path without control characters: fix it, then run nexus --config again
+## run 4: config --list  (g1's wrapper: '/x/a\nb.md')  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: <A>/personas.json persona 'g1' has wrapper "/x/a\nb.md": it takes an absolute path without control characters: fix it, then run nexus --config again
+## run 5: config --list  (g1's wrapper: True)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: <A>/personas.json persona 'g1' has a wrapper that isn't a string: fix it, then run nexus --config again
+## run 6: config --list  (g1's wrapper: '')  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: <A>/personas.json persona 'g1' has wrapper '': it takes an absolute path without control characters: fix it, then run nexus --config again
+## run 7: config --list  (as it was)  [pipe]
+rc: 0
+--- stdout
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  g1                              grok     docker   yes        the VM's             your agent
+  published ports: c1 20000-20099, g1 20100-20199
+--- stderr
+(empty)

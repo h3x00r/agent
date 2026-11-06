@@ -12,7 +12,8 @@ personas/claude.ask.json from making a persona ask and what to do, or ("", "") (
 CLI is needed). grok_sets_telemetry(path): whether personas/grok.toml has a [telemetry] of its own, which the one
 nexus --config adds for a persona that sends would clash with (read here, by its spellings: no CLI is needed).
 grok_has_paths(path): the same for a [paths] table, which the one nexus --config adds for the Nexus notes would clash
-with.
+with. read_wrapper(path): a grok persona's wrapper file, as (its bytes, "") or (None, what keeps it from being one
+and what to do: not there, not a regular file, unreadable, or text the grok shim would refuse, persona.wrapper_problem).
 
 Pitfalls (each pinned where named):
 - the programs as spelt, in a persona image when this python3 has no tomllib (golden config/cli-images-build)
@@ -23,6 +24,8 @@ Pitfalls (each pinned where named):
   ['telemetry'] or [[telemetry]] is one (test_adapters.Telemetry.test_grok_sets_telemetry)
 - grok_has_paths(): any [paths] at all, whatever its keys: a second one would make the file invalid TOML
   (test_adapters.Telemetry.test_grok_has_paths)
+- read_wrapper(): judged by the file's size, of which it reads only WRAPPER_MAX + 1 bytes; 122878 taken, 122879 not
+  (test_adapters.Wrapper.test_read_wrapper)
 """
 import json
 import os
@@ -30,6 +33,7 @@ import re
 
 from agentctl.adapters.docker import Docker
 from agentctl.core import proc
+from agentctl.domain.persona import WRAPPER_MAX, wrapper_problem
 
 JSON = 'import sys, json\ntry: json.load(sys.stdin.buffer)\nexcept ValueError as e: print(e); sys.exit(3)'
 TOML = 'import sys, tomllib\ntry: tomllib.load(sys.stdin.buffer)\nexcept ValueError as e: print(e); sys.exit(3)'
@@ -136,3 +140,20 @@ def grok_sets_statusline(path):
     with open(path, "rb") as f:
         text = f.read().decode("utf-8", "surrogateescape")
     return any(_GROK_SL.match(line) for line in text.split("\n"))
+
+
+def read_wrapper(path):
+    """PATH's bytes, and "", when it is a wrapper file the grok shim takes; else None and why not, as a phrase after
+    its path."""
+    if not os.path.exists(path):
+        return None, "isn't there: check the path"
+    if not os.path.isfile(path):
+        return None, "isn't a regular file: name a text file"
+    try:
+        with open(path, "rb") as f:
+            size = os.fstat(f.fileno()).st_size
+            data = f.read(WRAPPER_MAX + 1)      # a bigger one is refused by its size: no need to read it all
+    except OSError as e:
+        return None, "can't be read (%s): make it readable (chmod a+r)" % e.strerror
+    why = wrapper_problem(data, max(size, len(data)))
+    return (None, why) if why else (data, "")

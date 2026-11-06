@@ -1,0 +1,7 @@
++ scratch/g1  d 755
++ scratch/g1/wrappers  d 755
++ scratch/g1/wrappers/67a403d9ddd6-out.md  f 644
+    | # From outside
++ w  d 755
++ w/out.md  f 644
+    | # From outside

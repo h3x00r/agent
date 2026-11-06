@@ -87,6 +87,56 @@ class Rules(unittest.TestCase):
         self.assertEqual(nxt(*every), "")                                           # none free
         self.assertEqual(nxt(*[r for r in every if r != "43200-43299"]), "43200-43299")
 
+    def test_wrapper_size(self):
+        """The grok shim counts a wrapper's bytes plus 2 for a blank line against its 122880 even with no user --rules:
+        122878 is the most --config takes, so a file it copies in is one every new grok session takes."""
+        self.assertEqual(persona.WRAPPER_MAX, 122880 - 2)
+        self.assertEqual(persona.wrapper_problem(b"a" * 122878), "")
+        for n in (122879, 122880):
+            self.assertIn("is %d bytes, more than the 122878" % n, persona.wrapper_problem(b"a" * n))
+        self.assertIn("is 200000 bytes", persona.wrapper_problem(b"a" * 122879, 200000))     # its size, read in part
+
+    def test_wrapper_rules(self):
+        """The shim's rules on the text, each with its own reason; a path as personas.json holds it: absolute, no
+        control character (it is shown by line); the copy's place."""
+        ok = persona.wrapper_problem
+        self.assertEqual(ok("caf\u00e9 \u2014 ok\n".encode()), "")                      # UTF-8, counted in bytes
+        self.assertEqual(ok(b"a" * 122876 + "\u00e9".encode()), "")                      # 122878 bytes in all
+        self.assertIn("is 122879 bytes", ok(b"a" * 122877 + "\u00e9".encode()))
+        for data, why in ((b"", "is empty (newlines aside)"), (b"\n\n", "is empty (newlines aside)"),
+                          (b"a\0b\n", "holds a NUL byte"), (b"caf\xe9\n", "isn't UTF-8 text"),
+                          (b"\xed\xa0\x80\n", "isn't UTF-8 text")):                     # a surrogate isn't UTF-8
+            self.assertTrue(ok(data).startswith(why), (data, ok(data)))
+        self.assertEqual(ok(b" \n"), "")                                                 # a space is text
+        good = ("/w.md", "/srv/a b/caf\u00e9.md", "/x/-y.md")
+        bad = ("", "/", "w.md", "./w.md", "~/w.md", "/a\nb", "/a\tb", "/a\x7fb", "/a\x00b")
+        self.assertEqual([w for w in good if persona.wrapper_path_ok(w)], list(good))
+        self.assertEqual([w for w in bad if persona.wrapper_path_ok(w)], [])
+        self.assertEqual(persona.wrapper_file("g1"), "personas/g1.wrapper.md")
+        self.assertEqual((persona.WRAPPER_TARGET, persona.FIELDS[-1]), ("/etc/grok/wrapper.md", "wrapper"))
+
+    def test_wrapper_record(self):
+        """to_record() writes "wrapper" only when there is one, last; from_record() takes it back, and refuses one
+        that isn't a string, isn't an absolute path without control characters, or is on a claude persona."""
+        g = Persona("g1", "grok", "docker", "colour28", ports="20000-20099", wrapper="/w/a.md")
+        r = persona.to_record(g)
+        self.assertEqual(list(r)[-2:], ["ports", "wrapper"])
+        self.assertEqual(persona.from_record("g1", r), g)
+        plain = Persona("g2", "grok", "docker", "colour28")
+        self.assertNotIn("wrapper", persona.to_record(plain))
+        self.assertEqual(persona.from_record("g2", persona.to_record(plain)), plain)
+        base = {"flavour": "grok", "context": "docker", "colour": "colour28", "statusline": True}
+        for value, why in ((True, "has a wrapper that isn't a string"), (None, "has a wrapper that isn't a string"),
+                           ("", "has wrapper '': it takes an absolute path without control characters"),
+                           ("w.md", "has wrapper 'w.md': it takes"),
+                           ("/a\nb", 'has wrapper "/a\\nb": it takes')):          # a control character: as JSON spells it
+            with self.assertRaises(persona.BadRecord) as c:
+                persona.from_record("g1", dict(base, wrapper=value))
+            self.assertIn(why, str(c.exception), value)
+        with self.assertRaises(persona.BadRecord) as c:
+            persona.from_record("c1", dict(base, flavour="claude", wrapper="/w/a.md"))
+        self.assertIn("has a wrapper, which only a grok persona takes", str(c.exception))
+
 
 class Lines(unittest.TestCase):
     def test_a_line_as_config_sh_wrote_it(self):

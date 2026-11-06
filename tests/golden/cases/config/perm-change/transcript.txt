@@ -18,7 +18,7 @@ Personas
 What next?
   1) list      the shared settings and the personas, again
   2) add       a new persona
-  3) change    one persona's flavour, context, statusline, projects root, ssh, permissions or telemetry
+  3) change    one persona's flavour, context, statusline, projects root, ssh, permissions, wrapper file or telemetry
   4) remove    one persona (its env file and home volume stay)
   5) shared    the settings every persona shares: projects root, image registry, Claude Code version
   6) telemetry send OpenTelemetry to a collector: its address, token and CA, and which personas send
@@ -48,7 +48,7 @@ c1: changed; `nexus c1 restart` applies it (that ends its tmux sessions)
 What next?
   1) list      the shared settings and the personas, again
   2) add       a new persona
-  3) change    one persona's flavour, context, statusline, projects root, ssh, permissions or telemetry
+  3) change    one persona's flavour, context, statusline, projects root, ssh, permissions, wrapper file or telemetry
   4) remove    one persona (its env file and home volume stay)
   5) shared    the settings every persona shares: projects root, image registry, Claude Code version
   6) telemetry send OpenTelemetry to a collector: its address, token and CA, and which personas send
@@ -72,7 +72,7 @@ Personas
 What next?
   1) list      the shared settings and the personas, again
   2) add       a new persona
-  3) change    one persona's flavour, context, statusline, projects root, ssh, permissions or telemetry
+  3) change    one persona's flavour, context, statusline, projects root, ssh, permissions, wrapper file or telemetry
   4) remove    one persona (its env file and home volume stay)
   5) shared    the settings every persona shares: projects root, image registry, Claude Code version
   6) telemetry send OpenTelemetry to a collector: its address, token and CA, and which personas send
@@ -117,7 +117,7 @@ Personas
 What next?
   1) list      the shared settings and the personas, again
   2) add       a new persona
-  3) change    one persona's flavour, context, statusline, projects root, ssh, permissions or telemetry
+  3) change    one persona's flavour, context, statusline, projects root, ssh, permissions, wrapper file or telemetry
   4) remove    one persona (its env file and home volume stay)
   5) shared    the settings every persona shares: projects root, image registry, Claude Code version
   6) telemetry send OpenTelemetry to a collector: its address, token and CA, and which personas send
@@ -147,7 +147,7 @@ c1: changed; `nexus c1 restart` applies it (that ends its tmux sessions)
 What next?
   1) list      the shared settings and the personas, again
   2) add       a new persona
-  3) change    one persona's flavour, context, statusline, projects root, ssh, permissions or telemetry
+  3) change    one persona's flavour, context, statusline, projects root, ssh, permissions, wrapper file or telemetry
   4) remove    one persona (its env file and home volume stay)
   5) shared    the settings every persona shares: projects root, image registry, Claude Code version
   6) telemetry send OpenTelemetry to a collector: its address, token and CA, and which personas send

@@ -2,13 +2,14 @@
 
 A Session reads the checkout (open(): the root refusal, the lock, personas.json or the `# persona:` lines
 from before it, the telemetry settings in .env), checks the VM (preflight()), applies the flags (--remove,
---persona, --ssh, --permissions, --ports, the --telemetry ones), gives each persona without a port range one
+--persona, --ssh, --permissions, --wrapper, --ports, the --telemetry ones), gives each persona without a port range one
 (fill_ports()), and saves:
 - stage_env(), then env_vm(): .env staged, with what the VM decides (DDEV_VERSION, AGENT_CPUS), and the two
   settings only a hand edit sets (NEXUS_SCRATCH_ROOT, DOCKER_GUARD) held to their rules;
 - prepare(): the settings files checked, each grok persona's config, every persona's Nexus notes (domain/notes.py),
-  the telemetry files of the personas that send it (and the collector's CA, copied in), personas.json and the
-  compose file generated from it staged, and all of it checked with `docker compose config`;
+  the copy of each grok persona's wrapper file (personas/NAME.wrapper.md, from the file it names), the telemetry
+  files of the personas that send it (and the collector's CA, copied in), personas.json and the compose file
+  generated from it staged, and all of it checked with `docker compose config`;
 - commit(): every staged file in place at once, signals ignored meanwhile, and the notes on what that
   means for the personas (a restart, the move from the `# persona:` lines).
 Until commit() nothing is written but the staged files (removed on the way out, staging.cleanup()) and
@@ -87,6 +88,30 @@ Pitfalls (each pinned where named):
   says so, not the hand-edit one (test_configtools.Ports.test_rewritten_notes, golden config/ports-older-checkout)
 - a grok config changed by the notes' [paths] table alone, in a compose file without the notes' mount yet: no note of
   its own, as its service's restart note brings both in (test_configtools.Ports.test_paths_alone)
+- --wrapper NAME:PATH: the spec and the file (made absolute: ~ from HOME, a relative path from where nexus --config
+  ran, not the checkout; checked as the grok shim checks it) before the lock; a path ending in / refused, which
+  normpath would hide; a claude persona (one turned claude by --persona in the same run too) or no persona of that
+  name: refused, nothing written; NAME:none on a claude persona: nothing to do, exit 0; a spec with a control
+  character spelt in the refusal as JSON spells it; given again for one persona: the last wins, as --ssh and
+  --telemetry (test_configtools.Wrapper.test_given, test_configtools.Wrapper.test_flags, golden config/wrapper-refused,
+  golden config/wrapper-files, golden config/wrapper-none)
+- a wrapper copy staged from the file it names on every save, mode 644 whatever the umask, and written in place (the
+  same inode, which the container's single-file mount keeps seeing); set or removed: the restart note, as its service
+  changed; another file, or the file edited: the "its wrapper file changed" note and no restart; as it was: no note;
+  a copy that was gone written again (removed alone, or the file given again after both were gone): a new file, which
+  a running container's single-file mount doesn't see, so the restart note (test_configtools.Wrapper.test_stage,
+  golden config/wrapper-set, golden config/wrapper-change, golden config/wrapper-edit, golden config/wrapper-none,
+  golden config/wrapper-both-gone, golden config/wrapper-copy-gone)
+- a wrapper file gone, or no longer one the shim takes: its copy kept as it was, with a warning
+  (test_configtools.Wrapper.test_stage, golden config/wrapper-gone); the copy gone too: a warning that names both
+  fixes and no refusal, so an unrelated change is saved, and the setting and its mount stay
+  (test_configtools.Wrapper.test_stage, golden config/wrapper-both-gone)
+- a wrapper copy no persona has a wrapper for (set to none, turned claude, or placed by hand) removed at the commit
+  (after the compose file that mounted it: that order not pinned, as only a failure mid-commit would show it); a
+  removed persona's stays, named among what stays
+  (test_configtools.Wrapper.test_stage, golden config/wrapper-leftover, golden config/wrapper-none)
+- --list and the summary name each wrapper file, two personas' in one run too (golden config/wrapper-list, golden
+  config/wrapper-two)
 """
 import json
 import os
@@ -120,6 +145,12 @@ def die(msg):
     raise NexusError(msg)
 
 
+def _spec(spec):
+    """A flag's SPEC for a refusal: as it is, unless it holds a control character (then as JSON spells it, as
+    rules.from_record shows a path with one)."""
+    return json.dumps(spec) if any(ord(c) < 32 or ord(c) == 127 for c in spec) else spec
+
+
 def _settings(text):
     return [l for l in text.split("\n") if not l.lstrip().startswith("#")]
 
@@ -147,11 +178,15 @@ class Session:
         self.home = os.environ.get("HOME", "")
         self.launcher = os.path.join(checkout, "nexus")
         self.personas = []
-        self.loaded = {}          # name → (flavour, context, statusline, root, ssh, permissions, telemetry, ports) as read
+        self.loaded = {}          # name → (flavour, context, statusline, root, ssh, permissions, telemetry, wrapper,
+        #                           ports) as read: state(), wrapper as yes or no (its path isn't in the service)
         self.unranged = set()     # the names read without a port range: fill_ports() gives them one without a note
         self.staged = {}          # name → its staged env file
         self.gstaged = {}         # name → its staged grok config
         self.nstaged = {}         # name → its staged notes (personas/NAME.notes.md)
+        self.wstaged = {}         # name → its staged wrapper copy (personas/NAME.wrapper.md)
+        self.wgone = []           # the wrapper copies no persona has any more (none, or a claude one): removed at the commit
+        self.wpaths = {}          # a --wrapper NAME:PATH as given → PATH made absolute (check_flags)
         self.nguard = {}          # name → the guard state its notes say now, where the ones there say the other
         self.scratch_tried = False   # whether this run tried to make the scratch root (after.scratch_root)
         self.backup = set()       # names whose env file is replaced, the old one kept as a .bak
@@ -231,7 +266,7 @@ class Session:
     @staticmethod
     def state(p):
         return (p.flavour, p.context, "yes" if p.statusline else "no", p.root, p.ssh, p.permissions,
-                "yes" if p.telemetry else "no", p.ports)
+                "yes" if p.telemetry else "no", "yes" if p.wrapper else "no", p.ports)     # ports last: fill_ports()
 
     def list(self):
         if not self.personas:
@@ -258,6 +293,9 @@ class Session:
         ranges = ["%s %s" % (p.name, p.ports) for p in self.personas if p.ports]
         if ranges:
             self.say("  published ports: " + ", ".join(ranges))
+        wrapped = ["%s %s" % (p.name, p.wrapper) for p in self.personas if p.wrapper]
+        if wrapped:
+            self.say("  wrapper file (in the system prompt of every new grok session): " + ", ".join(wrapped))
 
     def restarts(self):
         """The personas this run's notes tell to restart: `nexus NAME restart` is the mark the notes go by."""
@@ -312,6 +350,8 @@ class Session:
             n, _, v = spec.partition(":")
             if not rules.valid_name(n) or v not in rules.PERMISSIONS:
                 die("--permissions %s: it takes NAME:ask or NAME:bypass" % spec)
+        for spec in self.o.wrapper:
+            self.check_wrapper_flag(spec)
         for spec in self.o.ports:
             n, _, v = spec.partition(":")
             if not rules.valid_name(n) or rules.port_range(v) is None:
@@ -399,17 +439,71 @@ class Session:
         if why:
             die("--ssh %s: %s" % (spec, why))
 
+    def wrapper_path(self, given):
+        """A wrapper file's path as given (to --wrapper, or in the menu) made absolute: ~ expanded, a relative one
+        from the directory nexus --config was run in (not the checkout it works in); "" when there is none to go by.
+        Unlike the token and CA files' (absolute only), as `nexus <persona> --wrapper FILE` takes a relative one."""
+        w = self.norm_dir(given)
+        if not w.startswith("/"):
+            if not self.o.cwd:
+                return ""
+            w = os.path.join(self.o.cwd, w)
+        return os.path.normpath(w)
+
+    def wrapper_given(self, given):
+        """A wrapper file as given (to --wrapper, or in the menu) checked as the grok shim checks it: (its absolute
+        path, "") or ("", why not and what to do, after GIVEN and a colon). The path where it is GIVEN's own spelling
+        is said as "the file"."""
+        if given.endswith("/"):         # wrapper_path() would drop it, but the shim (and open()) refuse "file/"
+            return "", "it ends in /, so it names a directory: name a file"
+        w = self.wrapper_path(given)
+        if not w:
+            return "", "the current directory is gone, so a relative path can't be found from it: give an absolute " \
+                       "path (or ~/…)"
+        if not rules.wrapper_path_ok(w):
+            return "", "its path must be %s" % rules.WRAPPER_RULE
+        why = checks.read_wrapper(w)[1]
+        return ("", "%s %s" % ("the file" if w == given else w, why)) if why else (w, "")
+
+    def check_wrapper_flag(self, spec):
+        """--wrapper NAME:PATH or NAME:none: its PATH, made absolute, kept for wrapper_flag(). A refusal spells a SPEC
+        with a control character as JSON does, as personas.json's are shown (rules.from_record)."""
+        n, _, v = spec.partition(":")
+        if not rules.valid_name(n) or not v:
+            die("--wrapper %s: it takes NAME:PATH or NAME:none" % _spec(spec))
+        if v == "none":
+            return
+        w, why = self.wrapper_given(v)
+        if why:
+            die("--wrapper %s: %s" % (_spec(spec), why))
+        self.wpaths[spec] = w
+
+    def wrapper_flag(self, spec):
+        """--wrapper SPEC (checked by check_wrapper_flag) applied, in order: one given again for the same persona
+        wins, as --ssh's and --telemetry's do."""
+        n, _, v = spec.partition(":")
+        w = "none" if v == "none" else self.wpaths[spec]
+        i = self.idx(n)
+        if i is None:
+            die("--wrapper %s: no persona %s (add it with --persona)" % (spec, n))
+        p = self.personas[i]
+        if w != "none" and p.flavour != "grok":
+            die("--wrapper %s: %s is a claude persona, and only a grok persona takes a wrapper file (its grok "
+                "reads it)" % (spec, n))
+        p.wrapper = "" if w == "none" else w
+
     def add_flag(self, spec):
         n, f, c, r = read_fields(spec, ":", 4)
         i = self.idx(n)
         if i is not None:
             old = self.personas[i]
             col, keep, key, sl, perm, tel = old.colour, old.root, old.ssh, old.statusline, old.permissions, old.telemetry
-            det, con, ports = old.tool_details, old.tool_content, old.ports
+            det, con, ports, wrap = old.tool_details, old.tool_content, old.ports, old.wrapper
         else:
             col, keep, key, sl, perm, tel = rules.next_colour(self.personas), "", "", True, "bypass", False
             det = con = False
             ports = ""        # fill_ports() gives it one after the flags, around the ranges --ports set
+            wrap = ""
         if self.o.statusline:
             sl = self.o.statusline == "yes"
         if spec.count(":") >= 3:
@@ -421,7 +515,8 @@ class Session:
                     die("--persona %s: can't create the projects root '%s'" % (spec, r))
         else:
             r = keep
-        self.put(Persona(n, f, c, col, sl, r, key, perm if f == "claude" else "bypass", tel, det, con, ports))
+        self.put(Persona(n, f, c, col, sl, r, key, perm if f == "claude" else "bypass", tel, det, con, ports,
+                         wrap if f == "grok" else ""))
 
     def ssh_flag(self, spec):
         n, _, k = spec.partition(":")
@@ -549,6 +644,8 @@ class Session:
             self.ssh_flag(spec)
         for spec in self.o.permissions:
             self.permissions_flag(spec)
+        for spec in self.o.wrapper:
+            self.wrapper_flag(spec)
         self.ports_flags()
         o = self.o
         self.tele_unsaid = []
@@ -650,9 +747,11 @@ class Session:
             if self.idx(n) is not None:
                 continue
             what = "env file" + (", ssh key" if os.path.exists("personas/%s.key" % n) else "")
-            exts = ["env", "key", "key.pub", "grok.toml"] + [e for e in ("telemetry.json", "telemetry.env", "notes.md")
+            exts = ["env", "key", "key.pub", "grok.toml"] + [e for e in ("telemetry.json", "telemetry.env", "notes.md",
+                                                                         "wrapper.md")
                                                             if os.path.exists("personas/%s.%s" % (n, e))]
             what += ", notes" if os.path.exists(nts.file(n)) else ""
+            what += ", wrapper copy" if os.path.exists(rules.wrapper_file(n)) else ""
             d = scr.path(self.scratch_root(), n)
             d = d if os.path.isdir(d) else ""
             files = " ".join(printf_q("%s/personas/%s.%s" % (self.a, n, ext)) for ext in exts)
@@ -794,6 +893,7 @@ class Session:
                     "as it would be: %s" % (adds, p.name, p.name, why))
             self.gstaged[p.name] = tmp
         self.stage_notes(template)
+        self.stage_wrappers()
         for f in sorted(set(self.unchecked)):
             self.warn_once("couldn't check %s (no python3 for it here, nor a persona image yet): a broken one stops the CLI; "
                       "re-run nexus --config after the build to check it" % f)
@@ -856,6 +956,37 @@ class Session:
             os.chmod(tmp, 0o644)
             staging.write(tmp, text)
             self.nstaged[p.name] = tmp
+
+    def stage_wrappers(self):
+        """Each grok persona's wrapper copy, staged from the file it names (mode 644: its container mounts it read-only,
+        and it is the persona's own text, nothing secret nexus adds), on every run, so an edit gets there. The file gone
+        (or not one the grok shim takes any more): the copy there is kept, with a warning; no copy either, a warning
+        too, and the rest is saved all the same (the setting and its mount stay; nexus refuses to start that persona
+        until it is given again, or none). A copy no persona has any more (none, or turned claude) goes at the commit;
+        a removed persona's stays, as its notes do."""
+        for p in self.personas:
+            target = rules.wrapper_file(p.name)
+            if not (p.flavour == "grok" and p.wrapper):
+                if os.path.isfile(target) or os.path.islink(target):
+                    self.wgone.append(target)
+                continue
+            data, why = checks.read_wrapper(p.wrapper)
+            why = why.partition(": ")[0]      # its own fix left out: the one here covers it
+            if data is None and os.path.isfile(target):
+                self.warn_once("%s: its wrapper file %s %s; %s is kept as it was, so its new grok sessions get that: "
+                               "put the file back (or fix it), give another (--wrapper %s:PATH), or none (--wrapper "
+                               "%s:none)" % (p.name, p.wrapper, why, target, p.name, p.name))
+                continue
+            if data is None:        # not a refusal: it would stop every save, nexus --update's and the menu's too
+                self.warn_once("%s: its wrapper file %s %s, and there is no copy of it (%s) for its container to "
+                               "mount, so nexus won't start it: give it again (--wrapper %s:PATH), or none (--wrapper "
+                               "%s:none)" % (p.name, p.wrapper, why, target, p.name, p.name))
+                continue
+            tmp = staging.stage(target)
+            os.chmod(tmp, 0o644)
+            with open(tmp, "wb") as fh:
+                fh.write(data)
+            self.wstaged[p.name] = tmp
 
     def tele_problem(self):
         """Why the telemetry settings can't be saved as they are (nothing is written then), if they can't. A CA file to
@@ -953,6 +1084,7 @@ class Session:
         """Every staged file in place, all of it or none of it: signals are ignored until it is done."""
         for t in [".", "personas", ".env", JSON_FILE, PERSONAS_FILE] + ["personas/%s.env" % n for n in self.staged] \
                 + ["personas/%s.grok.toml" % n for n in self.gstaged] + [nts.file(n) for n in self.nstaged] \
+                + [rules.wrapper_file(n) for n in self.wstaged] \
                 + [self.tele_target(n) for n in self.tstaged] \
                 + list(self.tneutral) + ([tele.CA_FILE] if self.ca_new else []):
             if os.path.exists(t) and not os.access(t, os.W_OK):
@@ -992,6 +1124,21 @@ class Session:
                 put(tmp, t)
             for n, tmp in self.nstaged.items():     # in place: a running container sees them at its next session
                 put(tmp, nts.file(n))
+            for n, tmp in self.wstaged.items():     # in place too: a running container's next new grok session reads it
+                t = rules.wrapper_file(n)
+                told = "`nexus %s restart`" % n in "\n".join(self.later)
+                new = not os.path.exists(t)
+                if staging.commit(tmp, t):
+                    wrote.append(t)
+                    if n not in self.loaded or self.loaded[n] != self.state(self.personas[self.idx(n)]) or told:
+                        pass
+                    elif new:       # a new file: a running container's single-file mount still has the one removed
+                        self.later.append("%s: its wrapper file's copy, %s, was gone and is written again; `nexus %s "
+                                          "restart` brings it in (a running container keeps mounting the one that was "
+                                          "removed)" % (n, t, n))
+                    else:
+                        self.later.append("%s: its wrapper file changed; its next new grok session gets it (a running "
+                                          "or resumed one keeps the system prompt it started with)" % n)
             # A compose.personas.yml that isn't one nexus --config generated (the `# persona:` lines from before
             # personas.json, or one made by hand) is kept first, as .bak or .bak.N: before anything is written, so
             # a run cut short still has it. Then personas.json (the one before as personas.json.bak), then the
@@ -1016,6 +1163,9 @@ class Session:
                 if os.path.isfile(PERSONAS_FILE):
                     os.unlink(PERSONAS_FILE)
                     wrote.append(PERSONAS_FILE)
+            for t in self.wgone:     # after the compose file, which no longer mounts it
+                os.unlink(t)
+                wrote.append(t)
             if self.migrating:
                 self.moved_notes(old_compose, kept)
             elif self.where == "json" and self.personas:
@@ -1093,6 +1243,6 @@ class Session:
 
     def unstage(self):
         self.staged, self.gstaged, self.nstaged, self.backup, self.unchecked = {}, {}, {}, set(), []
-        self.nguard = {}
+        self.nguard, self.wstaged, self.wgone = {}, {}, []      # wpaths stays: the flags are checked once
         self.env_new = self.json_new = self.personas_new = None
         self.tstaged, self.ca_new, self.tgone, self.tneutral = {}, None, [], {}

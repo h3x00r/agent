@@ -1,3 +1,3 @@
 {
-  "provenance": "accepted: docker-work: --ports in the usage; the usage's sentence on the notes and the scratch root"
+  "provenance": "accepted: grok wrapper (step 6): --help gives --wrapper NAME:PATH|none, and says a grok persona with a wrapper file gets its copy, personas/<name>.wrapper.md (mode 644), mounted as /etc/grok/wrapper.md"
 }

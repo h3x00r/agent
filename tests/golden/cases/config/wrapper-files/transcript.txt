@@ -1,0 +1,54 @@
+## run 1: config --yes --no-link --no-build --wrapper g1:<S>/w/missing.md  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --wrapper g1:<S>/w/missing.md: the file isn't there: check the path
+## run 2: config --yes --no-link --no-build --wrapper g1:<S>/w  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --wrapper g1:<S>/w: the file isn't a regular file: name a text file
+## run 3: config --yes --no-link --no-build --wrapper g1:<S>/w/empty.md  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --wrapper g1:<S>/w/empty.md: the file is empty (newlines aside): it takes the text to add to the system prompt
+## run 4: config --yes --no-link --no-build --wrapper g1:<S>/w/newlines.md  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --wrapper g1:<S>/w/newlines.md: the file is empty (newlines aside): it takes the text to add to the system prompt
+## run 5: config --yes --no-link --no-build --wrapper g1:<S>/w/nul.md  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --wrapper g1:<S>/w/nul.md: the file holds a NUL byte, so it isn't text: it takes a UTF-8 text file
+## run 6: config --yes --no-link --no-build --wrapper g1:<S>/w/latin1.md  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --wrapper g1:<S>/w/latin1.md: the file isn't UTF-8 text: save it as UTF-8
+## run 7: config --yes --no-link --no-build --wrapper g1:<S>/w/big.md  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --wrapper g1:<S>/w/big.md: the file is 122879 bytes, more than the 122878 the grok shim takes (120 KiB less 2 for a blank line): shorten it
+## run 8: config --yes --no-link --no-build --wrapper g1:<S>/w/bigger.md  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --wrapper g1:<S>/w/bigger.md: the file is 200000 bytes, more than the 122878 the grok shim takes (120 KiB less 2 for a blank line): shorten it
+## run 9: config --yes … --wrapper g1:<S>/w/locked.md  (mode 000)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --wrapper g1:<S>/w/locked.md: the file can't be read (Permission denied): make it readable (chmod a+r)

@@ -134,6 +134,7 @@ def new_id(w, ref):
 ASK_TARGET = "/etc/claude-code/managed-settings.d/16-ask.json"
 DROPIN_TARGET = "/etc/claude-code/managed-settings.d/50-telemetry.json"
 NOTES_TARGETS = ("/etc/claude-code/CLAUDE.md", "/etc/grok/rules/00-nexus.md")
+WRAPPER_TARGET = "/etc/grok/wrapper.md"
 
 
 def service_text(files, service):
@@ -193,14 +194,15 @@ def compose(world, args):
         img = w["images"].get(ref, {}).get("id") or new_id(w, ref)
         name = "agent-" + service
         text = service_text(files, service)
-        mounts = [t for t in (ASK_TARGET, DROPIN_TARGET) + NOTES_TARGETS if t in text]
+        mounts = [t for t in (ASK_TARGET, DROPIN_TARGET) + NOTES_TARGETS + (WRAPPER_TARGET,) if t in text]
         # The scratch dir, where compose would put it: the root interpolated from the environment nexus gave it.
         if 'target: "${NEXUS_SCRATCH_ROOT:-/srv/nexus-scratch}/%s"' % service in text:
             mounts.append((os.environ.get("NEXUS_SCRATCH_ROOT") or "/srv/nexus-scratch") + "/" + service)
         w["containers"][name] = {
             "state": "running", "status": "Up Less than a second (health: starting)", "image": img,
             "env": dict({"PROJECTS_ROOT": os.environ.get("PROJECTS_ROOT", "")},
-                        **({"OTEL_EXPORTER_OTLP_METRICS_HEADERS": "(from the env file)"} if ".telemetry.env]" in text else {})),
+                        **({"OTEL_EXPORTER_OTLP_METRICS_HEADERS": "(from the env file)"} if ".telemetry.env]" in text else {}),
+                        **({"NEXUS_WRAPPER": WRAPPER_TARGET} if 'NEXUS_WRAPPER: "%s"' % WRAPPER_TARGET in text else {})),
             "workdir": os.path.dirname(files[0]) if files else "",
             "sessions": [{"name": "main", "windows": 1, "attached": 0, "path": os.environ.get("PROJECTS_ROOT", "")}],
             "home": w["containers"].get(name, {}).get("home") or os.path.join(SB, "ctr", service, "home"),
@@ -297,6 +299,30 @@ def docker_exec(world, args):
             if ctr.get("panes_hang"):                   # a probe that hangs after its output
                 world.close()
                 time.sleep(ctr["panes_hang"])
+            return 0
+        if "NEXUS-GROK-SHIM" in script:
+            # The wrapper probe: no_shim (an image from before grok-mode.sh); default=, the container's NEXUS_WRAPPER
+            # (wrapper_default, else its env's, which an up of a service with a wrapper gives it); the session asked
+            # about, if it is there, with its "wrapper" ("" or none: none of its own; "-" or "?" as the probe says);
+            # and for a command (a dir, a NEXUS_WRAPPER and the command after the session), with the shim: check=ok,
+            # or check=RC (wrapper_check_rc) and wrapper_check's lines, or check=other (wrapper_check "other").
+            # wrapper_probe_rc: a probe that fails, saying nothing.
+            if ctr.get("wrapper_probe_rc"):
+                return ctr["wrapper_probe_rc"]
+            shim = not ctr.get("no_shim")
+            out("shim=%s\n" % ("yes" if shim else "no"))
+            out("default=%s\n" % ctr.get("wrapper_default", ctr.get("env", {}).get("NEXUS_WRAPPER", "")))
+            want = cmd[4] if len(cmd) > 4 else ""
+            for s in ctr.get("sessions", []):
+                if want and s["name"] == want:
+                    out("session=%s\n" % (s.get("wrapper") or ""))
+            if len(cmd) > 7 and shim:
+                if ctr.get("wrapper_check") == "other":
+                    out("check=other\n")
+                elif ctr.get("wrapper_check_rc"):
+                    out("check=%d\n%s\n" % (ctr["wrapper_check_rc"], ctr.get("wrapper_check", "")))
+                else:
+                    out("check=ok\n")
             return 0
         if "NEXUS_PERMISSIONS" in script and "managed-settings.d" in script:
             # The permissions probe: no_wrapper (an image from before claude-mode.sh), the mode the mounts give

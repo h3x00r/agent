@@ -1,0 +1,27 @@
+## run 1: nexus g1 --wrapper <S>/w/out.md s1  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: warning: g1's container was made without its scratch dir <S>/scratch/g1: `nexus g1 restart` adds it (that ends its tmux sessions)
+nexus: --wrapper <S>/w/out.md is outside g1's projects root <P>, and its container was made without its scratch dir <S>/scratch/g1, where nexus would copy it: `nexus g1 restart` adds that (it ends its tmux sessions), or move the file into <P>
+## run 2: nexus g1 headless nxt hi --wrapper <S>/w/out.md  [pipe, cwd projects/app]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: warning: g1's container was made without its scratch dir <S>/scratch/g1: `nexus g1 restart` adds it (that ends its tmux sessions)
+nexus: --wrapper <S>/w/out.md is outside g1's projects root <P>, and its container was made without its scratch dir <S>/scratch/g1, where nexus would copy it: `nexus g1 restart` adds that (it ends its tmux sessions), or move the file into <P>
+## run 3: nexus g1 --wrapper <S>/scratch/g1/mine.md s2  (in the scratch dir it doesn't mount)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: warning: g1's container was made without its scratch dir <S>/scratch/g1: `nexus g1 restart` adds it (that ends its tmux sessions)
+nexus: --wrapper <S>/scratch/g1/mine.md is in g1's scratch dir <S>/scratch/g1, and its container was made without it: `nexus g1 restart` adds it (it ends its tmux sessions), or move the file into <P>
+## run 4: nexus g1 --wrapper rules/a.md s3  (in its root)  [pipe]
+rc: 0
+--- stdout
+[fake attach: new-session -s s3 -c <P> -e NEXUS_WRAPPER=<P>/rules/a.md]
+--- stderr
+nexus: warning: g1's container was made without its scratch dir <S>/scratch/g1: `nexus g1 restart` adds it (that ends its tmux sessions)

@@ -1,0 +1,69 @@
+## run 1: config --yes --no-link --no-build --wrapper g1  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --wrapper g1: it takes NAME:PATH or NAME:none
+## run 2: config --yes --no-link --no-build --wrapper g1:  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --wrapper g1:: it takes NAME:PATH or NAME:none
+## run 3: config --yes --no-link --no-build --wrapper :<S>/w/a.md  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --wrapper :<S>/w/a.md: it takes NAME:PATH or NAME:none
+## run 4: config --yes --no-link --no-build --wrapper Bad!:<S>/w/a.md  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --wrapper Bad!:<S>/w/a.md: it takes NAME:PATH or NAME:none
+## run 5: config --yes --no-link --no-build --wrapper c1:<S>/w/a.md  [pipe]
+rc: 1
+--- stdout
+nexus --config: setting up <A>
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: --wrapper c1:<S>/w/a.md: c1 is a claude persona, and only a grok persona takes a wrapper file (its grok reads it)
+## run 6: config --yes --no-link --no-build --wrapper nobody:<S>/w/a.md  [pipe]
+rc: 1
+--- stdout
+nexus --config: setting up <A>
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: --wrapper nobody:<S>/w/a.md: no persona nobody (add it with --persona)
+## run 7: config --yes --no-link --no-build --wrapper g1:<S>/w/  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --wrapper g1:<S>/w/: it ends in /, so it names a directory: name a file
+## run 8: config --yes --no-link --no-build --wrapper g1:<S>/w/a.md/  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --wrapper g1:<S>/w/a.md/: it ends in /, so it names a directory: name a file
+## run 9: config --yes --no-link --no-build --wrapper g1:<S>/w/a	b.md  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --wrapper "g1:<S>/w/a\tb.md": its path must be an absolute path without control characters
+## run 10: config --yes --no-link --no-build --wrapper  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+config: --wrapper needs NAME:PATH or NAME:none (see --help)
+## run 11: config --yes --no-link --no-build --persona g1:claude:docker --wrapper g1:<S>/w/a.md  [pipe]
+rc: 1
+--- stdout
+nexus --config: setting up <A>
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: --wrapper g1:<S>/w/a.md: g1 is a claude persona, and only a grok persona takes a wrapper file (its grok reads it)

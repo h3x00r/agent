@@ -1,0 +1,102 @@
+## run 1: nexus g1 --wrapper rules/a.md s1  [pipe]
+rc: 0
+--- stdout
+[fake attach: new-session -s s1 -c <P> -e NEXUS_WRAPPER=<P>/rules/a.md]
+--- stderr
+(empty)
+## run 2: nexus g1 --wrapper=../rules/a.md  [pipe, cwd projects/new]
+rc: 0
+--- stdout
+[fake attach: new-session -s new -c <P>/new -e NEXUS_WRAPPER=<P>/rules/a.md]
+--- stderr
+(empty)
+## run 3: nexus g1 s2 --wrapper rules/a.md -- grok --single hi  [pipe]
+rc: 0
+--- stdout
+[fake attach: new-session -s s2 -c <P> -e NEXUS_WRAPPER=<P>/rules/a.md grok --single hi]
+--- stderr
+(empty)
+## run 4: nexus g1 s3 --wrapper <P>/rules/b.md  [pipe]
+rc: 0
+--- stdout
+[fake attach: new-session -s s3 -c <P> -e NEXUS_WRAPPER=<P>/rules/b.md]
+--- stderr
+(empty)
+## run 5: nexus g1 --wrapper rules/a.md wa  [pipe]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s wa -c <P>]
+--- stderr
+(empty)
+## run 6: nexus g1 --wrapper rules/b.md wa  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: session wa already runs under the wrapper file <P>/rules/a.md: end it, or name a new session: nexus g1 --wrapper rules/b.md NAME
+## run 7: nexus g1 --wrapper rules/a.md app  (none of its own, and g1 has no default)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: session app already runs without a wrapper file: end it, or name a new session: nexus g1 --wrapper rules/a.md NAME
+## run 8: nexus g1 --wrapper rules/a.md gone  (its NEXUS_WRAPPER removed)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: session gone already runs without a wrapper file: end it, or name a new session: nexus g1 --wrapper rules/a.md NAME
+## run 9: nexus g1 --wrapper rules/a.md unread  (its wrapper can't be read)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: can't read the wrapper file session unread runs under: name a new session, nexus g1 --wrapper rules/a.md NAME
+## run 10: nexus g1 --wrapper ../rules/a.md  (in projects/app: the session app)  [pipe, cwd projects/app]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: session app already runs without a wrapper file: end it, or name a new session: nexus g1 --wrapper ../rules/a.md NAME
+## run 11: nexus g1 --wrapper sp ace/w x.md wa  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: session wa already runs under the wrapper file <P>/rules/a.md: end it, or name a new session: nexus g1 --wrapper 'sp ace/w x.md' NAME
+## run 12: nexus g1 wa  [pipe]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s wa -c <P>]
+--- stderr
+(empty)
+## run 13: nexus g1 gone  [pipe]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s gone -c <P>]
+--- stderr
+(empty)
+## run 14: nexus g1 --wrapper rules/none.md s4  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: --wrapper <P>/rules/none.md isn't there: check the path
+## run 15: nexus g1 --wrapper rules s4  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: --wrapper <P>/rules isn't a regular file: name a text file
+## run 16: nexus g1 --wrapper rules/nul.md s4  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: --wrapper <P>/rules/nul.md holds a NUL byte, so it isn't text: it takes a UTF-8 text file
+## run 17: nexus g1 --wrapper rules/blank.md s4  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: --wrapper <P>/rules/blank.md is empty (newlines aside): it takes the text to add to the system prompt

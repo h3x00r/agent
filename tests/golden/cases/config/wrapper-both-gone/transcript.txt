@@ -1,0 +1,91 @@
+## run 1: config --yes … --permissions c1:ask  (g1's file and copy gone)  [pipe]
+rc: 0
+--- stdout
+nexus --config: setting up <A>
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  g1                              grok     docker   yes        the VM's             your agent
+  asks before running tools (not bypassPermissions): c1
+  published ports: c1 20000-20099, g1 20100-20199
+  wrapper file (in the system prompt of every new grok session): g1 <S>/w/a.md
+
+Start one from a project directory:  cd <P>/<project> && nexus c1
+c1: changed; `nexus c1 restart` applies it (that ends its tmux sessions)
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: warning: g1: its wrapper file <S>/w/a.md isn't there, and there is no copy of it (personas/g1.wrapper.md) for its container to mount, so nexus won't start it: give it again (--wrapper g1:PATH), or none (--wrapper g1:none)
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
+## run 2: grep wrapper|permissions personas.json  [pipe, cwd a]
+rc: 0
+--- stdout
+      "permissions": "ask",
+      "wrapper": "<S>/w/a.md"
+--- stderr
+(empty)
+## run 3: grep wrapper|^  " compose.personas.yml  [pipe, cwd a]
+rc: 0
+--- stdout
+  "c1":
+  "g1":
+    environment: { AGENT_PERSONA: "g1", AGENT_COLOUR: colour28, NEXUS_SCRATCH: "${NEXUS_SCRATCH_ROOT:-/srv/nexus-scratch}/g1", NEXUS_PORTS: "20100-20199", NEXUS_WRAPPER: "/etc/grok/wrapper.md" }
+      # Its wrapper file (nexus --config --wrapper), copied in by nexus --config: the grok shim adds it to the system
+      - { type: bind, source: ./personas/g1.wrapper.md, target: /etc/grok/wrapper.md, read_only: true, bind: { create_host_path: false } }
+  "c1-home":
+  "g1-home":
+--- stderr
+(empty)
+## run 4: config --yes … --wrapper g1:<S>/w/a.md  (the file put back, given again)  [pipe]
+rc: 0
+--- stdout
+nexus --config: setting up <A>
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  g1                              grok     docker   yes        the VM's             your agent
+  asks before running tools (not bypassPermissions): c1
+  published ports: c1 20000-20099, g1 20100-20199
+  wrapper file (in the system prompt of every new grok session): g1 <S>/w/a.md
+
+Start one from a project directory:  cd <P>/<project> && nexus c1
+g1: its wrapper file's copy, personas/g1.wrapper.md, was gone and is written again; `nexus g1 restart` brings it in (a running container keeps mounting the one that was removed)
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
+## run 5: <S>/bin/cmp <S>/w/a.md personas/g1.wrapper.md  [pipe, cwd a]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+(empty)
+## run 6: config --yes --no-link --no-build --wrapper g1:none  [pipe]
+rc: 0
+--- stdout
+nexus --config: setting up <A>
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  g1                              grok     docker   yes        the VM's             your agent
+  asks before running tools (not bypassPermissions): c1
+  published ports: c1 20000-20099, g1 20100-20199
+
+Start one from a project directory:  cd <P>/<project> && nexus c1
+g1: changed; `nexus g1 restart` applies it (that ends its tmux sessions)
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
+## run 7: grep wrapper|^  " compose.personas.yml  [pipe, cwd a]
+rc: 0
+--- stdout
+  "c1":
+  "g1":
+  "c1-home":
+  "g1-home":
+--- stderr
+(empty)

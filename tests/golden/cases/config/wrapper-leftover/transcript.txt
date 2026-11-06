@@ -1,0 +1,67 @@
+## run 1: config --yes …  (c1.wrapper.md and g3.wrapper.md by hand)  [pipe]
+rc: 0
+--- stdout
+nexus --config: setting up <A>
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  g1                              grok     docker   yes        the VM's             your agent
+  g2                              grok     docker   yes        the VM's             your agent
+  g3                              grok     docker   yes        the VM's             your agent
+  published ports: c1 20000-20099, g1 20100-20199, g2 20200-20299, g3 20300-20399
+  wrapper file (in the system prompt of every new grok session): g1 <S>/w/a.md, g2 <S>/w/a.md
+
+Start one from a project directory:  cd <P>/<project> && nexus c1
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
+## run 2: config --yes --no-link --no-build --persona g1:claude:docker  [pipe]
+rc: 0
+--- stdout
+nexus --config: setting up <A>
+-- g1 changed flavour: writing a new personas/g1.env (the old one is kept as a .bak)
+-- personas/g1.env
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  g1                              claude   docker   yes        the VM's             your agent
+  g2                              grok     docker   yes        the VM's             your agent
+  g3                              grok     docker   yes        the VM's             your agent
+  published ports: c1 20000-20099, g1 20100-20199, g2 20200-20299, g3 20300-20399
+  wrapper file (in the system prompt of every new grok session): g2 <S>/w/a.md
+
+Start one from a project directory:  cd <P>/<project> && nexus c1
+g1: changed; `nexus g1 restart` applies it (that ends its tmux sessions)
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
+## run 3: grep wrapper personas.json  [pipe, cwd a]
+rc: 0
+--- stdout
+      "wrapper": "<S>/w/a.md"
+--- stderr
+(empty)
+## run 4: config --yes --no-link --no-build --remove g2  [pipe]
+rc: 0
+--- stdout
+nexus --config: setting up <A>
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  g1                              claude   docker   yes        the VM's             your agent
+  g3                              grok     docker   yes        the VM's             your agent
+  published ports: c1 20000-20099, g1 20100-20199, g3 20300-20399
+
+Start one from a project directory:  cd <P>/<project> && nexus c1
+g2: removed. Its env file, notes, wrapper copy and home volume stay; to delete them:
+    docker rm -f agent-g2; docker volume rm agents_g2-home; rm -f <A>/personas/g2.env <A>/personas/g2.key <A>/personas/g2.key.pub <A>/personas/g2.grok.toml <A>/personas/g2.notes.md <A>/personas/g2.wrapper.md 
+    what it made with docker stays too: docker ps -a --filter label=nexus.persona=g2 lists it (docker volume ls and docker network ls take the filter too)
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it

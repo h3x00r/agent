@@ -32,6 +32,11 @@ def perm(name, default="Y/n"):
            "says)? [%s]: " % (name, default)
 
 
+def wrap(name):
+    """The wrapper file question for NAME (a grok persona), up to its default."""
+    return "Wrapper file for %s: a text file its grok adds to the system prompt of every new session (-: none)" % name
+
+
 def remove(name):
     return "Remove %s? Its env file and home volume stay [y/N]: " % name
 
@@ -121,7 +126,7 @@ def _(sb):
     # grok by number, the suggested name, no statusline, a key of its own; the key typed is hidden. Quit by number.
     tty(sb, vm(sb)
         + [(FLAVOUR, "2"), (CONTEXT, "docker"), ("Name [grok-docker]: ", ""), (sl("grok-docker"), "n"),
-           ("Projects root for grok-docker", "-"), (SSH, "new")]
+           ("Projects root for grok-docker", "-"), (SSH, "new"), (wrap("grok-docker"), "")]
         + [("XAI_API_KEY (hidden; empty to skip): ", "nxt-fake-key-2")]
         + ident("Grok Tester", "grok@example.invalid", "") + [(MENU, "9")])
 
@@ -129,7 +134,7 @@ def _(sb):
 @case("config/ask-piped-first-grok")
 def _(sb):
     # grok by name, the statusline on, your agent; no key typed, so it says to add one.
-    piped(sb, [sb.projects, "", "", "grok", "", "g1", "", "", "agent", "", "", "", "", ""])
+    piped(sb, [sb.projects, "", "", "grok", "", "g1", "", "", "agent", "-", "", "", "", ""])
 
 
 @case("config/ask-tty-first-link")
@@ -190,7 +195,7 @@ def _(sb):
              (perm("claude-docker-2"), "")]
         + claude_env()
         + [(MENU, "add"), (FLAVOUR, "grok"), (CONTEXT, ""), ("Name [grok-docker]: ", "g1"), (sl("g1"), "n"),
-           ("Projects root for g1", sb.path("roots/g1")), (SSH, "new"), ("XAI_API_KEY (hidden", "")] + ident()
+           ("Projects root for g1", sb.path("roots/g1")), (SSH, "new"), (wrap("g1"), ""), ("XAI_API_KEY (hidden", "")] + ident()
         + [(MENU, "")])
 
 
@@ -242,11 +247,11 @@ def _(sb):
     sb.personas("c1:claude:docker", "c2:claude:docker")
     new_env = "changed flavour: write a new personas/"
     tty(sb, [(MENU, "change"), (PICK, "c1"), (FLAVOUR, "grok"), (CONTEXT, ""), (sl("c1"), ""),
-             ("Projects root for c1", ""), (SSH, ""),
+             ("Projects root for c1", ""), (SSH, ""), (wrap("c1"), ""),
              (new_env, ""), ("XAI_API_KEY (hidden", "nxt-fake-key-2")] + ident() + [(MENU, "")],
         label="config --no-link --no-build  (c1 to grok, a new env file)")
     tty(sb, [(MENU, "change"), (PICK, "c2"), (FLAVOUR, "2"), (CONTEXT, ""), (sl("c2"), ""),
-             ("Projects root for c2", ""), (SSH, ""), (new_env, "n"), (MENU, "")],
+             ("Projects root for c2", ""), (SSH, ""), (wrap("c2"), ""), (new_env, "n"), (MENU, "")],
         label="config --no-link --no-build  (c2 to grok, its env file kept)")
     tty(sb, [(MENU, "change"), (PICK, "c1"), ("choice [grok]: ", "claude"), (CONTEXT, ""), (sl("c1"), ""),
              ("Projects root for c1", ""), (SSH, ""), (perm("c1"), ""), (new_env, "y")] + claude_env() + [(MENU, "")],
@@ -277,7 +282,7 @@ def _(sb):
     sb.write("a/personas/Bad.env", "XAI_API_KEY=\n", 0o600)
     tty(sb, vm(sb) + persona("d1")
         + [(MENU, "add"), (FLAVOUR, "2"), (CONTEXT, ""), ("Name [grok-docker]: ", "o2"), (sl("o2"), "n"),
-           ("Projects root for o2", ""), (SSH, ""), (MENU, "")])
+           ("Projects root for o2", ""), (SSH, ""), (wrap("o2"), ""), (MENU, "")])
 
 
 @case("config/menu-leftover-later")
@@ -407,7 +412,7 @@ def _(sb):
     tty(sb, first(sb, "c1") + [(AUTH, ""), ("git author name for ", ""), ("git author email for ", "<INT>")],
         label="config --no-link --no-build  (^C at the git email, .env saved, c1's env file staged)")
     tty(sb, [(MENU0, ""), (FLAVOUR, "grok"), (CONTEXT, ""), ("Name [grok-docker]: ", "g1"), (sl("g1"), ""),
-             ("Projects root for g1", ""), (SSH, ""), ("XAI_API_KEY (hidden", "<INT>")],
+             ("Projects root for g1", ""), (SSH, ""), (wrap("g1"), ""), ("XAI_API_KEY (hidden", "<INT>")],
         label="config --no-link --no-build  (^C at the hidden XAI key)")
 
 
@@ -423,7 +428,8 @@ def _(sb):
     # Saved as each action is done: c1 (a first run), then g1 from the menu; ^C at the menu keeps both.
     tty(sb, first(sb, "c1") + claude_env()
         + [(MENU, "add"), (FLAVOUR, "grok"), (CONTEXT, ""), ("Name [grok-docker]: ", "g1"), (sl("g1"), ""),
-           ("Projects root for g1", ""), (SSH, ""), ("XAI_API_KEY (hidden", "")] + ident() + [(MENU, "<INT>")])
+           ("Projects root for g1", ""), (SSH, ""), (wrap("g1"), ""), ("XAI_API_KEY (hidden", "")] + ident()
+        + [(MENU, "<INT>")])
 
 
 @case("config/menu-int-mid-add")
@@ -496,7 +502,8 @@ def _(sb):
     # A new persona with a key of its own: made after its save, told as a new one's (no restart).
     sb.personas("c1:claude:docker")
     tty(sb, [(MENU, "add"), (FLAVOUR, "grok"), (CONTEXT, ""), ("Name [grok-docker]: ", "g1"), (sl("g1"), ""),
-             ("Projects root for g1", ""), (SSH, "new"), ("XAI_API_KEY (hidden", "")] + ident() + [(MENU, "")])
+             ("Projects root for g1", ""), (SSH, "new"), (wrap("g1"), ""), ("XAI_API_KEY (hidden", "")] + ident()
+        + [(MENU, "")])
 
 
 @case("config/menu-images")

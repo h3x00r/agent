@@ -6,8 +6,11 @@ step), the tests look for exact lines in it, and compose expands the ${…} in i
 
 Every persona gets its shared scratch dir (domain/scratch.py: NEXUS_SCRATCH, and the dir at the same path inside)
 and the Nexus notes for its CLI (domain/notes.py), whatever its other settings; one with a port range, NEXUS_PORTS.
-service(p, …, older=True) is the service as nexus --config wrote it before those three (never written now: the
-restart notes tell a file from before them apart from one edited by hand).
+service(p, …, older=True) is the service as nexus --config wrote it before those three, the scratch dir, the notes
+and NEXUS_PORTS (never written now: the restart notes tell a file from before them apart from one edited by hand).
+A grok persona with a wrapper file also gets its copy (personas/NAME.wrapper.md) mounted read-only at
+/etc/grok/wrapper.md and NEXUS_WRAPPER naming that, which the grok shim reads; one without gets neither, its service
+as it was before them. older=True leaves them out too (no file from before them had a wrapper).
 
 render(personas, managed=…, env_files=…, legacy=…, ca=…, tele_files=…): the whole file. managed: whether
 personas/claude.managed.json exists (its mount is left out otherwise); env_files: a name → env file path map
@@ -28,8 +31,13 @@ Pitfalls (each pinned where named):
   a root-owned dir in their place (test_adapters.Render.test_scratch_and_notes)
 - NEXUS_PORTS only for a persona with a range; older=True leaves it out even then, with the scratch dir and the notes
   (test_adapters.Render.test_ports)
+- a grok persona with a wrapper file: NEXUS_WRAPPER last in its environment and the copy mounted read-only, after the
+  notes, with create_host_path false (a start without the copy fails rather than Docker making a root-owned dir in its
+  place); the copy, never the file it was made from; nothing for a claude one; older=True leaves both out
+  (test_adapters.Render.test_wrapper, golden config/wrapper-set, golden config/wrapper-both-gone)
 """
 from agentctl.domain import context, flavour, notes
+from agentctl.domain import persona as rules
 from agentctl.domain import scratch as scr
 from agentctl.domain import telemetry as tele
 
@@ -144,6 +152,18 @@ OWN_KEY = (
 )
 
 
+GROK_WRAPPER = (
+    "      # Its wrapper file (nexus --config --wrapper), copied in by nexus --config: the grok shim adds it to the system\n"
+    "      # prompt of every new session (NEXUS_WRAPPER). Rewritten in place, so a new session reads a change.\n"
+    "      - { type: bind, source: ./{copy}, target: " + rules.WRAPPER_TARGET + ", read_only: true, "
+    "bind: { create_host_path: false } }\n"
+)
+
+
+def _wrapped(p):
+    return p.flavour == "grok" and bool(p.wrapper)
+
+
 def _service(p, env_file, managed, ca=False, tele_env=None, older=False):
     fl, cx = flavour.get(p.flavour), context.get(p.context)
     more = ', SSH_AUTH_SOCK: ""' if p.ssh else ""
@@ -152,6 +172,8 @@ def _service(p, env_file, managed, ca=False, tele_env=None, older=False):
         more += ', NEXUS_SCRATCH: "%s"' % dir_
     if p.ports and not older:
         more += ', NEXUS_PORTS: "%s"' % p.ports
+    if _wrapped(p) and not older:
+        more += ', NEXUS_WRAPPER: "%s"' % rules.WRAPPER_TARGET
     if p.telemetry and p.flavour == "grok":     # its second env file: the token header grok reads from the env
         env_file = "[%s, %s]" % (env_file, tele_env or tele.env_file(p.name))
     s = (
@@ -183,6 +205,8 @@ def _service(p, env_file, managed, ca=False, tele_env=None, older=False):
         s += GROK_CONFIG.replace("{name}", p.name)
     if not older:
         s += (NOTES_CLAUDE if p.flavour == "claude" else NOTES_GROK).replace("{notes}", notes.file(p.name))
+    if _wrapped(p) and not older:
+        s += GROK_WRAPPER.replace("{copy}", rules.wrapper_file(p.name))
     if p.telemetry and p.flavour == "claude":
         s += TELEMETRY_CLAUDE.replace("{dropin}", tele.dropin_file(p.name))
     if p.telemetry and ca:

@@ -1,0 +1,107 @@
+## run 1: nexus g1 s1 -- grok --wrapper rules/a.md --single hi  [pipe]
+rc: 0
+--- stdout
+[fake attach: new-session -s s1 -c <P> grok --wrapper rules/a.md --single hi]
+--- stderr
+(empty)
+## run 2: nexus g1 -- agent --wrapper=../rules/a.md  [pipe, cwd projects/new]
+rc: 0
+--- stdout
+[fake attach: new-session -s new -c <P>/new agent --wrapper=../rules/a.md]
+--- stderr
+(empty)
+## run 3: nexus g1 s2 -- grok --wrapper rules/a.md -- --wrapper x  (passed on as given, its own -- too)  [pipe]
+rc: 0
+--- stdout
+[fake attach: new-session -s s2 -c <P> grok --wrapper rules/a.md -- --wrapper x]
+--- stderr
+(empty)
+## run 4: nexus g1 s3 -- grok --wrapper x.md  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: nothing was started: grok --wrapper would stop at once:
+       grok: --wrapper x.md: no such file here (a persona sees only its projects root and its scratch dir): nexus <persona> --wrapper FILE copies a file in
+## run 5: nexus g1 s3 -- grok --wrapper x.md  (in <S>/w, outside the root: x.md is read from the root)  [pipe, cwd w]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: <S>/w is outside g1's projects root; starting in <P>
+nexus: nothing was started: grok --wrapper would stop at once (./x.md is read from <P>, where the session starts, not from here):
+       grok: --wrapper x.md: no such file here (a persona sees only its projects root and its scratch dir): nexus <persona> --wrapper FILE copies a file in
+## run 6: nexus g1 s3 -- grok --wrapper ./x.md  (in <S>/w: ./x.md, once)  [pipe, cwd w]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: <S>/w is outside g1's projects root; starting in <P>
+nexus: nothing was started: grok --wrapper would stop at once (./x.md is read from <P>, where the session starts, not from here):
+       grok: --wrapper x.md: no such file here (a persona sees only its projects root and its scratch dir): nexus <persona> --wrapper FILE copies a file in
+## run 7: nexus g1 s3 -- grok --wrapper x.md  (in <S>/w/plink/app, a link to the root: the same dir, no note)  [pipe, cwd w/plink/app]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: nothing was started: grok --wrapper would stop at once:
+       grok: --wrapper x.md: no such file here (a persona sees only its projects root and its scratch dir): nexus <persona> --wrapper FILE copies a file in
+## run 8: nexus g1 s3 -- grok --wrapper <P>/x.md  (in <S>/w: an absolute path, no note)  [pipe, cwd w]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: <S>/w is outside g1's projects root; starting in <P>
+nexus: nothing was started: grok --wrapper would stop at once:
+       grok: --wrapper <P>/x.md: no such file here (a persona sees only its projects root and its scratch dir): nexus <persona> --wrapper FILE copies a file in
+## run 9: nexus g1 s4 -- /opt/grok/bin/grok --wrapper rules/a.md  (not the shim)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: /opt/grok/bin/grok in g1 isn't the grok shim, so it would take --wrapper for an option of its own: run grok or agent
+## run 10: nexus g1 s5 -- grok --wrapper rules/a.md  (an image without the shim)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: nothing was started: g1's image was built before its grok took a wrapper file.
+       Run `nexus g1 build`, then `nexus g1 restart` (this closes its tmux sessions).
+## run 11: nexus g1 s6 -- grok --single hi  [pipe]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s s6 -c <P> grok --single hi]
+--- stderr
+(empty)
+## run 12: nexus g1 s7 -- grok -- --wrapper x  (after the shim's own --: no check)  [pipe]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s s7 -c <P> grok -- --wrapper x]
+--- stderr
+(empty)
+## run 13: nexus g1 --wrapper rules/a.md s8 -- grok -- --wrapper x  (nexus's, once)  [pipe]
+rc: 0
+--- stdout
+[fake attach: new-session -s s8 -c <P> -e NEXUS_WRAPPER=<P>/rules/a.md grok -- --wrapper x]
+--- stderr
+(empty)
+## run 14: nexus g1 s9 -- grok --wrapper  (the shim's line has =)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: nothing was started: grok --wrapper would stop at once:
+       grok: --wrapper needs a file: --wrapper FILE, or --wrapper=FILE
+## run 15: nexus g1 s10 -- grok --wrapper rules/a.md  (the shim says nothing)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: nothing was started: grok --wrapper would stop at once:
+       exit 3
+## run 16: nexus c1 s1 -- grok --wrapper rules/a.md  [pipe]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s s1 -c <P> grok --wrapper rules/a.md]
+--- stderr
+(empty)
