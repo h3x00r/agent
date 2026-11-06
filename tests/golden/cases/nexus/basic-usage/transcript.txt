@@ -10,6 +10,11 @@ e.g. to /usr/local/bin/nexus.
                                            the same, for a session whose claude asks before running tools,
                                            or doesn't, whatever the persona's own setting (nexus --config);
                                            with headless, for that run
+  nexus <persona> --wrapper FILE [session] [-- cmd ...]
+                                           the same, for a session in which every new grok adds FILE's text
+                                           to its system prompt, whatever the persona's own (nexus --config);
+                                           grok personas; a FILE it can't see is copied into its scratch dir;
+                                           with headless, for that run
   nexus ls                                 a table of every persona and its state; one of the sessions of
                                            the running ones
   nexus top [-n SECONDS] [--once]          live view of every persona: CPU, memory and, per Claude Code
@@ -39,6 +44,7 @@ Examples, with personas named claude-ddev and grok-docker (the names nexus --con
   cd ~/projects/billing && nexus claude-ddev            # session "billing", shell at that dir
   nexus claude-ddev review -- claude --resume           # new session "review", straight into Claude Code
   nexus grok-docker                                     # same project, other persona
+  nexus grok-docker --wrapper rules.md deep -- grok     # new session "deep": its groks get rules.md's text
   git diff | nexus claude-ddev headless "review it"     # the review on stdout, no session
   nexus claude-ddev upgrade                             # the newest Claude Code, for every Claude persona
 --- stderr
@@ -55,6 +61,11 @@ e.g. to /usr/local/bin/nexus.
                                            the same, for a session whose claude asks before running tools,
                                            or doesn't, whatever the persona's own setting (nexus --config);
                                            with headless, for that run
+  nexus <persona> --wrapper FILE [session] [-- cmd ...]
+                                           the same, for a session in which every new grok adds FILE's text
+                                           to its system prompt, whatever the persona's own (nexus --config);
+                                           grok personas; a FILE it can't see is copied into its scratch dir;
+                                           with headless, for that run
   nexus ls                                 a table of every persona and its state; one of the sessions of
                                            the running ones
   nexus top [-n SECONDS] [--once]          live view of every persona: CPU, memory and, per Claude Code
@@ -84,6 +95,7 @@ Examples, with personas named claude-ddev and grok-docker (the names nexus --con
   cd ~/projects/billing && nexus claude-ddev            # session "billing", shell at that dir
   nexus claude-ddev review -- claude --resume           # new session "review", straight into Claude Code
   nexus grok-docker                                     # same project, other persona
+  nexus grok-docker --wrapper rules.md deep -- grok     # new session "deep": its groks get rules.md's text
   git diff | nexus claude-ddev headless "review it"     # the review on stdout, no session
   nexus claude-ddev upgrade                             # the newest Claude Code, for every Claude persona
 --- stderr
@@ -100,50 +112,10 @@ e.g. to /usr/local/bin/nexus.
                                            the same, for a session whose claude asks before running tools,
                                            or doesn't, whatever the persona's own setting (nexus --config);
                                            with headless, for that run
-  nexus ls                                 a table of every persona and its state; one of the sessions of
-                                           the running ones
-  nexus top [-n SECONDS] [--once]          live view of every persona: CPU, memory and, per Claude Code
-                                           session, context, 5h/7d limits and cost (q quits)
-  nexus <persona> ls                       a table of that persona's sessions
-  nexus <persona> stop|logs|build|pull [args]
-                                           args go to compose, e.g. build --no-cache
-  nexus <persona> headless [PROMPT] [FLAGS…]
-                                           one prompt, no tmux: claude -p or grok -p with FLAGS, in this
-                                           dir; piped input goes with the prompt; output and exit code are its
-  nexus <persona> start                    start it if it isn't running, without attaching (scripts, cron)
-  nexus <persona> restart                  recreate the container: picks up a rebuilt/pulled image, or a
-                                           projects root changed while it ran
-  nexus <persona> upgrade [VERSION|CHANNEL] [-y]
-                                           pin its CLI (claude or grok) to VERSION, else to the newest
-                                           release (of CHANNEL), build or pull the images, recreate every
-                                           persona of that flavour (asks first; -y doesn't), drop the old ones
-  nexus --config [--list | --yes …]        set this VM up: the settings every persona shares, the personas,
-                                           the launcher link, the images (nexus --config --help says more)
-  nexus --version                          the commit this checkout is at (git), and whether it has changes of
-                                           your own
-  nexus --update [-y]                      update this checkout from its branch (git fetch, a fast-forward),
-                                           then apply it: the images to build and the personas to restart,
-                                           asked first (-y doesn't ask; nexus --update --help says more)
-
-Examples, with personas named claude-ddev and grok-docker (the names nexus --config suggests):
-  cd ~/projects/billing && nexus claude-ddev            # session "billing", shell at that dir
-  nexus claude-ddev review -- claude --resume           # new session "review", straight into Claude Code
-  nexus grok-docker                                     # same project, other persona
-  git diff | nexus claude-ddev headless "review it"     # the review on stdout, no session
-  nexus claude-ddev upgrade                             # the newest Claude Code, for every Claude persona
---- stderr
-(empty)
-## run 4: nexus --help extra  [pipe]
-rc: 0
---- stdout
-nexus — launcher for persona containers. nexus --config sets up the personas and links this script,
-e.g. to /usr/local/bin/nexus.
-
-  nexus <persona> [session] [-- cmd ...]   attach to (or create) a tmux session in that persona,
-                                           named after $PWD unless given; cmd runs only on create
-  nexus <persona> --skip-bypass-permissions | --bypass-permissions [session] [-- cmd ...]
-                                           the same, for a session whose claude asks before running tools,
-                                           or doesn't, whatever the persona's own setting (nexus --config);
+  nexus <persona> --wrapper FILE [session] [-- cmd ...]
+                                           the same, for a session in which every new grok adds FILE's text
+                                           to its system prompt, whatever the persona's own (nexus --config);
+                                           grok personas; a FILE it can't see is copied into its scratch dir;
                                            with headless, for that run
   nexus ls                                 a table of every persona and its state; one of the sessions of
                                            the running ones
@@ -174,6 +146,58 @@ Examples, with personas named claude-ddev and grok-docker (the names nexus --con
   cd ~/projects/billing && nexus claude-ddev            # session "billing", shell at that dir
   nexus claude-ddev review -- claude --resume           # new session "review", straight into Claude Code
   nexus grok-docker                                     # same project, other persona
+  nexus grok-docker --wrapper rules.md deep -- grok     # new session "deep": its groks get rules.md's text
+  git diff | nexus claude-ddev headless "review it"     # the review on stdout, no session
+  nexus claude-ddev upgrade                             # the newest Claude Code, for every Claude persona
+--- stderr
+(empty)
+## run 4: nexus --help extra  [pipe]
+rc: 0
+--- stdout
+nexus — launcher for persona containers. nexus --config sets up the personas and links this script,
+e.g. to /usr/local/bin/nexus.
+
+  nexus <persona> [session] [-- cmd ...]   attach to (or create) a tmux session in that persona,
+                                           named after $PWD unless given; cmd runs only on create
+  nexus <persona> --skip-bypass-permissions | --bypass-permissions [session] [-- cmd ...]
+                                           the same, for a session whose claude asks before running tools,
+                                           or doesn't, whatever the persona's own setting (nexus --config);
+                                           with headless, for that run
+  nexus <persona> --wrapper FILE [session] [-- cmd ...]
+                                           the same, for a session in which every new grok adds FILE's text
+                                           to its system prompt, whatever the persona's own (nexus --config);
+                                           grok personas; a FILE it can't see is copied into its scratch dir;
+                                           with headless, for that run
+  nexus ls                                 a table of every persona and its state; one of the sessions of
+                                           the running ones
+  nexus top [-n SECONDS] [--once]          live view of every persona: CPU, memory and, per Claude Code
+                                           session, context, 5h/7d limits and cost (q quits)
+  nexus <persona> ls                       a table of that persona's sessions
+  nexus <persona> stop|logs|build|pull [args]
+                                           args go to compose, e.g. build --no-cache
+  nexus <persona> headless [PROMPT] [FLAGS…]
+                                           one prompt, no tmux: claude -p or grok -p with FLAGS, in this
+                                           dir; piped input goes with the prompt; output and exit code are its
+  nexus <persona> start                    start it if it isn't running, without attaching (scripts, cron)
+  nexus <persona> restart                  recreate the container: picks up a rebuilt/pulled image, or a
+                                           projects root changed while it ran
+  nexus <persona> upgrade [VERSION|CHANNEL] [-y]
+                                           pin its CLI (claude or grok) to VERSION, else to the newest
+                                           release (of CHANNEL), build or pull the images, recreate every
+                                           persona of that flavour (asks first; -y doesn't), drop the old ones
+  nexus --config [--list | --yes …]        set this VM up: the settings every persona shares, the personas,
+                                           the launcher link, the images (nexus --config --help says more)
+  nexus --version                          the commit this checkout is at (git), and whether it has changes of
+                                           your own
+  nexus --update [-y]                      update this checkout from its branch (git fetch, a fast-forward),
+                                           then apply it: the images to build and the personas to restart,
+                                           asked first (-y doesn't ask; nexus --update --help says more)
+
+Examples, with personas named claude-ddev and grok-docker (the names nexus --config suggests):
+  cd ~/projects/billing && nexus claude-ddev            # session "billing", shell at that dir
+  nexus claude-ddev review -- claude --resume           # new session "review", straight into Claude Code
+  nexus grok-docker                                     # same project, other persona
+  nexus grok-docker --wrapper rules.md deep -- grok     # new session "deep": its groks get rules.md's text
   git diff | nexus claude-ddev headless "review it"     # the review on stdout, no session
   nexus claude-ddev upgrade                             # the newest Claude Code, for every Claude persona
 --- stderr

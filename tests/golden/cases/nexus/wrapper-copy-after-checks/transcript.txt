@@ -1,0 +1,44 @@
+## run 1: nexus g1 --wrapper <S>/w/out.md main  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: session main is g1's shell, with g1's own wrapper file or none: name a new session, nexus g1 --wrapper <S>/w/out.md NAME
+## run 2: nexus g1 --wrapper <S>/w/out.md wa  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: session wa already runs under the wrapper file <P>/rules/a.md: end it, or name a new session: nexus g1 --wrapper <S>/w/out.md NAME
+## run 3: nexus g1 --wrapper <S>/w/out.md s1  (the probe fails)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: can't read g1's wrapper settings inside it (exit 1); try again, or `nexus g1 restart`
+## run 4: nexus g1 --wrapper <S>/w/out.md s1  (an image without the shim)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: nothing was started: g1's image was built before its grok took a wrapper file.
+       Run `nexus g1 build`, then `nexus g1 restart` (this closes its tmux sessions).
+## run 5: nexus g1 headless nxt hi --wrapper <S>/w/out.md  [pipe, cwd projects/app]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: nothing was started: g1's image was built before its grok took a wrapper file.
+       Run `nexus g1 build`, then `nexus g1 restart` (this closes its tmux sessions).
+## run 6: ls -A scratch/g1  (no copy)  [pipe, cwd .]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+(empty)
+## run 7: nexus g1 --wrapper <S>/w/out.md s1  (it starts: the copy)  [pipe]
+rc: 0
+--- stdout
+[fake attach: new-session -s s1 -c <P> -e NEXUS_WRAPPER=<S>/scratch/g1/wrappers/67a403d9ddd6-out.md]
+--- stderr
+nexus: --wrapper <S>/w/out.md is outside g1's projects root: a copy of it, <S>/scratch/g1/wrappers/67a403d9ddd6-out.md, goes in its place

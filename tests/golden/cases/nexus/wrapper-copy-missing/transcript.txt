@@ -1,0 +1,31 @@
+## run 1: nexus g1 start  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: <A>/personas/g1.wrapper.md isn't there, and g1's container mounts it (its wrapper file), so nexus won't start it: give it again, <A>/nexus --config --wrapper g1:PATH, or none, <A>/nexus --config --wrapper g1:none
+## run 2: nexus g1  (an attach to one that isn't running)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: <A>/personas/g1.wrapper.md isn't there, and g1's container mounts it (its wrapper file), so nexus won't start it: give it again, <A>/nexus --config --wrapper g1:PATH, or none, <A>/nexus --config --wrapper g1:none
+## run 3: nexus c1 start  (its service doesn't mount it)  [pipe]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+ Container agent-c1  Started
+nexus: c1: Claude defaults from personas/claude.json: model, modelSettings.opus.effortLevel, outputStyle, teammateMode, theme, tui, worktree.baseRef
+## run 4: nexus g1 restart  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: <A>/personas/g1.wrapper.md isn't there, and g1's container mounts it (its wrapper file), so nexus won't start it: give it again, <A>/nexus --config --wrapper g1:PATH, or none, <A>/nexus --config --wrapper g1:none
+## run 5: nexus g1  (running: an attach, as ever)  [pipe]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s projects -c <P>]
+--- stderr
+(empty)

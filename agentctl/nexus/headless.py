@@ -17,9 +17,17 @@ in this directory, without tmux. Only the CLI writes to stdout; its exit code is
   (INT) or 143 (TERM, HUP), whatever the CLI returned. A signal that comes again while its kill runs is
   dropped (a different one is sent on after it); docker exec itself ignores INT and QUIT, as a bash `&`
   job did.
+- With nexus's --wrapper FILE (a grok persona; persona_cmds.take_wrapper takes it from anywhere in the arguments),
+  the run gets NEXUS_WRAPPER (docker exec -e), which the image's grok shim turns into --rules; grok's own command
+  line is as without it (a -- that only --wrapper came after goes too). Without it, grok runs under the persona's
+  default wrapper (NEXUS_WRAPPER in its container's environment, from nexus --config), if it has one; a
+  --no-wrapper among the arguments goes to grok, whose shim then drops either.
 
 Pitfalls (each pinned where named):
 - never -t, on a terminal too (golden nexus/edge-headless-int-tty)
+- --wrapper F: -e NEXUS_WRAPPER on its docker exec, grok's argv as without it; taken from anywhere in the
+  arguments, after a -- too, and a -- that only it came after goes with it (grok gets no bare -- last); --no-wrapper
+  goes to grok as given; without the word, no -e (golden nexus/wrapper-headless)
 - the NEXUS_RUN id is digits and dashes only: the kill script greps for it as a regex (golden
   nexus/edge-headless-sigs)
 - the temp file (golden nexus/edge-headless-tmpdir, run.sh "headless runs left no temp files")
@@ -173,6 +181,7 @@ class Headless:
             die('headless: give the prompt first, e.g. nexus %s headless "list the TODOs" --output-format json; or pipe it in'
                 % self.p.name)
         perm = self.r.mode_env("")
+        wrap = self.r.wrapper_env("")
         first = b""
         if piped and prompt and not stat.S_ISREG(os.fstat(0).st_mode):
             rc, first = _first_char(3)
@@ -209,7 +218,7 @@ class Headless:
         self._give_back_stdin()
         self.run_id = "nexus-%d-%d%d" % (os.getpid(), random.randint(0, 32767), random.randint(0, 32767))
         dx = ["docker", "exec", "-e", "NEXUS_RUN=" + self.run_id] + (["-e", "NEXUS_PERMISSIONS=" + perm] if perm else []) \
-            + ["-w", self.dir]
+            + (["-e", "NEXUS_WRAPPER=" + wrap] if wrap else []) + ["-w", self.dir]
         if piped:
             dx.append("-i")
         dx += [self.p.container] + argv

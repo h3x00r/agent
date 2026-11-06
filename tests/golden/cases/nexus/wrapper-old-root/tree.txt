@@ -1,0 +1,13 @@
++ old/rules/linkout.md  l <S>/w/out.md
++ projects/rules/linkout.md  l <S>/w/out.md
++ scratch/g1  d 755
++ scratch/g1/wrappers  d 755
++ scratch/g1/wrappers/67a403d9ddd6-linkout.md  f 644
+    | # From outside
++ scratch/g1/wrappers/92bb9cbe08f1-a.md  f 644
+    | # Wrapper
+    | 
+    | Do the whole task; stop only when it is done.
++ w  d 755
++ w/out.md  f 644
+    | # From outside

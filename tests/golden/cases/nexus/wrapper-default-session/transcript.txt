@@ -1,0 +1,24 @@
+## run 1: nexus g1 --wrapper rules/a.md app  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: session app already runs under g1's own wrapper file (/etc/grok/wrapper.md, from nexus --config): end it, or name a new session: nexus g1 --wrapper rules/a.md NAME
+## run 2: nexus g1 --wrapper rules/a.md own  [pipe]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s own -c <P>]
+--- stderr
+(empty)
+## run 3: nexus g1 --wrapper rules/a.md gone  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: session gone already runs without a wrapper file: end it, or name a new session: nexus g1 --wrapper rules/a.md NAME
+## run 4: nexus g1 --wrapper rules/a.md s1  [pipe]
+rc: 0
+--- stdout
+[fake attach: new-session -s s1 -c <P> -e NEXUS_WRAPPER=<P>/rules/a.md]
+--- stderr
+(empty)

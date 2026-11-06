@@ -40,7 +40,7 @@ Personas
 What next?
   1) list      the shared settings and the personas, again
   2) add       a new persona
-  3) change    one persona's flavour, context, statusline, projects root, ssh, permissions or telemetry
+  3) change    one persona's flavour, context, statusline, projects root, ssh, permissions, wrapper file or telemetry
   4) remove    one persona (its env file and home volume stay)
   5) shared    the settings every persona shares: projects root, image registry, Claude Code version
   6) telemetry send OpenTelemetry to a collector: its address, token and CA, and which personas send
@@ -52,7 +52,7 @@ Start one from a project directory:  cd <P>/<project> && nexus grok-docker
 Day-to-day use, upgrades and troubleshooting: runbook.md
 --- stderr (no newline at the end)
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
-The VM's projects root, for personas without their own (mounted at the same path inside) [<HOME>/projects]: Image registry (local = build on this VM) [local]: Claude Code version, for the claude personas: latest | stable | X.Y.Z [latest]: choice [claude]: choice [docker]: Name [grok-docker]: Statusline (statusline/: model, context, cost; what nexus top shows) in grok-docker? [Y/n]: Projects root for grok-docker (-: the VM's, now <P>) [-]: choice [agent]: XAI_API_KEY (hidden; empty to skip): 
+The VM's projects root, for personas without their own (mounted at the same path inside) [<HOME>/projects]: Image registry (local = build on this VM) [local]: Claude Code version, for the claude personas: latest | stable | X.Y.Z [latest]: choice [claude]: choice [docker]: Name [grok-docker]: Statusline (statusline/: model, context, cost; what nexus top shows) in grok-docker? [Y/n]: Projects root for grok-docker (-: the VM's, now <P>) [-]: choice [agent]: Wrapper file for grok-docker: a text file its grok adds to the system prompt of every new session (-: none) [-]: XAI_API_KEY (hidden; empty to skip): 
 git author name for grok-docker [Test User]: git author email for grok-docker [test@example.invalid]: GH_TOKEN for the gh CLI in grok-docker (hidden; empty to skip): 
 config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
 choice [quit]: 
@@ -66,6 +66,7 @@ docker\r
 n\r
 -\r
 new\r
+\r
 Grok Tester\r
 grok@example.invalid\r
 9\r

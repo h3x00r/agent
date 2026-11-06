@@ -113,6 +113,37 @@ class Render(unittest.TestCase):
                         now = now.replace(new, "")
                     self.assertEqual(now, then)
 
+    def test_wrapper(self):
+        """A grok persona with a wrapper file: NEXUS_WRAPPER last in its environment, and its copy mounted read-only
+        after the notes, without create_host_path; nothing else changes. Without one, or on a claude persona (a hand
+        edit from_record refuses), nothing; older=True leaves both out, with the scratch dir and the notes."""
+        w = "/w/a.md"
+        for fl, ctx in (("grok", "docker"), ("grok", "ddev")):
+            p = Persona("g1", fl, ctx, "colour28", ssh="none", telemetry=True, ports="20100-20199", wrapper=w)
+            plain = Persona("g1", fl, ctx, "colour28", ssh="none", telemetry=True, ports="20100-20199")
+            for m in (True, False):
+                for ca in (True, False):
+                    now, before = compose_render.service(p, m, ca), compose_render.service(plain, m, ca)
+                    env = ', NEXUS_PORTS: "20100-20199", NEXUS_WRAPPER: "/etc/grok/wrapper.md" }\n'
+                    mount = ("      - { type: bind, source: ./personas/g1.wrapper.md, target: /etc/grok/wrapper.md, "
+                             "read_only: true, bind: { create_host_path: false } }\n")
+                    self.assertEqual(now.count(env), 1)
+                    self.assertEqual(now.count(mount), 1)
+                    self.assertLess(now.index("00-nexus.md"), now.index(mount))
+                    self.assertNotIn(w, now)                          # the copy, never the file it came from
+                    out = now.replace(env, ', NEXUS_PORTS: "20100-20199" }\n').replace(mount, "")
+                    out = out.replace(compose_render.GROK_WRAPPER.split("      - ")[0], "")     # its comment
+                    self.assertEqual(out, before)
+                    self.assertEqual(compose_render.service(p, m, ca, older=True),
+                                     compose_render.service(plain, m, ca, older=True))
+        c = Persona("c1", "claude", "docker", "colour25", wrapper=w)
+        self.assertEqual(compose_render.service(c, True), compose_render.service(Persona("c1", "claude", "docker",
+                                                                                         "colour25"), True))
+        out = compose_render.render([Persona("g1", "grok", "docker", "colour28", wrapper=w), c,
+                                     Persona("g2", "grok", "docker", "colour90")], managed=True)
+        self.assertEqual((out.count("NEXUS_WRAPPER: "), out.count("g1.wrapper.md"), out.count(".wrapper.md")),
+                         (1, 1, 1))
+
     def test_ask_problem(self):
         from agentctl.adapters import checks
         d = tempfile.mkdtemp()
@@ -277,15 +308,18 @@ class PersonasJson(unittest.TestCase):
               Persona("t1", "grok", "docker", "colour1", telemetry=True),
               Persona("d1", "claude", "docker", "colour1", telemetry=True, tool_details=True),
               Persona("e1", "grok", "docker", "colour1", telemetry=True, tool_content=True),
-              Persona("r1", "claude", "docker", "colour1", telemetry=True, ports="20100-20199")]
+              Persona("r1", "claude", "docker", "colour1", telemetry=True, ports="20100-20199"),
+              Persona("w1", "grok", "docker", "colour1", ports="20200-20299", wrapper="/srv/w/caf\udce9.md")]
         text = self.store.dumps(ps)
         self.assertTrue(text.endswith("}\n") and text.index('"z9"') < text.index('"a1"'))
         self.assertEqual(text.count('"permissions"'), 1)   # the default isn't written
         self.assertEqual(text.count('"telemetry": true'), 4)
         self.assertEqual(text.count('"tool_details": true'), 1)
         self.assertEqual(text.count('"tool_content": true'), 1)
-        self.assertEqual(text.count('"ports"'), 1)          # only where there is a range, and last
+        self.assertEqual(text.count('"ports"'), 2)          # only where there is a range, and last but the wrapper
         self.assertIn('"telemetry": true,\n      "ports": "20100-20199"\n    }', text)
+        self.assertEqual(text.count('"wrapper"'), 1)        # only where there is one, and last
+        self.assertIn('"ports": "20200-20299",\n      "wrapper": "/srv/w/caf\udce9.md"\n    }', text)
         self.assertEqual(self.load(text), ps)
         # A personas.json from before the ports reads the same, and is written back byte for byte.
         before = ('{\n  "version": 1,\n  "personas": {\n    "c1": {\n      "flavour": "claude",\n      "context": "docker",\n'
@@ -294,6 +328,7 @@ class PersonasJson(unittest.TestCase):
                   '    }\n  }\n}\n')
         old = self.load(before)
         self.assertEqual([p.ports for p in old], ["", ""])
+        self.assertEqual([p.wrapper for p in old], ["", ""])
         self.assertEqual(self.store.dumps(old), before)
         # tool details go with telemetry: a persona that doesn't send has none written
         self.assertNotIn("tool_", self.store.dumps([Persona("q1", "grok", "docker", "colour1", tool_details=True,
@@ -336,6 +371,14 @@ class PersonasJson(unittest.TestCase):
                 ('{"version": 1, "personas": {"c1": {%s, "ports": "20000-20099"}, "c2": {%s, "ports": "21000-21099"}, '
                  '"c3": {%s, "ports": "20050-20149"}}}' % (ok, ok, ok),
                  "persona 'c3' has ports 20050-20149, which overlap c1's (20000-20099)"),
+                ('{"version": 1, "personas": {"g1": {%s, "wrapper": 1}}}' % ok.replace('"claude"', '"grok"'),
+                 "wrapper that isn't a string"),
+                ('{"version": 1, "personas": {"g1": {%s, "wrapper": "w.md"}}}' % ok.replace('"claude"', '"grok"'),
+                 "has wrapper 'w.md': it takes an absolute path without control characters"),
+                ('{"version": 1, "personas": {"g1": {%s, "wrapper": "/a\\u001bb"}}}' % ok.replace('"claude"', '"grok"'),
+                 'has wrapper "/a\\u001bb"'),
+                ('{"version": 1, "personas": {"c1": {%s, "wrapper": "/w.md"}}}' % ok,
+                 "has a wrapper, which only a grok persona takes"),
                 ("{nope", "isn't valid JSON")):
             with self.assertRaises(self.store.BadPersonasJson) as c:
                 self.load(text)
@@ -381,6 +424,22 @@ def _closed_port():
     port = s.getsockname()[1]
     s.close()
     return port
+
+
+class Wrapper(unittest.TestCase):
+    def test_read_wrapper(self):
+        from agentctl.adapters import checks
+        with tempfile.TemporaryDirectory() as d:
+            f = os.path.join(d, "w.md")
+            self.assertEqual(checks.read_wrapper(f), (None, "isn't there: check the path"))
+            self.assertEqual(checks.read_wrapper(d), (None, "isn't a regular file: name a text file"))
+            for n, ok in ((122878, True), (122879, False), (122880, False), (300000, False)):
+                with open(f, "wb") as fh:
+                    fh.write(b"a" * n)
+                data, why = checks.read_wrapper(f)
+                self.assertEqual((data == b"a" * n, why == ""), (ok, ok), n)
+                if not ok:
+                    self.assertTrue(why.startswith("is %d bytes" % n), why)    # by its size, though read only in part
 
 
 class Telemetry(unittest.TestCase):

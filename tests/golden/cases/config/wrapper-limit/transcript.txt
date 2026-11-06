@@ -1,0 +1,23 @@
+## run 1: config --yes --no-link --no-build --wrapper g1:<S>/w/limit.md  [pipe]
+rc: 0
+--- stdout
+nexus --config: setting up <A>
+
+Personas:
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  g1                              grok     docker   yes        the VM's             your agent
+  published ports: g1 20000-20099
+  wrapper file (in the system prompt of every new grok session): g1 <S>/w/limit.md
+
+Start one from a project directory:  cd <P>/<project> && nexus g1
+g1: changed; `nexus g1 restart` applies it (that ends its tmux sessions)
+Day-to-day use, upgrades and troubleshooting: runbook.md
+--- stderr
+config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
+config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
+## run 2: <S>/bin/cmp <S>/w/limit.md personas/g1.wrapper.md  [pipe, cwd a]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+(empty)

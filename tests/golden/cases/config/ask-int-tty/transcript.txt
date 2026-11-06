@@ -69,7 +69,7 @@ Personas
 What next?
   1) list      the shared settings and the personas, again
   2) add       a new persona
-  3) change    one persona's flavour, context, statusline, projects root, ssh, permissions or telemetry
+  3) change    one persona's flavour, context, statusline, projects root, ssh, permissions, wrapper file or telemetry
   4) remove    one persona (its env file and home volume stay)
   5) shared    the settings every persona shares: projects root, image registry, Claude Code version
   6) telemetry send OpenTelemetry to a collector: its address, token and CA, and which personas send
@@ -93,12 +93,13 @@ SSH (git over ssh) for g1:
 == g1: sign-in and identity (personas/g1.env)
 --- stderr (no newline at the end)
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
-choice [add]: choice [claude]: choice [docker]: Name [grok-docker]: Statusline (statusline/: model, context, cost; what nexus top shows) in g1? [Y/n]: Projects root for g1 (-: the VM's, now <P>) [-]: choice [agent]: XAI_API_KEY (hidden; empty to skip): 
+choice [add]: choice [claude]: choice [docker]: Name [grok-docker]: Statusline (statusline/: model, context, cost; what nexus top shows) in g1? [Y/n]: Projects root for g1 (-: the VM's, now <P>) [-]: choice [agent]: Wrapper file for g1: a text file its grok adds to the system prompt of every new session (-: none) [-]: XAI_API_KEY (hidden; empty to skip): 
 --- echo
 \r
 grok\r
 \r
 g1\r
+\r
 \r
 \r
 \r

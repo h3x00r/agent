@@ -1,0 +1,40 @@
+## run 1: nexus g1 --wrapper rules/a.md s1  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: nothing was started: g1's image was built before its grok took a wrapper file.
+       Run `nexus g1 build`, then `nexus g1 restart` (this closes its tmux sessions).
+## run 2: nexus g1 headless nxt hi --wrapper ../rules/a.md  [pipe, cwd projects/app]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: nothing was started: g1's image was built before its grok took a wrapper file.
+       Run `nexus g1 build`, then `nexus g1 restart` (this closes its tmux sessions).
+## run 3: nexus g1 s1 -- grok --wrapper rules/a.md  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: nothing was started: g1's image was built before its grok took a wrapper file.
+       Run `nexus g1 build`, then `nexus g1 restart` (this closes its tmux sessions).
+## run 4: nexus g1 --wrapper rules/a.md s2  (REGISTRY set: pull, not build)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: nothing was started: g1's image was built before its grok took a wrapper file.
+       Run `nexus g1 pull`, then `nexus g1 restart` (this closes its tmux sessions).
+## run 5: nexus g1 s1  (no word: as ever)  [pipe]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s s1 -c <P>]
+--- stderr
+(empty)
+## run 6: nexus g1 --wrapper rules/a.md s1  (the probe fails)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: can't read g1's wrapper settings inside it (exit 1); try again, or `nexus g1 restart`

@@ -7,7 +7,7 @@ import os
 
 from scen import case, set_field
 from scen.config_cli import YES, grep
-from scen.config_interactive import CONTEXT, FLAVOUR, MENU, PICK, claude_env, perm, persona, sl, tty
+from scen.config_interactive import CONTEXT, FLAVOUR, MENU, PICK, claude_env, perm, persona, sl, tty, wrap
 
 EP = "https://127.0.0.1:1"
 CA = """-----BEGIN CERTIFICATE-----
@@ -305,7 +305,7 @@ def _(sb):
     grep(sb, "telemetry|tool_details", "personas.json")
     tty(sb, [(MENU, "add")] + persona("c2") + [(tele_q("c2"), "y"), (tc_one("c2"), "")] + claude_env()
         + [(MENU, "change"), (PICK, "g1"), ("choice [grok]: ", ""), (CONTEXT, ""), (sl("g1"), ""),
-           ("Projects root for g1", ""), ("choice [agent]: ", ""), (tele_q("g1", "Y/n"), ""), (tc_one("g1"), ""),
+           ("Projects root for g1", ""), ("choice [agent]: ", ""), (wrap("g1"), ""), (tele_q("g1", "Y/n"), ""), (tc_one("g1"), ""),
            (MENU, "")],
         label="config --no-link --no-build  (under all: c2 added, g1 changed; neither asked)")
     grep(sb, "TOOL_DETAILS", "personas/c2.telemetry.json")
@@ -369,7 +369,7 @@ def _(sb):
     grep(sb, "^TELEMETRY_TOOL", ".env")
     tty(sb, [(MENU, "add")] + persona("c2") + [(tele_q("c2"), "y")] + claude_env()
         + [(MENU, "change"), (PICK, "g1"), ("choice [grok]: ", ""), (CONTEXT, ""), (sl("g1"), ""),
-           ("Projects root for g1", ""), ("choice [agent]: ", ""), (tele_q("g1", "Y/n"), ""), (MENU, "")],
+           ("Projects root for g1", ""), ("choice [agent]: ", ""), (wrap("g1"), ""), (tele_q("g1", "Y/n"), ""), (MENU, "")],
         label="config --no-link --no-build  (under all: c2 added, g1 changed; neither asked)")
     tty(sb, sends + [(tele_q("c2", "Y/n"), ""), (td("all"), "none"), (tc("all"), ""), (MENU, "")],
         label="config --no-link --no-build  (tool details off, content still for all: the note for c1 and c2)")

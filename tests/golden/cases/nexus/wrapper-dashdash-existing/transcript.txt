@@ -1,0 +1,24 @@
+## run 1: nexus g1 wa -- grok --wrapper rules/a.md  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: session wa is there already, and tmux would attach to it without running grok --wrapper rules/a.md: name a new session, nexus g1 NAME -- grok --wrapper rules/a.md
+## run 2: nexus g1 -- grok --wrapper ../rules/a.md  (in projects/app: the session app)  [pipe, cwd projects/app]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: session app is there already, and tmux would attach to it without running grok --wrapper ../rules/a.md: name a new session, nexus g1 NAME -- grok --wrapper ../rules/a.md
+## run 3: nexus g1 main -- agent --wrapper=rules/a.md  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: session main is there already, and tmux would attach to it without running agent --wrapper=rules/a.md: name a new session, nexus g1 NAME -- agent --wrapper=rules/a.md
+## run 4: nexus g1 wa -- grok --wrapper 'sp ace/w x.md' '--single=a b'  (the hint's command shell-quoted)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: session wa is there already, and tmux would attach to it without running grok --wrapper sp ace/w x.md --single=a b: name a new session, nexus g1 NAME -- grok --wrapper 'sp ace/w x.md' '--single=a b'

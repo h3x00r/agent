@@ -1,0 +1,18 @@
+## run 1: nexus g1 --wrapper rules/none.md s1  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: --wrapper <P>/rules/none.md isn't there: check the path
+## run 2: nexus g1 headless nxt hi --wrapper ../rules  [pipe, cwd projects/app]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: --wrapper <P>/rules isn't a regular file: name a text file
+## run 3: nexus g1 --wrapper rules/a.md s1  [pipe]
+rc: 0
+--- stdout
+[fake attach: new-session -s s1 -c <P> -e NEXUS_WRAPPER=<P>/rules/a.md]
+--- stderr
+ Container agent-g1  Started

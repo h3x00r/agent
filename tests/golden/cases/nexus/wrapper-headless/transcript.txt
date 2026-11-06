@@ -1,0 +1,48 @@
+## run 1: nexus g1 headless nxt hi --wrapper ../rules/a.md  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+FAKE-REPLY
+--- stderr
+(empty)
+## run 2: nexus g1 --wrapper=../rules/a.md headless -- nxt hi --model m  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+FAKE-REPLY
+--- stderr
+(empty)
+## run 3: nexus g1 headless -- 'nxt hi' --wrapper=../rules/b.md  (after the --: nexus's too)  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+FAKE-REPLY
+--- stderr
+(empty)
+## run 4: nexus g1 headless 'nxt hi' -- --wrapper=../rules/b.md  (a -- only the word came after goes with it)  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+FAKE-REPLY
+--- stderr
+(empty)
+## run 5: nexus g1 headless 'nxt hi' --wrapper=../rules/b.md --  (one of the caller's own stays)  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+FAKE-REPLY
+--- stderr
+(empty)
+## run 6: nexus g1 headless nxt hi --no-wrapper  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+FAKE-REPLY
+--- stderr
+(empty)
+## run 7: nexus g1 headless 'nxt hi'  (no word)  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+FAKE-REPLY
+--- stderr
+(empty)
+## run 8: nexus g1 headless nxt hi --wrapper ../rules/a.md --wrapper=../rules/b.md  [pipe, cwd projects/app]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: --wrapper given twice: give one file

@@ -1,4 +1,5 @@
 import os
+import shutil
 import tempfile
 import unittest
 
@@ -18,7 +19,7 @@ class Plan(unittest.TestCase):
         with open(os.path.join(REPO, "Dockerfile")) as f:
             self.assertEqual(update.image_inputs(f.read()),
                              {"Dockerfile": "", "compose.yml": "", "tmux.conf": "", "entrypoint.sh": "",
-                              "claude-mode.sh": "claude", "image/docker-guard.py": "",
+                              "claude-mode.sh": "claude", "grok-mode.sh": "grok", "image/docker-guard.py": "",
                               "image/docker-compose-persona.py": "", "image/nexus-apm": "",
                               "image/glab-credential": ""})
 
@@ -73,6 +74,7 @@ class Record(unittest.TestCase):
 
     def test_load_and_save(self):
         d = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, d)
         self.assertEqual(update.load_record(d), {})
         rec = {"rev": "abc", "build": {"agent-grok-docker": ["Dockerfile"]}, "restart": {"g1": {"why": ["x"], "at": 1}}}
         update.save_record(d, rec)

@@ -51,11 +51,15 @@ image/                  copied into every image: docker-guard.py (the Docker gua
                         persona in front of compose project names), nexus-apm (APM at the version a project pins)
 claude-mode.sh          the image's `claude`: Claude Code (/usr/local/libexec/claude) in a session's permission mode,
                         if nexus gave it one (--skip-bypass-permissions | --bypass-permissions); else unchanged
+grok-mode.sh            the image's `grok`: grok (/opt/grok/.grok/bin/grok) with a wrapper file's text added to its
+                        system prompt (--rules), if nexus or `grok --wrapper FILE` gave it one; else unchanged
 tmux.conf               session-per-project ergonomics
 install.sh              the one-line install (curl … | bash): clones this repo to /opt/agents, then nexus --config
 nexus                   launcher: `nexus <persona>` from any project dir; `nexus --config`: the setup (personas,
                         flavours, contexts, .env, launcher link, images); `nexus --update`: pull, then apply
-agentctl/               the Python behind nexus, which is a shim (3.8+, standard library only)
+agentctl/               the Python behind nexus, which is a shim (3.8+, standard library only); probes/: the
+                        scripts it runs inside a persona, e.g. wrapper_probe.sh (is its grok the shim, a session's
+                        wrapper file, the shim's checks of a new session's grok command)
 statusline/claude/      Claude Code's statusline + its setting, for Claude personas with it on; feeds `nexus top`
 statusline/grok/        grok's statusline + its [ui.status_line], for grok personas with it on; feeds `nexus top`
 ssh/                    ssh settings for personas with a key of their own (a deploy key, say), or no ssh
@@ -166,6 +170,9 @@ goes anywhere before the `--`). The mode holds for that session as long as it li
 again included; an existing session in the other mode is refused, not attached. The words need an image with
 `claude-mode.sh`: `nexus claude-ddev build` (with a registry, `pull`) and `restart`, or the next `upgrade`; nexus
 refuses them on an older one.
+In a grok persona, `nexus grok-docker --wrapper rules.md deep -- grok` opens a session in which every grok adds
+`rules.md`'s text to its system prompt (its main agent's; subagents don't get it), and
+`nexus --config --wrapper NAME:PATH` gives every new session of that persona one (runbook §2 and §5).
 `Shift+←/→` hops between project sessions, `Prefix+s` lists them, `Prefix+d` detaches and leaves
 everything running. `nexus ls` shows every persona and its state, and the sessions of the running ones;
 `nexus top` keeps a live view of them (`q` quits), with Claude Code's own figures for each session.
@@ -370,6 +377,9 @@ In a Claude persona set to ask, a headless run has nobody to approve a tool, so 
 allow them with `--allowedTools`, or bypass for that run: `nexus claude-ddev --bypass-permissions headless "…"`.
 With `--skip-bypass-permissions`, a run in a persona that bypasses has them denied the same way. Both words need an
 image with `claude-mode.sh`.
+
+In a grok persona, `nexus grok-docker headless "list the TODOs" --wrapper rules.md` gives that run a wrapper file's
+text in grok's system prompt, and `--no-wrapper` runs it without the persona's own (runbook §3).
 
 ## License
 

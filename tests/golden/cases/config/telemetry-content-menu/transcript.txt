@@ -19,7 +19,7 @@ Personas
 What next?
   1) list      the shared settings and the personas, again
   2) add       a new persona
-  3) change    one persona's flavour, context, statusline, projects root, ssh, permissions or telemetry
+  3) change    one persona's flavour, context, statusline, projects root, ssh, permissions, wrapper file or telemetry
   4) remove    one persona (its env file and home volume stay)
   5) shared    the settings every persona shares: projects root, image registry, Claude Code version
   6) telemetry send OpenTelemetry to a collector: its address, token and CA, and which personas send
@@ -47,7 +47,7 @@ telemetry: nothing answered at https://127.0.0.1:1 (is it down, or is the addres
 What next?
   1) list      the shared settings and the personas, again
   2) add       a new persona
-  3) change    one persona's flavour, context, statusline, projects root, ssh, permissions or telemetry
+  3) change    one persona's flavour, context, statusline, projects root, ssh, permissions, wrapper file or telemetry
   4) remove    one persona (its env file and home volume stay)
   5) shared    the settings every persona shares: projects root, image registry, Claude Code version
   6) telemetry send OpenTelemetry to a collector: its address, token and CA, and which personas send
@@ -72,7 +72,7 @@ Personas
 What next?
   1) list      the shared settings and the personas, again
   2) add       a new persona
-  3) change    one persona's flavour, context, statusline, projects root, ssh, permissions or telemetry
+  3) change    one persona's flavour, context, statusline, projects root, ssh, permissions, wrapper file or telemetry
   4) remove    one persona (its env file and home volume stay)
   5) shared    the settings every persona shares: projects root, image registry, Claude Code version
   6) telemetry send OpenTelemetry to a collector: its address, token and CA, and which personas send
@@ -135,7 +135,7 @@ Personas
 What next?
   1) list      the shared settings and the personas, again
   2) add       a new persona
-  3) change    one persona's flavour, context, statusline, projects root, ssh, permissions or telemetry
+  3) change    one persona's flavour, context, statusline, projects root, ssh, permissions, wrapper file or telemetry
   4) remove    one persona (its env file and home volume stay)
   5) shared    the settings every persona shares: projects root, image registry, Claude Code version
   6) telemetry send OpenTelemetry to a collector: its address, token and CA, and which personas send
@@ -160,7 +160,7 @@ telemetry: nothing answered at https://127.0.0.1:1 (is it down, or is the addres
 What next?
   1) list      the shared settings and the personas, again
   2) add       a new persona
-  3) change    one persona's flavour, context, statusline, projects root, ssh, permissions or telemetry
+  3) change    one persona's flavour, context, statusline, projects root, ssh, permissions, wrapper file or telemetry
   4) remove    one persona (its env file and home volume stay)
   5) shared    the settings every persona shares: projects root, image registry, Claude Code version
   6) telemetry send OpenTelemetry to a collector: its address, token and CA, and which personas send
@@ -186,7 +186,7 @@ Personas
 What next?
   1) list      the shared settings and the personas, again
   2) add       a new persona
-  3) change    one persona's flavour, context, statusline, projects root, ssh, permissions or telemetry
+  3) change    one persona's flavour, context, statusline, projects root, ssh, permissions, wrapper file or telemetry
   4) remove    one persona (its env file and home volume stay)
   5) shared    the settings every persona shares: projects root, image registry, Claude Code version
   6) telemetry send OpenTelemetry to a collector: its address, token and CA, and which personas send
@@ -241,7 +241,7 @@ Personas
 What next?
   1) list      the shared settings and the personas, again
   2) add       a new persona
-  3) change    one persona's flavour, context, statusline, projects root, ssh, permissions or telemetry
+  3) change    one persona's flavour, context, statusline, projects root, ssh, permissions, wrapper file or telemetry
   4) remove    one persona (its env file and home volume stay)
   5) shared    the settings every persona shares: projects root, image registry, Claude Code version
   6) telemetry send OpenTelemetry to a collector: its address, token and CA, and which personas send
@@ -275,7 +275,7 @@ telemetry: nothing answered at https://127.0.0.1:1 (is it down, or is the addres
 What next?
   1) list      the shared settings and the personas, again
   2) add       a new persona
-  3) change    one persona's flavour, context, statusline, projects root, ssh, permissions or telemetry
+  3) change    one persona's flavour, context, statusline, projects root, ssh, permissions, wrapper file or telemetry
   4) remove    one persona (its env file and home volume stay)
   5) shared    the settings every persona shares: projects root, image registry, Claude Code version
   6) telemetry send OpenTelemetry to a collector: its address, token and CA, and which personas send
@@ -307,7 +307,7 @@ SSH (git over ssh) for g1:
 What next?
   1) list      the shared settings and the personas, again
   2) add       a new persona
-  3) change    one persona's flavour, context, statusline, projects root, ssh, permissions or telemetry
+  3) change    one persona's flavour, context, statusline, projects root, ssh, permissions, wrapper file or telemetry
   4) remove    one persona (its env file and home volume stay)
   5) shared    the settings every persona shares: projects root, image registry, Claude Code version
   6) telemetry send OpenTelemetry to a collector: its address, token and CA, and which personas send
@@ -321,7 +321,7 @@ Day-to-day use, upgrades and troubleshooting: runbook.md
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
 config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
 choice [quit]: choice [claude]: choice [docker]: Name [claude-docker]: Statusline (statusline/: model, context, cost; what nexus top shows) in c2? [Y/n]: Projects root for c2 (-: the VM's, now <P>) [-]: choice [agent]: Let c2 run its tools without asking (bypassPermissions; no: it asks first, as personas/claude.ask.json says)? [Y/n]: Send c2's telemetry (OpenTelemetry: tokens, cost, sessions, tool use; no prompts) to https://127.0.0.1:1? [y/N]: choice [login]: git author name for c2 [Test User]: git author email for c2 [test@example.invalid]: GH_TOKEN for the gh CLI in c2 (hidden; empty to skip): 
-choice [quit]: choice [-]: choice [grok]: choice [docker]: Statusline (statusline/: model, context, cost; what nexus top shows) in g1? [Y/n]: Projects root for g1 (-: the VM's, now <P>) [-]: choice [agent]: Send g1's telemetry (OpenTelemetry: tokens, cost, sessions, tool use; no prompts) to https://127.0.0.1:1? [Y/n]: choice [quit]: 
+choice [quit]: choice [-]: choice [grok]: choice [docker]: Statusline (statusline/: model, context, cost; what nexus top shows) in g1? [Y/n]: Projects root for g1 (-: the VM's, now <P>) [-]: choice [agent]: Wrapper file for g1: a text file its grok adds to the system prompt of every new session (-: none) [-]: Send g1's telemetry (OpenTelemetry: tokens, cost, sessions, tool use; no prompts) to https://127.0.0.1:1? [Y/n]: choice [quit]: 
 --- echo
 add\r
 \r
@@ -337,6 +337,7 @@ y\r
 \r
 change\r
 g1\r
+\r
 \r
 \r
 \r
@@ -368,7 +369,7 @@ Personas
 What next?
   1) list      the shared settings and the personas, again
   2) add       a new persona
-  3) change    one persona's flavour, context, statusline, projects root, ssh, permissions or telemetry
+  3) change    one persona's flavour, context, statusline, projects root, ssh, permissions, wrapper file or telemetry
   4) remove    one persona (its env file and home volume stay)
   5) shared    the settings every persona shares: projects root, image registry, Claude Code version
   6) telemetry send OpenTelemetry to a collector: its address, token and CA, and which personas send
@@ -399,7 +400,7 @@ telemetry: nothing answered at https://127.0.0.1:1 (is it down, or is the addres
 What next?
   1) list      the shared settings and the personas, again
   2) add       a new persona
-  3) change    one persona's flavour, context, statusline, projects root, ssh, permissions or telemetry
+  3) change    one persona's flavour, context, statusline, projects root, ssh, permissions, wrapper file or telemetry
   4) remove    one persona (its env file and home volume stay)
   5) shared    the settings every persona shares: projects root, image registry, Claude Code version
   6) telemetry send OpenTelemetry to a collector: its address, token and CA, and which personas send
@@ -447,7 +448,7 @@ Personas
 What next?
   1) list      the shared settings and the personas, again
   2) add       a new persona
-  3) change    one persona's flavour, context, statusline, projects root, ssh, permissions or telemetry
+  3) change    one persona's flavour, context, statusline, projects root, ssh, permissions, wrapper file or telemetry
   4) remove    one persona (its env file and home volume stay)
   5) shared    the settings every persona shares: projects root, image registry, Claude Code version
   6) telemetry send OpenTelemetry to a collector: its address, token and CA, and which personas send
@@ -473,7 +474,7 @@ telemetry: nothing answered at https://127.0.0.1:1 (is it down, or is the addres
 What next?
   1) list      the shared settings and the personas, again
   2) add       a new persona
-  3) change    one persona's flavour, context, statusline, projects root, ssh, permissions or telemetry
+  3) change    one persona's flavour, context, statusline, projects root, ssh, permissions, wrapper file or telemetry
   4) remove    one persona (its env file and home volume stay)
   5) shared    the settings every persona shares: projects root, image registry, Claude Code version
   6) telemetry send OpenTelemetry to a collector: its address, token and CA, and which personas send
@@ -498,7 +499,7 @@ Personas
 What next?
   1) list      the shared settings and the personas, again
   2) add       a new persona
-  3) change    one persona's flavour, context, statusline, projects root, ssh, permissions or telemetry
+  3) change    one persona's flavour, context, statusline, projects root, ssh, permissions, wrapper file or telemetry
   4) remove    one persona (its env file and home volume stay)
   5) shared    the settings every persona shares: projects root, image registry, Claude Code version
   6) telemetry send OpenTelemetry to a collector: its address, token and CA, and which personas send

@@ -42,6 +42,10 @@ class Parse(unittest.TestCase):
         o = cli.parse(["--tool-content", "c1:on", "--tool-details", "all:off"])
         self.assertEqual((o.tool_content, o.tool_details), (["c1:on"], ["all:off"]))
         self.assertEqual(cli.parse(["--ports", "c1:20000-20099", "--ports", "g1:x"]).ports, ["c1:20000-20099", "g1:x"])
+        self.assertEqual(cli.parse(["--wrapper", "g1:/w.md", "--wrapper", "g2:none"]).wrapper, ["g1:/w.md", "g2:none"])
+        with self.assertRaises(NexusError) as c:
+            cli.parse(["--wrapper"])
+        self.assertEqual(c.exception.message, "--wrapper needs NAME:PATH or NAME:none (see --help)")
         with self.assertRaises(NexusError) as c:
             cli.parse(["--ports"])
         self.assertEqual(c.exception.message, "--ports needs NAME:FROM-TO (see --help)")
@@ -520,6 +524,139 @@ class Ports(unittest.TestCase):
                 self.assertFalse(session.paths_alone("g2", "new", "old"))      # its notes mounted already
             finally:
                 os.chdir(cwd)
+
+
+class Wrapper(unittest.TestCase):
+    """A grok persona's wrapper file: the --wrapper flag, and its copy staged on every save."""
+    def setUp(self):
+        self.d = tempfile.mkdtemp()
+        self.cwd = os.getcwd()
+        os.chdir(self.d)
+        os.mkdir("personas")
+        os.mkdir("w")
+        put("w/a.md", "# Wrapper\n")
+        self.addCleanup(staging.cleanup)
+
+    def tearDown(self):
+        os.chdir(self.cwd)
+        shutil.rmtree(self.d)
+
+    def session(self, *personas, argv=(), cwd=None):
+        s = _ports_session(*personas, argv=argv)
+        s.o.cwd = self.d if cwd is None else cwd
+        s.home = os.path.join(self.d, "home")
+        s.wpaths, s.wstaged, s.wgone = {}, {}, []
+        return s
+
+    def refused(self, s, how, spec, msg):
+        with self.assertRaises(NexusError) as c:
+            getattr(s, how)(spec)
+        self.assertEqual(c.exception.message, msg)
+
+    def test_given(self):
+        """Made absolute (a relative path from where nexus --config ran, ~ from HOME) and checked as the shim checks
+        it; the path in a refusal is "the file" when it was given absolute, else the path it came to. Where nexus
+        --config ran (o.cwd, here w) isn't this process's current directory (the checkout, here self.d)."""
+        s = self.session(cwd=os.path.join(self.d, "w"))
+        a = os.path.join(self.d, "w", "a.md")
+        self.assertEqual(s.wrapper_given(a), (a, ""))
+        self.assertEqual(s.wrapper_given("a.md"), (a, ""))
+        self.assertEqual(s.wrapper_given("./../w/a.md"), (a, ""))
+        os.makedirs("home/x")
+        put("home/x/b.md", "b\n")
+        self.assertEqual(s.wrapper_given("~/x/b.md"), (os.path.join(self.d, "home/x/b.md"), ""))
+        self.assertEqual(s.wrapper_given(a + "/"), ("", "it ends in /, so it names a directory: name a file"))
+        self.assertEqual(s.wrapper_given("../w/"), ("", "it ends in /, so it names a directory: name a file"))
+        self.assertEqual(s.wrapper_given(self.d + "/w/a\x7f.md")[1],
+                         "its path must be an absolute path without control characters")
+        self.assertEqual(s.wrapper_given(self.d + "/w/nope.md"), ("", "the file isn't there: check the path"))
+        self.assertEqual(s.wrapper_given("nope.md"), ("", "%s/w/nope.md isn't there: check the path" % self.d))
+        self.assertEqual(s.wrapper_given("../w"), ("", "%s/w isn't a regular file: name a text file" % self.d))
+        # No current directory to go by (it was gone when nexus --config started): only an absolute path will do.
+        s = self.session(cwd="")
+        self.assertIn("the current directory is gone", s.wrapper_given("w/a.md")[1])
+        self.assertEqual(s.wrapper_given(a), (a, ""))
+
+    def test_flags(self):
+        """The spec and the file before the lock (check_flags); the persona after it: none there, or a claude one
+        (one turned claude by --persona in the same run too). NAME:none on a claude persona: nothing to do."""
+        for spec in ("g1", "g1:", ":w/a.md", "Bad!:w/a.md", "c1-:none"):
+            self.refused(self.session(), "check_wrapper_flag", spec,
+                         "--wrapper %s: it takes NAME:PATH or NAME:none" % spec)
+        self.refused(self.session(), "check_wrapper_flag", "g1:w/nope.md",
+                     "--wrapper g1:w/nope.md: %s/w/nope.md isn't there: check the path" % self.d)
+        # A control character in the spec: spelt as JSON spells it, as personas.json's are (S6 leftover).
+        self.refused(self.session(), "check_wrapper_flag", "g1:%s/w/a\tb.md" % self.d,
+                     '--wrapper "g1:%s/w/a\\tb.md": its path must be an absolute path without control characters'
+                     % self.d)
+        self.refused(self.session(), "check_wrapper_flag", "g\x1b1:none", '--wrapper "g\\u001b1:none": it takes '
+                     'NAME:PATH or NAME:none')
+        c1, g1 = Persona("c1", "claude", "docker", "colour25"), Persona("g1", "grok", "docker", "colour28")
+        s = self.session(c1, g1)
+        for spec in ("g1:w/a.md", "c1:w/a.md", "x1:w/a.md", "c1:none", "g1:none"):
+            s.check_wrapper_flag(spec)
+        self.assertEqual(s.wpaths, {k: os.path.join(self.d, "w/a.md") for k in ("g1:w/a.md", "c1:w/a.md", "x1:w/a.md")})
+        s.wrapper_flag("g1:w/a.md")
+        self.assertEqual(g1.wrapper, os.path.join(self.d, "w/a.md"))
+        self.refused(s, "wrapper_flag", "c1:w/a.md", "--wrapper c1:w/a.md: c1 is a claude persona, and only a grok "
+                                                     "persona takes a wrapper file (its grok reads it)")
+        self.refused(s, "wrapper_flag", "x1:w/a.md", "--wrapper x1:w/a.md: no persona x1 (add it with --persona)")
+        s.wrapper_flag("c1:none")
+        self.assertEqual(c1.wrapper, "")
+        s.wrapper_flag("g1:none")
+        self.assertEqual(g1.wrapper, "")
+        # Given twice for one persona: applied in order, so the last wins, as --ssh's and --telemetry's do.
+        put("w/b.md", "# Another\n")
+        s = self.session(c1, g1, argv=("--wrapper", "g1:w/a.md", "--wrapper", "g1:w/b.md", "--wrapper", "g1:none",
+                                       "--wrapper", "g1:w/b.md"))
+        s.check_flags()
+        s.apply_flags()
+        self.assertEqual(g1.wrapper, os.path.join(self.d, "w/b.md"))
+        # --persona g1:claude:… keeps no wrapper, so a --wrapper g1:PATH with it is refused.
+        g1.wrapper = os.path.join(self.d, "w/a.md")
+        s.add_flag("g1:claude:docker")
+        self.assertEqual(s.personas[1].wrapper, "")
+        self.refused(s, "wrapper_flag", "g1:w/a.md", "--wrapper g1:w/a.md: g1 is a claude persona, and only a grok "
+                                                     "persona takes a wrapper file (its grok reads it)")
+
+    def test_stage(self):
+        """Staged from the file it names, mode 644. The file gone or no longer one the shim takes, with a copy there:
+        the copy kept, a warning. With no copy either: a warning that names both fixes, and no refusal, so the rest
+        is saved (decision 1). A copy no persona has a wrapper for is removed at the commit; a removed persona's
+        isn't (it isn't among the personas)."""
+        a = os.path.join(self.d, "w", "a.md")
+        put("w/empty.md", "\n")
+        ps = [Persona("g1", "grok", "docker", "colour1", wrapper=a),
+              Persona("g2", "grok", "docker", "colour1", wrapper=os.path.join(self.d, "w/gone.md")),
+              Persona("g3", "grok", "docker", "colour1", wrapper=os.path.join(self.d, "w/empty.md")),
+              Persona("g4", "grok", "docker", "colour1", wrapper=os.path.join(self.d, "w/gone.md")),
+              Persona("g5", "grok", "docker", "colour1"), Persona("c1", "claude", "docker", "colour1"),
+              Persona("c2", "claude", "docker", "colour1")]
+        for n in ("g3", "g4", "g5", "c1", "x9"):              # x9: a removed persona's
+            put("personas/%s.wrapper.md" % n, "the copy\n")
+        os.symlink("nowhere", "personas/c2.wrapper.md")       # a dangling link goes too
+        s = self.session(*ps)
+        old = os.umask(0o077)                                  # whatever the umask, 644
+        try:
+            s.stage_wrappers()
+        finally:
+            os.umask(old)
+        self.assertEqual(sorted(s.wstaged), ["g1"])
+        self.assertEqual(read(s.wstaged["g1"]), "# Wrapper\n")
+        self.assertEqual(stat.S_IMODE(os.stat(s.wstaged["g1"]).st_mode), 0o644)
+        self.assertEqual(s.wgone, ["personas/g5.wrapper.md", "personas/c1.wrapper.md", "personas/c2.wrapper.md"])
+        fixes = "(--wrapper %s:PATH), or none (--wrapper %s:none)"
+        self.assertEqual(len(s.warnings), 3)
+        self.assertIn("g2: its wrapper file %s/w/gone.md isn't there, and there is no copy of it "
+                      "(personas/g2.wrapper.md) for its container to mount, so nexus won't start it: give it again "
+                      % self.d + fixes % ("g2", "g2"), s.warnings[0])
+        self.assertIn("g3: its wrapper file %s/w/empty.md is empty (newlines aside); personas/g3.wrapper.md is kept "
+                      "as it was" % self.d, s.warnings[1])
+        self.assertIn("g4: its wrapper file %s/w/gone.md isn't there; personas/g4.wrapper.md is kept as it was"
+                      % self.d, s.warnings[2])
+        self.assertTrue(s.warnings[2].endswith(fixes % ("g4", "g4")), s.warnings[2])
+        for n in ("g3", "g4", "x9"):
+            self.assertEqual(read("personas/%s.wrapper.md" % n), "the copy\n")
 
 
 if __name__ == "__main__":

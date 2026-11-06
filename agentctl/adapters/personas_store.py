@@ -1,8 +1,8 @@
 """Where the personas set up on this VM are kept, read as each tool has read them.
 
 personas.json (in the checkout, not in git) holds them: {"version": 1, "personas": {NAME: {flavour,
-context, colour, statusline, root?, ssh?, …, ports?}}}, in persona order (the order of their colours, of --list and
-of the hints).
+context, colour, statusline, root?, ssh?, …, ports?, wrapper?}}}, in persona order (the order of their colours, of
+--list and of the hints).
 - load_json(): the personas, each held to persona.from_record's rules; a name or key that comes twice,
   a key it doesn't take, another version, JSON that doesn't parse, or two personas whose port ranges overlap is
   BadPersonasJson, for both tools.
@@ -29,6 +29,8 @@ Pitfalls (each pinned where named):
 - where(): a generated file without personas.json is "lost" (golden nexus/m4-json-gone)
 - a .bak named only when there is one (golden config/m4-json-deleted)
 - version 1 as an integer: not true, not 1.0 (golden config/m4-version-true)
+- personas.json: a wrapper that isn't a string, isn't an absolute path without control characters, or is on a claude
+  persona: refused, for both tools (test_adapters.PersonasJson.test_what_it_refuses, golden config/wrapper-json-refused)
 """
 import json
 import os

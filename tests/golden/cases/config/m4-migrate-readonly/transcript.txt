@@ -25,6 +25,7 @@ claude-mode.sh
 compose.personas.yml
 compose.yml
 entrypoint.sh
+grok-mode.sh
 image
 install.sh
 nexus

@@ -1,0 +1,12 @@
++ a/personas/g1.wrapper.md  f 644
+    | # Wrapper
+    | 
+    | Do the whole task; stop only when it is done.
+    | 
+    | And one more rule.
+~ w/a.md  f 644 inode=same
+    | # Wrapper
+    | 
+    | Do the whole task; stop only when it is done.
+    | 
+    | And one more rule.

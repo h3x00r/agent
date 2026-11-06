@@ -1,0 +1,62 @@
+## run 1: nexus g1 --wrapper rules/a.md s1 -- grok --single hi  [pipe]
+rc: 0
+--- stdout
+[fake attach: new-session -s s1 -c <P> -e NEXUS_WRAPPER=<P>/rules/a.md grok --single hi]
+--- stderr
+(empty)
+## run 2: nexus g1 --wrapper rules/a.md s2 -- bash  (no grok or agent: a shell, no check)  [pipe]
+rc: 0
+--- stdout
+[fake attach: new-session -s s2 -c <P> -e NEXUS_WRAPPER=<P>/rules/a.md bash]
+--- stderr
+(empty)
+## run 3: nexus g1 --wrapper rules/a.md wa -- grok  (there under that file: attached, no check)  [pipe]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s wa -c <P> grok]
+--- stderr
+(empty)
+## run 4: nexus g1 --wrapper rules/a.md s3 -- /opt/grok/.grok/bin/grok --single hi  (grok itself, not the shim)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: /opt/grok/.grok/bin/grok in g1 isn't the grok shim, which is what reads --wrapper's file, so it would run without it: run grok or agent
+## run 5: nexus g1 --wrapper rules/a.md s4 -- grok --rules 'be terse'  (the shim would stop at once)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: nothing was started: grok would stop at once under --wrapper rules/a.md:
+       grok: --wrapper <P>/rules/a.md (NEXUS_WRAPPER): is too big: 122878 bytes, 8 of --rules and the 2 always kept for a blank line come to 122888, over the 122880 (120 KiB) one argument takes: shorten it
+## run 6: nexus g1 --wrapper <S>/w/out.md s5 -- grok --rules be terse  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: nothing was started: grok would stop at once under --wrapper <S>/w/out.md:
+       grok: --wrapper <S>/scratch/g1/wrappers/67a403d9ddd6-out.md (NEXUS_WRAPPER): is too big: …
+## run 7: ls -A scratch/g1/wrappers  (no copy)  [pipe, cwd .]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+(empty)
+## run 8: nexus g1 --wrapper <S>/w/out.md s6 -- grok  [pipe]
+rc: 0
+--- stdout
+[fake attach: new-session -s s6 -c <P> -e NEXUS_WRAPPER=<S>/scratch/g1/wrappers/67a403d9ddd6-out.md grok]
+--- stderr
+nexus: --wrapper <S>/w/out.md is outside g1's projects root: a copy of it, <S>/scratch/g1/wrappers/67a403d9ddd6-out.md, goes in its place
+## run 9: nexus g1 --wrapper <S>/w/out.md s7 -- /opt/grok/.grok/bin/grok  (the copy s6 made stays)  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: /opt/grok/.grok/bin/grok in g1 isn't the grok shim, which is what reads --wrapper's file, so it would run without it: run grok or agent
+## run 10: nexus g1 --wrapper ../rules/a.md -- grok --single 'hi there'  (in projects/app: the session app)  [pipe, cwd projects/app]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: session app already runs without a wrapper file: end it, or name a new session: nexus g1 --wrapper ../rules/a.md NAME -- grok --single 'hi there'

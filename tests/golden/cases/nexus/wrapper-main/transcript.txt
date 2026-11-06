@@ -1,0 +1,18 @@
+## run 1: nexus g1 --wrapper rules/a.md main  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: session main is g1's shell, with g1's own wrapper file or none: name a new session, nexus g1 --wrapper rules/a.md NAME
+## run 2: nexus g1 --wrapper=rules/b.md main  [pipe]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: session main is g1's shell, with g1's own wrapper file or none: name a new session, nexus g1 --wrapper rules/b.md NAME
+## run 3: nexus g1 main  (no word: as ever)  [pipe]
+rc: 0
+--- stdout
+[fake attach: new-session -A -s main -c <P>]
+--- stderr
+(empty)

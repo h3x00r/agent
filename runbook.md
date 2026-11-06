@@ -221,6 +221,7 @@ whose `apm.yml` has no `targets:` list of its own (section 2).
 | New session straight into Claude | `nexus <persona> <name> -- claude` (the command only runs when the session is created) |
 | A session that asks before running tools | `nexus <persona> --skip-bypass-permissions [session] [-- claude]` (below) |
 | A session that doesn't, in a persona that asks | `nexus <persona> --bypass-permissions [session] [-- claude]` |
+| A session with a wrapper file (grok) | `nexus <persona> --wrapper FILE [session] [-- grok]` (below); for every session of a persona, `nexus --config --wrapper` ([section 5](#a-wrapper-file-for-every-session-grok)) |
 | Same project, other persona | `nexus <other-persona>` from the same directory |
 | Next / previous project session | `Shift+→` / `Shift+←` |
 | Pick a session from a list | `Prefix+s` (Prefix is tmux's default, `Ctrl-b`) |
@@ -266,6 +267,75 @@ after `--` it belongs to the command, and any other `-x` after the persona is st
   as above. Without a word, nexus works exactly as before.
 - That teammates keep the mode was checked by reading Claude Code 2.1.302 and testing the links
   `/usr/local/libexec/claude-ask` and `claude-bypass`, not with a real signed-in team.
+
+**A wrapper file (grok).** A wrapper file is a text grok adds to its system prompt for a whole session: your
+working rules, a definition of done. `--wrapper FILE` gives one session, or one headless run, the file's text,
+whatever the persona's own wrapper file ([section 5](#a-wrapper-file-for-every-session-grok)). The image's `grok`
+(`grok-mode.sh`, a shim in front of xAI's binary) puts it first on grok's command line as `--rules=<the text>`, so
+it is the last block of the system prompt of the session's main agent, on every request and after `/compact` too.
+Subagents, and a workflow's agents, have a system prompt of their own and don't get it.
+```bash
+nexus grok-docker --wrapper rules.md deep -- grok               # a new session, straight into a wrapped grok
+nexus grok-docker --wrapper rules.md deep                       # a shell: every grok started in it is wrapped
+nexus grok-docker headless "list the TODOs" --wrapper rules.md  # one wrapped run (section 3)
+nexus grok-docker deep2 -- grok --wrapper=rules.md              # grok's own word: only that grok, checked first
+```
+- The word may stand before or after the session name, as `--wrapper FILE` or `--wrapper=FILE`; after `--` it
+  belongs to the command. FILE is read from where you run nexus. A file whose name starts with `-` goes as `./-x`.
+- It holds for as long as the session lives: nexus creates the session with `NEXUS_WRAPPER` in its tmux
+  environment, so its shell, a new window or split (`Prefix+c`, `Prefix+%`) and a `grok` started again later all
+  get it.
+- nexus looks inside the persona first. A session that is there already is attached as usual if it runs under that
+  same file; one under another file, under the persona's own wrapper file, with none, or whose wrapper can't be
+  read is refused: end it, or name a new session (the hint keeps your `-- command`). `main` (the persona's own shell
+  session) is always refused. A new session is created with the file and never attached to one that is there.
+- With a `grok` or `agent` command after `--` (`-- grok`, `-- /usr/local/bin/agent -p …`), a new session's command
+  is run inside first as the shim would run it with that file, its real grok swapped for `/bin/true`. A command that
+  isn't the shim, such as xAI's binary by its path (`/opt/grok/.grok/bin/grok`), would run without the file, and is
+  refused: `… isn't the grok shim, which is what reads --wrapper's file, …`. So is one the shim would stop at once,
+  with its own line, e.g. the file and the command's own `--rules` over the limit together: `nothing was started:
+  grok would stop at once under --wrapper FILE: …`. Any other command (a shell, say) isn't checked.
+- nexus checks FILE on the VM first, as the shim does (a readable regular file, UTF-8, no NUL byte, not empty once
+  its trailing newlines are gone, at most 122878 bytes), so a bad one starts nothing. A file in the persona's
+  projects root (by its real path) or its scratch dir is passed on as it is. Any other, a link in the root to a file
+  outside it included, is copied to `<scratch dir>/wrappers/<sha256:12>-<name>`, and nexus says so: `--wrapper …
+  is outside <persona>'s projects root: a copy of it, …, goes in its place`. That happens only once the checks
+  inside have passed: a run refused there leaves no copy. The copy is a snapshot (a later edit
+  of the file doesn't reach that session), and it stays: delete old ones by hand. A container made without its
+  scratch dir refuses a file outside its root (`nexus <persona> restart` adds the dir); one still running with an
+  old projects root sees only that root.
+- `-- grok --wrapper=FILE` (or `agent`) is the shim's own word: only that grok is wrapped, not the session. FILE is read
+  from where the session starts, not from where you are (when its check fails there and the two differ, nexus's refusal
+  says so), and it isn't copied in. nexus runs the shim's own checks of it inside first, and refuses a session that is
+  there already, since tmux would attach to it without running the command. That includes the default name, the
+  directory's, which an earlier `nexus <persona>` there has usually made: name a new session.
+- Inside a persona, `grok --wrapper FILE` wraps that one grok, and `grok --no-wrapper` starts one without the
+  session's or the persona's. Which wins: `grok --wrapper=` or `--no-wrapper` on grok's command line, then the
+  session's or the headless run's `nexus … --wrapper`, then the persona's own wrapper file.
+- Refused before anything runs: the word given twice, next to a `-- grok … --wrapper` command, with `ls`, `stop`,
+  `logs`, `build`, `pull`, `start`, `restart` or `upgrade`, and for a claude persona.
+- The word needs the persona's image built with the shim. On an image from before, nexus refuses it:
+  `nothing was started: <persona>'s image was built before its grok took a wrapper file`. Then
+  `nexus <persona> build` (with a registry, `pull`), then `nexus <persona> restart`. Without the word, nexus works
+  exactly as before.
+
+Things to know about a wrapper, from this word or the persona's:
+- `grok -c` or `-r` resumes a session with the system prompt it was created with: the wrapper it had then, or none.
+  Changing or removing the wrapper doesn't touch it; with one on, the shim says so. `/new` or `/clear` in a grok's
+  TUI starts a session with the wrapper that grok was started with.
+- grok's subcommands run without it (`grok inspect`, `grok update`, …), and so do its help and version calls
+  (`grok --help`, `grok --version`), and `grok dashboard` and `grok agent …`, which start sessions unwrapped.
+- Leader mode is unsupported with a wrapper: a leader gives every session it serves its first client's rules, so a
+  session may get another wrapper, or none. The shim warns on `--leader`; `[cli] use_leader` in grok's config does
+  the same without a warning.
+- The text is on grok's command line, so `ps` inside the persona shows it.
+- A headless run without `--trust` doesn't load the project's `AGENTS.md`; the wrapper and the Nexus notes still
+  load.
+- Every main-agent request carries the whole file: about 9k tokens for a 37 KB file. It is the same prefix on each,
+  so it is cached.
+- A grok updated by hand inside a persona (`grok update`, xAI's installer) may put `~/.grok/bin` first on PATH,
+  past the shim, and nothing is wrapped. Upgrade with `nexus <persona> upgrade`
+  ([section 6](#6-upgrade-claude-code-or-grok-apm-or-ddev)).
 
 **APM** ([Agent Package Manager](https://microsoft.github.io/apm/)) is in every persona. In a project,
 `apm install` installs what its `apm.yml` declares (skills, prompts, agents, MCP servers) and
@@ -334,6 +404,7 @@ ssh. The CLI's stdout, stderr and exit code are the command's; nexus's own messa
 | `"PROMPT" FLAGS…` | `claude -p FLAGS… -- "PROMPT"` | `grok --single="PROMPT" FLAGS…` |
 | `"PROMPT" FLAGS…`, input piped in | the same; Claude adds the input after the prompt | `grok --prompt-file /dev/stdin FLAGS…`, fed the prompt, a newline, then the input |
 | `FLAGS…`, input piped in | `claude -p FLAGS…`: the input is the prompt | `grok --prompt-file /dev/stdin FLAGS…` |
+| any of these with `--wrapper FILE` | refused: a claude persona | the same, with `NEXUS_WRAPPER` set (`docker exec -e`): the image's `grok` puts `--rules=<FILE's text>` first |
 
 - **The prompt is the first argument**, unless that is a flag (`-x`, `--opt`, or `--opt=value`, whose value may
   have spaces): then all the arguments are flags, and the prompt has to be piped in. Any other text may start
@@ -356,6 +427,14 @@ ssh. The CLI's stdout, stderr and exit code are the command's; nexus's own messa
   stand before `headless` or anywhere among its arguments, after the prompt too; nexus takes it out, and runs the
   CLI with `NEXUS_PERMISSIONS` set, so the image's `claude` puts `--permission-mode` first. The word needs the
   rebuilt image ([section 2](#2-daily-use)); a grok persona refuses it.
+- **A wrapper file** (a grok persona): `--wrapper FILE` gives that one run the file's text in grok's system prompt
+  ([section 2](#2-daily-use)). nexus takes it from anywhere in the arguments, before `headless`, after the prompt,
+  or after a `--` (a `--` that only the word came after goes with it), checks FILE, copies it in when the persona
+  can't see it, and runs the CLI with `NEXUS_WRAPPER` set; grok's own arguments are as without it. Without the
+  word, the run gets the persona's own wrapper file, if it has one
+  ([section 5](#a-wrapper-file-for-every-session-grok)). `--no-wrapper` is no word of nexus's: it reaches grok,
+  whose shim then runs it without either. The word needs the rebuilt image ([section 2](#2-daily-use)); a claude
+  persona refuses it.
 
 `Bash(ddev *)` allows every ddev subcommand, `ddev exec <anything>` included. In a docker-context persona
 allow what the project needs instead, e.g. `Bash(docker compose *)`. Docker access is root on the VM, so keep
@@ -727,6 +806,8 @@ Each is saved as it is done. Without questions:
 /opt/agents/nexus --config --yes --ssh grok-docker:agent                     # back to your ssh-agent
 /opt/agents/nexus --config --yes --permissions claude-docker:ask             # it asks before running tools (below)
 /opt/agents/nexus --config --yes --permissions claude-docker:bypass          # back to bypassPermissions
+/opt/agents/nexus --config --yes --wrapper grok-docker:~/rules/grok.md       # its wrapper file (below)
+/opt/agents/nexus --config --yes --wrapper grok-docker:none                  # no wrapper file
 /opt/agents/nexus --config --yes --ports grok-docker:20500-20599             # its port range (below)
 ```
 - A persona's own projects root is kept in `personas.json` (`root`), and can't contain spaces or `:`. Given
@@ -748,6 +829,10 @@ Each is saved as it is done. Without questions:
 - `--permissions <name>:ask|bypass` (repeatable) works on a persona that is there, or one `--persona` adds in the
   same run; without it a new persona bypasses, and an existing one keeps its setting. `ask` for a grok persona,
   or a name no persona has, is refused.
+- `--wrapper <name>:PATH|none` (repeatable) sets or removes a grok persona's wrapper file, the same way
+  ([below](#a-wrapper-file-for-every-session-grok)); without it an existing persona keeps its setting, and a new
+  one has none. A claude persona given a PATH, or a name no persona has, is refused (`<name>:none` on a claude
+  persona does nothing). Given twice for one persona, the last one wins.
 - Every persona has a port range of its own, `NEXUS_PORTS` inside it ([section 4](#ports)). `nexus --config` gives
   each persona without one a block of 100, on any run that writes: the block after the highest one in use, from
   20000 (`20000-20099`, `20100-20199`, …), and once that would pass 65535, the first free block from 20000.
@@ -786,6 +871,7 @@ persona order (the order of their colours and of `--list`), each under its name:
 | `root` | only with a projects root of its own: an absolute directory other than `/`, without spaces or `:` |
 | `ssh` | only when it doesn't use your agent: `none`, `personas/<name>.key`, or the absolute path of a key (no spaces, `:`, quotes or `$`) |
 | `permissions` | only for a Claude persona that asks before running tools: `ask`. Left out (or `bypass`), it runs them without asking |
+| `wrapper` | only for a grok persona with a wrapper file: the absolute path of the file it names, without control characters ([below](#a-wrapper-file-for-every-session-grok)) |
 | `ports` | its port range, `FROM-TO`: two ports from 1024 to 65535, no leading zeros, FROM no higher than TO, overlapping no other persona's. Left out, the next `nexus --config` that writes gives it one ([above](#5-add-change-or-remove-a-persona)) |
 
 - `nexus --config` writes it by a rename, under its lock, and keeps the one before as `personas.json.bak`. Then it
@@ -867,6 +953,66 @@ then, for one that is there already, `nexus <name> restart`; `nexus --config` sa
 - Headless runs of a persona that asks can't get approval, so tools that need it are denied
   ([section 3](#3-headless-runs)).
 - grok personas can't be set to ask (refused): grok takes its approval mode from `personas/grok.toml`.
+
+### A wrapper file for every session (grok)
+
+A grok persona can have a wrapper file of its own: its text goes into the system prompt of every new grok session
+in that persona, as `--wrapper FILE` does for one session ([section 2](#2-daily-use)). Set it once per persona:
+```bash
+# Make .enhanced-grok.md grok-heavy's default wrapper. --config copies it to personas/grok-heavy.wrapper.md,
+# mounts that read-only at /etc/grok/wrapper.md, and sets NEXUS_WRAPPER=/etc/grok/wrapper.md for the persona.
+nexus --config --yes --wrapper grok-heavy:~/projects/.enhanced-grok.md
+nexus grok-heavy restart              # the new mount and env need a restart, once (this ends its tmux sessions)
+
+# Several personas in one run
+nexus --config --yes --wrapper grok-heavy:~/wrappers/enhanced-grok.md --wrapper grok-heavy-1:~/wrappers/light.md
+
+# Edited the file? Re-run --config. It rewrites the copy in place, as it does the Nexus notes,
+# so the next new grok session gets the new text without a restart.
+nexus --config --yes
+
+# Remove it
+nexus --config --yes --wrapper grok-heavy:none && nexus grok-heavy restart
+```
+- In the menu, add or change a grok persona: `Wrapper file for <name>: a text file its grok adds to the system
+  prompt of every new session (-: none)`. Enter keeps what it has, `-` removes it; a file that fails a check below
+  is said, and asked again.
+- `nexus --config` makes PATH absolute (`~` is your home, a relative path is from where you run it) and checks the
+  file as the grok shim does: there, a regular file, readable, UTF-8 with no NUL byte, not empty once its trailing
+  newlines are gone, and at most 122878 bytes (120 KiB less 2 for a blank line), e.g. `--wrapper grok-heavy:…: the
+  file isn't UTF-8 text: save it as UTF-8`. A path ending in `/`, a claude persona and a name no persona has are
+  refused too, and nothing is written; `<name>:none` for a claude persona does nothing.
+- It keeps the path in `personas.json` (`wrapper`), and the file's text as `personas/<name>.wrapper.md` (mode 644,
+  ignored by git), written again on every run that writes, in place: the same file, which the container's
+  single-file mount keeps seeing. The persona's service mounts it read-only at `/etc/grok/wrapper.md` and sets
+  `NEXUS_WRAPPER=/etc/grok/wrapper.md`, which every tmux session and headless run inherits.
+- Setting one, or removing it, changes the service, so `nexus --config` says `<name>: changed; nexus <name> restart
+  applies it`: once. Another file, or the same file edited, needs no restart: `<name>: its wrapper file changed; its
+  next new grok session gets it (a running or resumed one keeps the system prompt it started with)`.
+- It takes an image with the grok shim (`grok-mode.sh`). On one built before it, nothing reads `NEXUS_WRAPPER`, and
+  nexus doesn't check this for a persona's own wrapper file as it does for `--wrapper FILE`: on such an image, run
+  `nexus <persona> build` (with a registry, `pull`) before that restart.
+- `nexus --config --list`, and the summary after a run, name each one: `wrapper file (in the system prompt of every
+  new grok session): grok-heavy /home/you/projects/.enhanced-grok.md`.
+- A session or a headless run given `--wrapper FILE` uses that file instead, and `grok --no-wrapper` or
+  `grok --wrapper=FILE` inside wins over both ([section 2](#2-daily-use)). `nexus <persona> --wrapper FILE` for a
+  session that runs under the persona's own wrapper file is refused: name a new session.
+- The file it names gone, or no longer one the shim takes (emptied, say): `nexus --config` keeps the copy as it
+  was, so new sessions get that, and warns: `<name>: its wrapper file … isn't there; personas/<name>.wrapper.md is
+  kept as it was, …: put the file back (or fix it), give another (--wrapper <name>:PATH), or none (--wrapper
+  <name>:none)`.
+- The copy gone too: `nexus --config` warns that nexus won't start the persona, and still saves the rest. nexus
+  then refuses to create its container (a start, a restart, an attach to one that isn't running):
+  `…/personas/<name>.wrapper.md isn't there, and <name>'s container mounts it (its wrapper file), so nexus won't
+  start it: give it again, …`. One that is running attaches as ever. Give the file again (`--wrapper <name>:PATH`),
+  or none.
+- A copy that was gone (deleted by hand, `git clean -X`, or the case above) is written again as a new file, which
+  a running container's single-file mount doesn't see: it keeps the one that was removed. So `nexus --config` says
+  `<name>: its wrapper file's copy, personas/<name>.wrapper.md, was gone and is written again; nexus <name> restart
+  brings it in …`.
+- A persona turned claude loses its wrapper file, and a `personas/<name>.wrapper.md` no persona has a wrapper for
+  is removed. A removed persona's copy stays, among the files `nexus --config` names with the command that deletes
+  them.
 
 ### Telemetry (OpenTelemetry)
 
@@ -1088,6 +1234,7 @@ writes as you change settings there, wins.
 | `personas/claude.ask.json` | `nexus <persona> restart` for each persona that asks, for the same reason |
 | `personas/grok.toml` | re-run `nexus --config`: it rewrites `personas/<name>.grok.toml` in place, so the next grok started in a running persona reads it |
 | `personas/notes.md` | re-run `nexus --config` (`nexus --update` does): it rewrites each `personas/<name>.notes.md` in place, so the next session of the CLI in a running persona reads it, with no restart |
+| the file a grok persona's wrapper file setting names | re-run `nexus --config`: it rewrites `personas/<name>.wrapper.md` in place, so the next new grok session in a running persona gets it, with no restart ([above](#a-wrapper-file-for-every-session-grok)) |
 
 - `nexus --config` writes nothing if a file wouldn't parse, since a broken one stops the CLI in every persona it
   reaches. JSON it checks itself; TOML with the VM's python3 if that is 3.11 or newer (tomllib), else in a persona
@@ -1136,6 +1283,9 @@ now; the other persona containers' secrets; Docker in Docker; the Python, APM an
   grok personas don't read the notes: add `"/etc/grok/rules"` to that table's `extra_rule_dirs`. A persona's own
   `~/.grok/config.toml` with an `extra_rule_dirs` of its own replaces the managed list (grok's `/import-claude`
   writes one), and that persona's grok then doesn't read the notes either: add `"/etc/grok/rules"` there too.
+- A wrapper file ([above](#a-wrapper-file-for-every-session-grok), or `--wrapper FILE` for one session) adds to
+  the notes and replaces nothing: it isn't a rule but a block of the system prompt itself, and only the session's
+  main agent gets it, not its subagents.
 - They are written in place, so a running persona sees a change at its CLI's next session, without a restart:
   edit `personas/notes.md`, then re-run `nexus --config`. The edit is a change to a committed file:
   `nexus --update` refuses to pull over it when the update changes that file too, so commit it to your own branch
@@ -1209,6 +1359,16 @@ instead.
   ddev-context flavour, and restart all ddev personas.
 - Don't run `claude update` or `claude install` inside a persona. The image refuses them ("Updates are disabled
   by your administrator"), because a copy in the home volume would shadow the image's binary.
+- After a grok upgrade, check the grok shim's word lists. `grok-mode.sh`, the image's `grok`, which applies a
+  wrapper file ([section 2](#2-daily-use)), keeps grok's own words between `# BEGIN grok …` and `# END grok …`
+  lines: its subcommands and the options that take a value, the hidden ones too. Its header says how they were
+  taken from `grok help` and from an inventory of the binary, for grok 1.0.77: re-run that against the new grok (in
+  its image, with `--network none`) and update the blocks. The unit tests check the blocks' shape, not grok's
+  help. Stale lists go wrong two ways. An option the shim doesn't know to take a value, whose value is a
+  subcommand's name (`grok --new-option update`), makes the shim take the call for that subcommand: it runs
+  unwrapped, quietly for a session's or the persona's wrapper file; with `--wrapper FILE` typed, the shim says
+  `grok: --wrapper: not applied: 'update' is a subcommand`. A new subcommand gets `--rules` in front, which grok
+  1.0.77 accepts and ignores before every subcommand tried, so that one is harmless.
 
 **Rollback:** `nexus <persona> upgrade <previous version>` (quick while that version is still in the build cache).
 By hand: set the previous `CLAUDE_VERSION`, build, then restart the Claude personas.
@@ -1307,6 +1467,16 @@ included, on throwaway personas. Nothing of your setup is read or changed, and w
   0.9.0 is skipped when PyPI can't be reached). A check of something the image was built before is skipped, saying so:
   `nexus <persona> build` first. Its test personas' scratch root is under the run's own scratch dir, never
   `/srv/nexus-scratch`.
+- Its wrapper checks run nexus's `--wrapper` end to end in the grok test persona: `grok-mode.sh`, the grok shim,
+  is its `grok`, in front of the stand-in (`NEXUS_GROK_REAL` names `tests/fake-grok`, which prints the size and
+  first line of the `--rules` it got, and `NEXUS_WRAPPED`). They cover a headless run with a file in the root, one
+  with a file outside it (the copy) and one without; a session given the word, and that session refused another
+  file; and `-- grok --wrapper=FILE`: checked inside first, refused for a session that is there, and refused with
+  the shim's own words for a missing file.
+  The shim's own rules are unit tests, `tests/unit/test_grok_mode.py`: it runs `grok-mode.sh` with
+  `NEXUS_GROK_REAL` set to a stand-in that prints its argv and environment, so no grok is needed. They don't hold
+  its word lists against grok's help: after a grok upgrade, check those by hand
+  ([section 6](#6-upgrade-claude-code-or-grok-apm-or-ddev)).
 - It lints with shellcheck and hadolint if they are installed or their images are here; it never pulls them.
 - Its goldens stage compares what the tools print, call and write with the scenarios in `tests/golden`, recorded
   from the bash tools, or from the Python where the behaviour is new (`tests/golden/ODDITIES.md` lists where they
@@ -1656,6 +1826,19 @@ Back on the Python tools (`git checkout main`), `# persona:` lines in `compose.p
 | `duplicate session: <name>`, with a session word | a session of that name was made since nexus looked, or a name with `#` or `\`, which tmux rewrites, matched one | name another session |
 | A headless run of a persona that asks, or given `--skip-bypass-permissions`, doesn't use the tools it needs | `claude -p` can't get approval from anyone, so tools that need it are denied | `--bypass-permissions` for that run, or allow them with `--allowedTools` (section 3) |
 | Claude doesn't ask in a session started with `--skip-bypass-permissions` | a flag typed after `claude` wins (`--dangerously-skip-permissions`, `--permission-mode …`): the word sets where Claude starts, not a lock | start `claude` without that flag |
+| `--wrapper is for grok personas: <persona> is a claude one, …`; `nexus --config`: `--wrapper <persona>:…: <persona> is a claude persona, …` | Claude Code takes no wrapper file | leave it out |
+| `--wrapper is for a session or a headless run, not for <command>` | the word with `ls`, `stop`, `logs`, `build`, `pull`, `start`, `restart` or `upgrade` | leave it out there: it goes with `nexus <persona> [session]` or `headless` |
+| `nothing was started: <persona>'s image was built before its grok took a wrapper file` | its image was built before the grok shim: its `grok` is xAI's binary, not `grok-mode.sh` | `nexus <persona> build` (with a registry, `pull`: the message says which), then `nexus <persona> restart` (ends its tmux sessions) |
+| `session <name> already runs under the wrapper file …`, `… under <persona>'s own wrapper file (…)` or `… without a wrapper file`; `session main is <persona>'s shell, with <persona>'s own wrapper file or none` | that session was created with another system prompt, and keeps it ([§2](#2-daily-use)) | end it, or name a new session: `nexus <persona> --wrapper FILE <new>` (the message's hint keeps your `-- command`) |
+| `<command> in <persona> isn't the grok shim, which is what reads --wrapper's file, so it would run without it` | `nexus <persona> --wrapper FILE <session> -- <command>` names xAI's binary (or another program called grok or agent) by its path: it ignores the file | run `grok` or `agent`, the shim |
+| `<command> in <persona> isn't the grok shim, so it would take --wrapper for an option of its own` | `nexus <persona> <session> -- <command> --wrapper=FILE` names xAI's binary (or another program called grok or agent) by its path | run `grok` or `agent`, the shim |
+| `nothing was started: grok would stop at once under --wrapper FILE:`, then the shim's line, e.g. `… is too big: …, 8 of --rules … come to …` | `nexus <persona> --wrapper FILE <session> -- grok …`: the shim, run inside first under that file, refuses the call; most often FILE and the command's own `--rules` are over the limit together | fix what the line says: shorten FILE or the command's `--rules` |
+| `session <name> is there already, and tmux would attach to it without running grok …` | `-- grok --wrapper=FILE` for a session that is there, often the one named after the directory | name a new session: `nexus <persona> <new> -- grok --wrapper=FILE` |
+| `nothing was started: grok --wrapper would stop at once`, then the shim's line, e.g. `grok: --wrapper x.md: no such file here (a persona sees only its projects root and its scratch dir) …` | `-- grok --wrapper=FILE`: the shim, run inside first, refuses FILE. It is read from where the session starts (nexus names that dir when it isn't yours), and isn't copied in | fix what the line says; for a file outside the projects root and the scratch dir, `nexus <persona> --wrapper FILE <session> -- grok`, which copies it in |
+| `--wrapper … and its container was made without its scratch dir …, where nexus would copy it` | the file is outside the persona's projects root, and its container is older than its scratch dir | `nexus <persona> restart` (ends its tmux sessions), or move the file into the projects root |
+| `nexus --config`: `warning: <persona>: its wrapper file … isn't there; personas/<persona>.wrapper.md is kept as it was, …` (or `… is empty`, …) | the file the persona's wrapper file setting names was moved, deleted or emptied; its sessions get the copy | put it back (or fix it) and re-run `nexus --config`; or `--wrapper <persona>:PATH` for another, `<persona>:none` for none |
+| `…/personas/<persona>.wrapper.md isn't there, and <persona>'s container mounts it (its wrapper file), so nexus won't start it`; inside, `grok: --wrapper /etc/grok/wrapper.md (NEXUS_WRAPPER): no such file here (the persona's copy of its wrapper file, …, is missing): re-run nexus --config` | the copy is gone (deleted by hand, `git clean -X`), perhaps with the file it was made from | re-run `nexus --config`: it writes the copy again from the file it names ([§5](#a-wrapper-file-for-every-session-grok)), then start the persona; if that file is gone too, `nexus --config --yes --wrapper <persona>:PATH`, or `<persona>:none` and `nexus <persona> restart` |
+| A grok in a session with a wrapper file doesn't seem to have it | a resumed session (`grok -c`, `-r`) keeps the prompt it was created with; a subcommand (`grok agent …`, `grok dashboard`) runs without it; leader mode (`--leader`, `[cli] use_leader`) gives a session its first client's rules | start a new session (not `-c`); run grok without the subcommand or the leader |
 | grok's status line row stays empty | grok shows its welcome screen (the row comes with the first prompt), statusline off, or the persona's own `~/.grok/config.toml` sets `[ui.status_line]` | start a session; turn it on with `nexus --config`; or remove that section there |
 | No statusline in Claude | workspace not trusted yet, or statusline off for this persona | accept the trust prompt (section 7); else turn it on with `nexus --config` and restart |
 | `nexus: headless: give the prompt first …` | no prompt, and nothing piped in (or the first argument is a one-word flag) | `nexus <persona> headless "PROMPT" [FLAGS…]`, or pipe the prompt in |
@@ -1784,6 +1967,9 @@ Keep comments on their own lines: after an empty value, compose reads an inline 
 | `CAROOT`, `NODE_EXTRA_CA_CERTS` | ddev context only: the VM's mkcert CA dir and file, so ddev, node and Claude trust `https://*.ddev.site` (`NODE_EXTRA_CA_CERTS` is empty when the launcher finds no CA) |
 | `NEXUS_PERMISSIONS` | Claude personas: `ask` or `bypass` in a session started with `--skip-bypass-permissions` or `--bypass-permissions` (in that tmux session's environment), or in that headless run; unset otherwise. Set by nexus, not by hand: the image's `claude` (`claude-mode.sh`) turns it into `--permission-mode default` or `bypassPermissions`, in front of Claude Code at `/usr/local/libexec/claude` |
 | `CLAUDE_CODE_TEAMMATE_COMMAND` | set by `claude-mode.sh` when it has a mode: `/usr/local/libexec/claude-ask` or `claude-bypass` (links to it), what an agent team's teammates start as, so they keep the session's mode |
+| `NEXUS_WRAPPER` | grok personas: the wrapper file the image's `grok` (`grok-mode.sh`) adds to the system prompt of every new session, as `--rules`. Set by nexus, not by hand: in a session started with `--wrapper FILE` (`tmux new-session -e`, in that session's environment) or that headless run (`docker exec -e`), as the path the persona sees; for the whole persona, `/etc/grok/wrapper.md` in its service's environment, from `nexus --config --wrapper`, which every session without one of its own inherits. Unset otherwise. The shim always unsets it before grok runs |
+| `NEXUS_WRAPPED` | set by the grok shim for the grok it starts: the absolute path of the wrapper file it applied; unset when it applied none, so a grok started from that grok's shell isn't taken for a wrapped one |
+| `NEXUS_GROK_REAL` | the program the grok shim runs in place of the real grok (`/opt/grok/.grok/bin/grok`, or `agent`): not set in a persona. `tests/run.sh` and `tests/unit/test_grok_mode.py` set it to a stand-in, and nexus's wrapper probe to `/bin/true`, to run the shim's checks of a command without starting grok |
 | `NEXUS_SCRATCH` | the persona's scratch dir, `<NEXUS_SCRATCH_ROOT>/<persona>`: the same path on the VM ([§4](#bind-mounts-and-the-scratch-dir)) |
 | `NEXUS_PORTS` | the persona's port range, `FROM-TO` from `personas.json` ([§4](#ports)) |
 | `NEXUS_DOCKER_GUARD` | `on` or `off`, from `.env`'s `DOCKER_GUARD` when the container was created: whether the entrypoint starts the Docker guard (only `off` is off) |

@@ -2,10 +2,12 @@
 # tests/fake-grok — grok as far as tests/run.sh needs it, on the PATH of its grok persona.
 #
 # Prints the arguments nexus gave it, the directory it runs in and, given --prompt-file, that file's
-# content with its newlines as "|". Then, by prompt: "exit N" exits N; "hold NAME" waits five minutes,
+# content with its newlines as "|"; then "rules: BYTES FIRST-LINE" for a --rules=TEXT argument (the grok shim's,
+# grok-mode.sh, which run.sh puts in front of it as grok) or "rules: none", and "wrapped: $NEXUS_WRAPPED" (or
+# "wrapped: none"). Then, by prompt: "exit N" exits N; "hold NAME" waits five minutes,
 # its pid in $NXT_STATE/NAME.pid; "daemon NAME" does the same after detaching a daemon of its own, as an
 # agent's dev server would be, with that daemon's pid in $NXT_STATE/NAME.daemon.
-state="${NXT_STATE:-/tmp}" prompt="" file=0 nl='
+state="${NXT_STATE:-/tmp}" prompt="" file=0 rules="" hasrules=0 nl='
 '
 printf 'argv:'
 for a in "$@"; do printf ' [%s]' "$a"; done
@@ -19,8 +21,15 @@ for a in "$@"; do
   case "$a" in
     --single=*)    prompt="${a#--single=}" ;;
     --prompt-file) file=1 ;;
+    --rules=*)     rules="${a#--rules=}" hasrules=1 ;;
   esac
 done
+if [ "$hasrules" = 1 ]; then
+  printf 'rules: %s %s\n' "$(printf '%s' "$rules" | wc -c | tr -d ' ')" "${rules%%"$nl"*}"
+else
+  echo 'rules: none'
+fi
+printf 'wrapped: %s\n' "${NEXUS_WRAPPED:-none}"
 
 case "$prompt" in
   "exit "*)   exit "${prompt#exit }" ;;

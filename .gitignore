@@ -17,6 +17,9 @@ personas/*.telemetry.json.*
 personas/*.notes.md
 personas/*.notes.md.*
 !personas/notes.md
+# written by nexus --config: a grok persona's copy of its wrapper file (--wrapper NAME:PATH)
+personas/*.wrapper.md
+personas/*.wrapper.md.*
 # written by nexus --config: this VM's personas, and the compose file generated from them
 personas.json
 personas.json.*

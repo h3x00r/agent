@@ -17,7 +17,7 @@ Personas
 What next?
   1) list      the shared settings and the personas, again
   2) add       a new persona
-  3) change    one persona's flavour, context, statusline, projects root, ssh, permissions or telemetry
+  3) change    one persona's flavour, context, statusline, projects root, ssh, permissions, wrapper file or telemetry
   4) remove    one persona (its env file and home volume stay)
   5) shared    the settings every persona shares: projects root, image registry, Claude Code version
   6) telemetry send OpenTelemetry to a collector: its address, token and CA, and which personas send
@@ -49,7 +49,7 @@ g1: add its public key on your git host, as a deploy key (a repo's settings; wri
 What next?
   1) list      the shared settings and the personas, again
   2) add       a new persona
-  3) change    one persona's flavour, context, statusline, projects root, ssh, permissions or telemetry
+  3) change    one persona's flavour, context, statusline, projects root, ssh, permissions, wrapper file or telemetry
   4) remove    one persona (its env file and home volume stay)
   5) shared    the settings every persona shares: projects root, image registry, Claude Code version
   6) telemetry send OpenTelemetry to a collector: its address, token and CA, and which personas send
@@ -61,7 +61,7 @@ Start one from a project directory:  cd <P>/<project> && nexus c1
 Day-to-day use, upgrades and troubleshooting: runbook.md
 --- stderr (no newline at the end)
 config: warning: your ssh-agent holds no keys: `ssh-add` before starting a persona that uses it, or git over ssh fails inside
-choice [quit]: choice [claude]: choice [docker]: Name [grok-docker]: Statusline (statusline/: model, context, cost; what nexus top shows) in g1? [Y/n]: Projects root for g1 (-: the VM's, now <P>) [-]: choice [agent]: XAI_API_KEY (hidden; empty to skip): 
+choice [quit]: choice [claude]: choice [docker]: Name [grok-docker]: Statusline (statusline/: model, context, cost; what nexus top shows) in g1? [Y/n]: Projects root for g1 (-: the VM's, now <P>) [-]: choice [agent]: Wrapper file for g1: a text file its grok adds to the system prompt of every new session (-: none) [-]: XAI_API_KEY (hidden; empty to skip): 
 git author name for g1 [Test User]: git author email for g1 [test@example.invalid]: GH_TOKEN for the gh CLI in g1 (hidden; empty to skip): 
 config: warning: couldn't check personas/grok.toml (no python3 for it here, nor a persona image yet): a broken one stops the CLI; re-run nexus --config after the build to check it
 choice [quit]: 
@@ -73,6 +73,7 @@ g1\r
 \r
 \r
 new\r
+\r
 \r
 \r
 \r

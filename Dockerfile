@@ -2,8 +2,9 @@
 #   --target claude (the default) | grok        --build-arg CONTEXT=docker (the default) | ddev
 # compose.personas.yml (written by nexus --config) passes both for each persona.
 #
-# Deliberately NO project toolchains (php, go, java). python3 is there for the statusline and APM, with
-# venv and uv for a project's own Python tools (in a venv of the project's, at the versions it pins).
+# Deliberately NO project toolchains (php, go, java). python3 is there for the statusline, APM and the grok
+# shim's wrapper check (grok-mode.sh), with venv and uv for a project's own Python tools (in a venv of the
+# project's, at the versions it pins).
 # The agent is an orchestrator: it runs `ddev exec …` / `docker compose exec …` and the project
 # containers own the runtimes.
 # That is what keeps the image stack-agnostic and stops its tool versions drifting from the project's.
@@ -24,8 +25,9 @@ FROM debian:bookworm-slim AS tools
 SHELL ["/bin/bash", "-eo", "pipefail", "-c"]
 ARG DEBIAN_FRONTEND=noninteractive
 
-# --- base tooling (python3: the statusline script, and APM's venv runs on it; python3-venv: `python3 -m venv`,
-# which bookworm's python3 can't do without it (no ensurepip); uv makes venvs without it)
+# --- base tooling (python3: the statusline script, grok-mode.sh's UTF-8 check, and APM's venv runs on it;
+# python3-venv: `python3 -m venv`, which bookworm's python3 can't do without it (no ensurepip); uv makes venvs
+# without it)
 RUN apt-get update && apt-get install -y --no-install-recommends \
       ca-certificates curl gnupg git openssh-client tmux ncurses-term \
       jq ripgrep less procps tar unzip xz-utils make bash-completion python3 python3-venv \
@@ -262,13 +264,16 @@ COPY --from=grok-cli /opt/grok /opt/grok
 COPY --from=apm-cli /opt/apm /opt/apm
 COPY --from=uv-bin /opt/uv/uv /opt/uv/uvx /usr/local/bin/
 COPY --from=glab-cli /opt/glab/bin/glab /usr/local/bin/glab
-# xAI's installer links grok and agent into ~/.grok/bin; on PATH under the same names.
+# grok itself is /opt/grok/.grok/bin/grok (and agent, its other name there, where xAI's installer links them);
+# `grok` and `agent` on PATH are grok-mode.sh, which adds the wrapper file that `nexus <persona> --wrapper FILE`
+# sets for a session or headless run, or `nexus --config --wrapper` for the persona (NEXUS_WRAPPER), as one --rules.
+COPY --chmod=0755 grok-mode.sh /usr/local/bin/grok
 # glab answers git's https://gitlab.com credential asks, through glab-credential (as the claude stage below says).
-RUN ln -s /opt/grok/.grok/bin/grok /usr/local/bin/grok \
- && ln -s /opt/grok/.grok/bin/agent /usr/local/bin/agent \
+RUN ln -s /usr/local/bin/grok /usr/local/bin/agent \
  && ln -s /opt/apm/bin/apm /usr/local/bin/apm \
  && git config --system --add 'credential.https://gitlab.com.helper' /usr/local/libexec/nexus/glab-credential \
- && test -x /usr/local/bin/grok && test -x /usr/local/bin/agent && apm --version \
+ && test -x /usr/local/bin/grok && test -x /usr/local/bin/agent \
+ && test -x /opt/grok/.grok/bin/grok && test -x /opt/grok/.grok/bin/agent && apm --version \
  && uv --version && glab version \
  && rm -rf /root/.apm /root/.config
 LABEL agent.flavour="grok"

@@ -1,0 +1,19 @@
+## run 1: config --list  (no wrapper file)  [pipe]
+rc: 0
+--- stdout
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  g1                              grok     docker   yes        the VM's             your agent
+  published ports: c1 20000-20099, g1 20100-20199
+--- stderr
+(empty)
+## run 2: config --list  (g1's)  [pipe]
+rc: 0
+--- stdout
+  NAME                            FLAVOUR  CONTEXT  STATUSLINE PROJECTS ROOT        SSH
+  c1                              claude   docker   yes        the VM's             your agent
+  g1                              grok     docker   yes        the VM's             your agent
+  published ports: c1 20000-20099, g1 20100-20199
+  wrapper file (in the system prompt of every new grok session): g1 <S>/w/a.md
+--- stderr
+(empty)

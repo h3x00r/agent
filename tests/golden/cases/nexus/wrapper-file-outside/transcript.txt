@@ -1,0 +1,36 @@
+## run 1: nexus g1 --wrapper <S>/w/out.md s1  [pipe]
+rc: 0
+--- stdout
+[fake attach: new-session -s s1 -c <P> -e NEXUS_WRAPPER=<S>/scratch/g1/wrappers/67a403d9ddd6-out.md]
+--- stderr
+nexus: --wrapper <S>/w/out.md is outside g1's projects root: a copy of it, <S>/scratch/g1/wrappers/67a403d9ddd6-out.md, goes in its place
+## run 2: nexus g1 --wrapper <S>/w/out.md s2  (again: the same copy)  [pipe]
+rc: 0
+--- stdout
+[fake attach: new-session -s s2 -c <P> -e NEXUS_WRAPPER=<S>/scratch/g1/wrappers/67a403d9ddd6-out.md]
+--- stderr
+nexus: --wrapper <S>/w/out.md is outside g1's projects root: a copy of it, <S>/scratch/g1/wrappers/67a403d9ddd6-out.md, goes in its place
+## run 3: nexus g1 --wrapper rules/link.md s3  (a link in the projects root to that file: by its real path)  [pipe]
+rc: 0
+--- stdout
+[fake attach: new-session -s s3 -c <P> -e NEXUS_WRAPPER=<S>/scratch/g1/wrappers/67a403d9ddd6-link.md]
+--- stderr
+nexus: --wrapper <P>/rules/link.md links to <S>/w/out.md, outside g1's projects root: a copy of it, <S>/scratch/g1/wrappers/67a403d9ddd6-link.md, goes in its place
+## run 4: nexus g1 --wrapper <S>/scratch/g1/mine.md s4  [pipe]
+rc: 0
+--- stdout
+[fake attach: new-session -s s4 -c <P> -e NEXUS_WRAPPER=<S>/scratch/g1/mine.md]
+--- stderr
+(empty)
+## run 5: nexus g1 headless nxt hi --wrapper <S>/w/out.md  [pipe, cwd projects/app]
+rc: 0
+--- stdout
+FAKE-REPLY
+--- stderr
+nexus: --wrapper <S>/w/out.md is outside g1's projects root: a copy of it, <S>/scratch/g1/wrappers/67a403d9ddd6-out.md, goes in its place
+## run 6: cmp <S>/w/out.md scratch/g1/wrappers/<copy>  (the file's bytes)  [pipe, cwd .]
+rc: 0
+--- stdout
+(empty)
+--- stderr
+(empty)

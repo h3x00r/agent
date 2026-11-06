@@ -1,3 +1,3 @@
 {
-  "provenance": "accepted: docker-work fix: --remove's note names what the persona made with docker (its nexus.persona label's filter), and removes the scratch dir with sudo; before that: docker-work: nexus gives compose NEXUS_SCRATCH_ROOT, so every docker call's env has it (fake.py ENV_KEYS); port ranges: \"ports\" in personas.json, NEXUS_PORTS in the service; the summary's and --list's published-ports line; --remove's note names the notes file"
+  "provenance": "accepted: grok wrapper (step 6): the menu's change line names the wrapper file (ACTIONS: '... ssh, permissions, wrapper file or telemetry')"
 }

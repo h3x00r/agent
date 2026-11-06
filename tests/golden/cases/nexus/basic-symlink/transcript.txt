@@ -44,6 +44,11 @@ e.g. to /usr/local/bin/nexus.
                                            the same, for a session whose claude asks before running tools,
                                            or doesn't, whatever the persona's own setting (nexus --config);
                                            with headless, for that run
+  nexus <persona> --wrapper FILE [session] [-- cmd ...]
+                                           the same, for a session in which every new grok adds FILE's text
+                                           to its system prompt, whatever the persona's own (nexus --config);
+                                           grok personas; a FILE it can't see is copied into its scratch dir;
+                                           with headless, for that run
   nexus ls                                 a table of every persona and its state; one of the sessions of
                                            the running ones
   nexus top [-n SECONDS] [--once]          live view of every persona: CPU, memory and, per Claude Code
@@ -73,6 +78,7 @@ Examples, with personas named claude-ddev and grok-docker (the names nexus --con
   cd ~/projects/billing && nexus claude-ddev            # session "billing", shell at that dir
   nexus claude-ddev review -- claude --resume           # new session "review", straight into Claude Code
   nexus grok-docker                                     # same project, other persona
+  nexus grok-docker --wrapper rules.md deep -- grok     # new session "deep": its groks get rules.md's text
   git diff | nexus claude-ddev headless "review it"     # the review on stdout, no session
   nexus claude-ddev upgrade                             # the newest Claude Code, for every Claude persona
 --- stderr

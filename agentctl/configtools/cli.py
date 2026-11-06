@@ -9,6 +9,7 @@ Pitfalls (each pinned where named):
 - --help only where it is reached (test_configtools.Parse.test_help_stops_where_it_is_read)
 - the next argument, even one like a flag; an empty one refused
   (test_configtools.Parse.test_a_value_is_the_next_argument_whatever_it_is, golden config/cli-need-argument)
+- --wrapper repeatable, every one kept in order (test_configtools.Parse.test_flags)
 """
 from agentctl.core.errors import NexusError
 
@@ -37,6 +38,12 @@ nexus --config — set this checkout up for one dev VM: which personas it runs, 
     --permissions NAME:ask|bypass    whether that claude persona runs its tools without asking: bypass
                                      (personas/claude.managed.json's bypassPermissions; the default) or
                                      ask (personas/claude.ask.json's mode over it); repeatable
+    --wrapper NAME:PATH|none         that grok persona's wrapper file: text its grok adds to the
+                                     system prompt of every new session (--rules), UTF-8, at most
+                                     122878 bytes (120 KiB less 2); a relative PATH is from the
+                                     current directory. Copied in as personas/NAME.wrapper.md on every
+                                     run, so after an edit a re-run is enough; setting or removing one
+                                     needs a restart. none: no wrapper (the default); repeatable
     --telemetry NAME:on|off          whether that persona sends telemetry (OpenTelemetry: tokens, cost,
                                      sessions, tool use; no prompts) to the collector below (default: off);
                                      repeatable
@@ -81,10 +88,11 @@ sends telemetry gets its settings written from .env's TELEMETRY_* (they hold the
 personas/<name>.telemetry.json, a managed drop-in, for claude; a [telemetry] table in its grok config
 and personas/<name>.telemetry.env for grok. Its tool details are sent too when TELEMETRY_TOOL_DETAILS
 in .env is on (all:on), or personas.json says so for it; its tool content the same way
-(TELEMETRY_TOOL_CONTENT). Every persona gets personas/<name>.notes.md, the Nexus notes (personas/notes.md
-filled in for it), which its CLI reads in every session, and a scratch dir in the shared scratch root
-(NEXUS_SCRATCH_ROOT in .env, else /srv/nexus-scratch), which nexus --config creates once (with sudo if
-it has to).
+(TELEMETRY_TOOL_CONTENT). A grok persona with a wrapper file gets its copy, personas/<name>.wrapper.md
+(mode 644), mounted as /etc/grok/wrapper.md. Every persona gets personas/<name>.notes.md, the Nexus
+notes (personas/notes.md filled in for it), which its CLI reads in every session, and a scratch dir in
+the shared scratch root (NEXUS_SCRATCH_ROOT in .env, else /srv/nexus-scratch), which nexus --config
+creates once (with sudo if it has to).
 """
 
 
@@ -101,6 +109,9 @@ class Options:
         self.add = []
         self.ssh = []
         self.permissions = []
+        self.wrapper = []
+        self.cwd = ""                 # the directory nexus --config was run from: a relative --wrapper PATH is
+        #                               from there (setup.main sets it, before its chdir to the checkout)
         self.ports = []
         self.telemetry = []
         self.tele_endpoint = ""
@@ -117,6 +128,7 @@ VALUED = {
     "--persona": ("NAME:FLAVOUR:CONTEXT[:ROOT]", "add"),
     "--ssh": ("NAME:agent, NAME:none, NAME:new or NAME:KEY", "ssh"),
     "--permissions": ("NAME:ask or NAME:bypass", "permissions"),
+    "--wrapper": ("NAME:PATH or NAME:none", "wrapper"),
     "--ports": ("NAME:FROM-TO", "ports"),
     "--telemetry": ("NAME:on or NAME:off", "telemetry"),
     "--telemetry-endpoint": ("a URL or none", "tele_endpoint"),

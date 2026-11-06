@@ -9,7 +9,10 @@ TELEMETRY_ENDPOINT in .env names; domain/telemetry.py), and with it its tool det
 other input its tools ran with) and its tool content (what they read, wrote and printed), each when .env doesn't
 turn it on for every persona (TELEMETRY_TOOL_DETAILS, TELEMETRY_TOOL_CONTENT); and its port range, FROM-TO
 (NEXUS_PORTS in its container): the ports its stacks publish on the VM's network, which every persona shares.
-nexus --config gives each persona without one a block of 100 of its own (next_ports()); --ports sets one.
+nexus --config gives each persona without one a block of 100 of its own (next_ports()); --ports sets one. A grok
+persona may have a wrapper file: the absolute path of a text file nexus --config copies to personas/NAME.wrapper.md,
+which its container mounts as /etc/grok/wrapper.md (NEXUS_WRAPPER), so the grok shim adds it to the system prompt of
+every new grok session (--rules); wrapper_problem() holds its text to the shim's rules.
 
 Pitfalls (each pinned where named):
 - valid_name() is a fullmatch: a trailing newline is no name (test_domain.Rules.test_names)
@@ -39,7 +42,19 @@ Pitfalls (each pinned where named):
   block), never a lower free one, so a removed persona's range (its container may still publish there) isn't handed
   on, unless it was the highest; past 65535, the first free block from 20000; none free, ""
   (test_domain.Rules.test_next_ports)
+- WRAPPER_MAX is the grok shim's 122880 less the 2 it counts for a blank line even with no user --rules: a file at
+  122879 or 122880 bytes, taken here, would stop every new grok session of the persona
+  (test_domain.Rules.test_wrapper_size)
+- wrapper: written only when set, and last, so a personas.json from before it reads the same and is written back
+  byte for byte; a string, an absolute path without control characters (shown as JSON spells it when it has one),
+  on a grok persona only (test_domain.Rules.test_wrapper_record,
+  test_adapters.PersonasJson.test_a_round_trip_keeps_order_and_bytes, test_adapters.PersonasJson.test_what_it_refuses,
+  golden config/wrapper-json-refused)
+- wrapper_problem(): the shim's rules, each with its own reason: no NUL, UTF-8 (no surrogate), something but newlines,
+  the size in bytes, not characters (test_domain.Rules.test_wrapper_rules, golden config/wrapper-files, golden
+  config/wrapper-limit)
 """
+import json
 import os
 import re
 from dataclasses import dataclass
@@ -58,6 +73,10 @@ ROOT_RULE = "an absolute directory other than /, without ':' or spaces"
 KEY_RULE = "an absolute path (or ~/…) without spaces, ':', quotes or $"
 PORTS_RULE = "FROM-TO, two ports from 1024 to 65535 with FROM no higher than TO (e.g. 20000-20099)"
 PORTS_BASE, PORTS_BLOCK, PORTS_MAX = 20000, 100, 65535
+WRAPPER_RULE = "an absolute path without control characters"
+WRAPPER_MAX = 122878      # bytes: the grok shim's 122880 (120 KiB; one argv word, 128 KiB at most), less the 2 it
+#                           always counts for the blank line before a user's --rules
+WRAPPER_TARGET = "/etc/grok/wrapper.md"     # where its container mounts the copy; NEXUS_WRAPPER names it
 
 _SPACE = " \t\n\r\f\v"
 
@@ -75,7 +94,8 @@ class Persona:
     telemetry: bool = False
     tool_details: bool = False
     tool_content: bool = False
-    ports: str = ""           # FROM-TO, or "" for none (yet): last, as the positional calls don't give it
+    ports: str = ""           # FROM-TO, or "" for none (yet): late, as the positional calls don't give it
+    wrapper: str = ""         # a grok persona's wrapper file, an absolute path, or "" for none: last, the same
 
     @property
     def container(self):
@@ -121,6 +141,35 @@ def key_path_ok(name, k):
     if any(c in _SPACE + ":'\"$" for c in k):
         return False
     return (len(k) >= 2 and k.startswith("/")) or k == "personas/%s.key" % name
+
+
+def wrapper_file(name):
+    """NAME's copy of its wrapper file, relative to the checkout."""
+    return "personas/%s.wrapper.md" % name
+
+
+def wrapper_path_ok(w):
+    """A wrapper file's path as personas.json holds it: absolute, no control character (it is shown by line)."""
+    return w.startswith("/") and len(w) >= 2 and not any(ord(c) < 32 or ord(c) == 127 for c in w)
+
+
+def wrapper_problem(data, size=None):
+    """What keeps DATA (a wrapper file's bytes; SIZE, the file's size, when DATA is only its start) from being one, as
+    a phrase after its path, or "": the grok shim's rules: at most WRAPPER_MAX bytes, no NUL, UTF-8 text, something in
+    it but newlines."""
+    size = len(data) if size is None else size
+    if size > WRAPPER_MAX:
+        return "is %d bytes, more than the %d the grok shim takes (120 KiB less 2 for a blank line): shorten it" \
+            % (size, WRAPPER_MAX)
+    if b"\0" in data:
+        return "holds a NUL byte, so it isn't text: it takes a UTF-8 text file"
+    try:
+        data.decode("utf-8")
+    except UnicodeDecodeError:
+        return "isn't UTF-8 text: save it as UTF-8"
+    if not data.rstrip(b"\n"):
+        return "is empty (newlines aside): it takes the text to add to the system prompt"
+    return ""
 
 
 def valid_claude_version(v):
@@ -208,7 +257,7 @@ def parse_meta_line(line):
 
 TOOL_FIELDS = ("tool_details", "tool_content")     # what telemetry may carry besides its defaults (domain/telemetry.py)
 FIELDS = ("flavour", "context", "colour", "statusline", "root", "ssh", "permissions", "telemetry") + TOOL_FIELDS \
-    + ("ports",)
+    + ("ports", "wrapper")
 
 
 class BadRecord(ValueError):
@@ -229,7 +278,7 @@ def _text_ok(v):
 def to_record(p):
     """The persona as personas.json holds it under its name: root and ssh only when it has them, permissions
     only when it asks, telemetry only when it sends, tool_details and tool_content only when it sends them, ports
-    only when it has a range."""
+    only when it has a range, wrapper only when it has one."""
     d = {"flavour": p.flavour, "context": p.context, "colour": p.colour, "statusline": p.statusline}
     if p.root:
         d["root"] = p.root
@@ -244,6 +293,8 @@ def to_record(p):
                 d[k] = True
     if p.ports:
         d["ports"] = p.ports
+    if p.wrapper:
+        d["wrapper"] = p.wrapper
     return d
 
 
@@ -258,7 +309,7 @@ def from_record(name, d):
     for k in FIELDS[:4]:
         if k not in d:
             raise BadRecord("has no %s" % k)
-    for k in ("flavour", "context", "colour", "root", "ssh", "permissions", "ports"):
+    for k in ("flavour", "context", "colour", "root", "ssh", "permissions", "ports", "wrapper"):
         if k in d and not isinstance(d[k], str):
             raise BadRecord("has a %s that isn't a string" % k)
         if k in d and not _text_ok(d[k]):
@@ -294,8 +345,18 @@ def from_record(name, d):
         raise BadRecord("has permissions 'ask', which only a claude persona takes (grok's come from personas/grok.toml)")
     if "ports" in d and port_range(d["ports"]) is None:
         raise BadRecord("has ports '%s': it takes %s" % (d["ports"], PORTS_RULE))
+    w = d.get("wrapper", "")
+    if "wrapper" in d and not wrapper_path_ok(w):
+        raise BadRecord("has wrapper %s: it takes %s" % (_shown(w), WRAPPER_RULE))
+    if "wrapper" in d and f != "grok":
+        raise BadRecord("has a wrapper, which only a grok persona takes (the grok shim reads it)")
     return Persona(name, f, c, col, d["statusline"], r, k, perm, d.get("telemetry", False), d.get("tool_details", False),
-                   d.get("tool_content", False), d.get("ports", ""))
+                   d.get("tool_content", False), d.get("ports", ""), w)
+
+
+def _shown(v):
+    """V quoted for a message: as it is, unless it holds a control character (then as JSON spells it)."""
+    return "'%s'" % v if not any(ord(c) < 32 or ord(c) == 127 for c in v) else json.dumps(v)
 
 
 def key_file(p, checkout):

@@ -1,0 +1,58 @@
+## run 1: nexus g1 --wrapper ../rules/o.md s1  [pipe, cwd old/app]
+rc: 0
+--- stdout
+[fake attach: new-session -s s1 -c <S>/old/app -e NEXUS_WRAPPER=<S>/old/rules/o.md]
+--- stderr
+nexus: warning: g1 still runs with the projects root it was created with, <S>/old: nexus g1 restart applies <P> (PROJECTS_ROOT in <A>/.env), and ends its sessions
+## run 2: nexus g1 --wrapper <P>/rules/a.md s2  [pipe, cwd old/app]
+rc: 0
+--- stdout
+[fake attach: new-session -s s2 -c <S>/old/app -e NEXUS_WRAPPER=<S>/scratch/g1/wrappers/92bb9cbe08f1-a.md]
+--- stderr
+nexus: warning: g1 still runs with the projects root it was created with, <S>/old: nexus g1 restart applies <P> (PROJECTS_ROOT in <A>/.env), and ends its sessions
+nexus: --wrapper <P>/rules/a.md is in g1's projects root <P>, but its container was made with the old root <S>/old: a copy of it, <S>/scratch/g1/wrappers/92bb9cbe08f1-a.md, goes in its place
+## run 3: nexus g1 headless nxt hi --wrapper ../rules/o.md  [pipe, cwd old/app]
+rc: 0
+--- stdout
+FAKE-REPLY
+--- stderr
+nexus: warning: g1 still runs with the projects root it was created with, <S>/old: nexus g1 restart applies <P> (PROJECTS_ROOT in <A>/.env), and ends its sessions
+## run 4: nexus g1 --wrapper <P>/rules/linkout.md s3  (a link in its root now to a file outside both)  [pipe, cwd old/app]
+rc: 0
+--- stdout
+[fake attach: new-session -s s3 -c <S>/old/app -e NEXUS_WRAPPER=<S>/scratch/g1/wrappers/67a403d9ddd6-linkout.md]
+--- stderr
+nexus: warning: g1 still runs with the projects root it was created with, <S>/old: nexus g1 restart applies <P> (PROJECTS_ROOT in <A>/.env), and ends its sessions
+nexus: --wrapper <P>/rules/linkout.md links to <S>/w/out.md, outside g1's projects root: a copy of it, <S>/scratch/g1/wrappers/67a403d9ddd6-linkout.md, goes in its place
+## run 5: nexus g1 --wrapper <S>/w/out.md s4  [pipe, cwd old/app]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: warning: g1's container was made without its scratch dir <S>/scratch/g1: `nexus g1 restart` adds it (that ends its tmux sessions)
+nexus: warning: g1 still runs with the projects root it was created with, <S>/old: nexus g1 restart applies <P> (PROJECTS_ROOT in <A>/.env), and ends its sessions
+nexus: --wrapper <S>/w/out.md is outside g1's projects root <S>/old, and its container was made without its scratch dir <S>/scratch/g1, where nexus would copy it: `nexus g1 restart` adds that (it ends its tmux sessions), or move the file into <S>/old
+## run 6: nexus g1 --wrapper ../rules/linkout.md s5  (a link in the old root, no scratch dir)  [pipe, cwd old/app]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: warning: g1's container was made without its scratch dir <S>/scratch/g1: `nexus g1 restart` adds it (that ends its tmux sessions)
+nexus: warning: g1 still runs with the projects root it was created with, <S>/old: nexus g1 restart applies <P> (PROJECTS_ROOT in <A>/.env), and ends its sessions
+nexus: --wrapper <S>/old/rules/linkout.md links to <S>/w/out.md, outside g1's projects root <S>/old, and its container was made without its scratch dir <S>/scratch/g1, where nexus would copy it: `nexus g1 restart` adds that (it ends its tmux sessions), or move the file into <S>/old
+## run 7: nexus g1 --wrapper <P>/rules/linkout.md s6  (a link in its root now, no scratch dir)  [pipe, cwd old/app]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: warning: g1's container was made without its scratch dir <S>/scratch/g1: `nexus g1 restart` adds it (that ends its tmux sessions)
+nexus: warning: g1 still runs with the projects root it was created with, <S>/old: nexus g1 restart applies <P> (PROJECTS_ROOT in <A>/.env), and ends its sessions
+nexus: --wrapper <P>/rules/linkout.md links to <S>/w/out.md, outside g1's projects root <S>/old, and its container was made without its scratch dir <S>/scratch/g1, where nexus would copy it: `nexus g1 restart` adds that (it ends its tmux sessions), or move the file into <S>/old
+## run 8: nexus g1 --wrapper <P>/rules/a.md s7  (in its root now, no scratch dir: said once)  [pipe, cwd old/app]
+rc: 1
+--- stdout
+(empty)
+--- stderr
+nexus: warning: g1's container was made without its scratch dir <S>/scratch/g1: `nexus g1 restart` adds it (that ends its tmux sessions)
+nexus: warning: g1 still runs with the projects root it was created with, <S>/old: nexus g1 restart applies <P> (PROJECTS_ROOT in <A>/.env), and ends its sessions
+nexus: --wrapper <P>/rules/a.md is in g1's projects root <P>, but its container was made with the old root <S>/old, and without its scratch dir <S>/scratch/g1, where nexus would copy it: `nexus g1 restart` adds that (it ends its tmux sessions), or move the file into <S>/old

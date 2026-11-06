@@ -403,6 +403,88 @@ A stack started before your VM's Nexus had this (`nexus --update`, example 10, b
 the persona can't stop it. Take it down once on the VM, then start it again from the persona: runbook §10,
 [Stacks started before the prefix and the guard](runbook.md#stacks-started-before-the-prefix-and-the-guard).
 
+## Example 14: give grok your working rules in every session
+
+You have written down how grok should work for you, in a text file: your rules, what not to give up on, when a
+task counts as done. Telling it "read this file" at the start of each session is easy to forget, and in a long
+session grok loses track of it. A **wrapper file** puts the file's text into grok's own instructions (its
+*system prompt*) for the whole session, on every turn. Only grok personas have this.
+
+**Set it once per persona.** Here the file is `~/projects/.enhanced-grok.md`, and the persona `grok-heavy`:
+
+```bash
+# Make .enhanced-grok.md grok-heavy's default wrapper. --config copies it to personas/grok-heavy.wrapper.md,
+# mounts that read-only at /etc/grok/wrapper.md, and sets NEXUS_WRAPPER=/etc/grok/wrapper.md for the persona.
+nexus --config --yes --wrapper grok-heavy:~/projects/.enhanced-grok.md
+nexus grok-heavy restart              # the new mount and env need a restart, once (this ends its tmux sessions)
+
+# Several personas in one run
+nexus --config --yes --wrapper grok-heavy:~/wrappers/enhanced-grok.md --wrapper grok-heavy-1:~/wrappers/light.md
+
+# Edited the file? Re-run --config. It rewrites the copy in place, as it does the Nexus notes,
+# so the next new grok session gets the new text without a restart.
+nexus --config --yes
+
+# Remove it
+nexus --config --yes --wrapper grok-heavy:none && nexus grok-heavy restart
+```
+
+Or in the menu: `nexus --config`, type `change`, pick the persona, and press Enter until it asks for the
+`Wrapper file for grok-heavy`; type the file's path (`-` for none). Nexus checks the file first: it must be plain
+text, not empty, and at most 122878 bytes (just under 120 KiB).
+
+**Daily use: every new grok session gets the wrapper.** Nothing to add:
+
+```bash
+cd ~/projects/billing
+nexus grok-heavy intake -- grok                        # straight into a wrapped grok
+nexus grok-heavy                                       # a shell; any `grok` you start there is wrapped
+nexus grok-heavy headless "/tracker-intake $(cat bugs.txt)" --output-format json   # wrapped one-shot run
+```
+
+**Exceptions for one session or one run.** These work in any grok persona, with a wrapper of its own or not:
+
+```bash
+grok --no-wrapper                                      # inside the persona: one plain grok
+nexus grok-heavy headless "list the TODOs" --no-wrapper  # a plain one-shot run
+nexus grok-heavy --wrapper ./light.md quick -- grok    # this session uses another file
+nexus grok-heavy headless "…" --wrapper ./light.md     # this run uses another file
+```
+
+What you type on grok's own command line (`grok --wrapper=…`, `grok --no-wrapper`) wins over a session's
+`nexus … --wrapper`, which wins over the persona's own.
+
+- A session keeps the wrapper it started with. If `quick` is already open with another one (or none), Nexus
+  refuses and says so: end it first, or give the new one a name of its own. `main`, the persona's shell, always
+  keeps the persona's own, so `--wrapper` is refused there.
+- A file outside your projects folder is copied into the persona's scratch folder, and Nexus says so. That copy
+  is taken when you start the session: a later edit of your file reaches the next session, not this one.
+- With `-- grok` (or `agent`), Nexus tries the command inside first. If it would fail at once, say the file plus
+  the command's own `--rules` are too big together, Nexus stops and shows grok's message. Use plain `grok`: grok
+  by its full path (`/opt/grok/.grok/bin/grok`) can't read the file, so Nexus refuses it.
+- The first time, Nexus may say `nothing was started: grok-heavy's image was built before its grok took a wrapper
+  file`. Then rebuild the persona's image once: `nexus grok-heavy build` (the message says `pull` if your team
+  uses an image registry), then `nexus grok-heavy restart`. That closes its sessions, so finish your work first.
+  Do the same before you set a persona's own wrapper file: an older image doesn't use it, and doesn't say so.
+
+**Things to know**
+
+```bash
+grok -c        # a resumed session keeps the system prompt it was created with:
+               # the wrapper it had then, or none. Changing or removing the wrapper doesn't touch it.
+grok inspect   # subcommands pass through unwrapped; so do `grok dashboard` and `grok agent …`
+nexus --config --list   # shows the persona's wrapper path next to its other settings
+```
+
+- Only the grok you talk to gets the text; helpers it starts (subagents) don't.
+- Every turn sends the whole file: about 9,000 tokens for a 37 KB file. It is the same each time, so it is
+  cached, but keep it to what matters.
+- Don't use grok's leader mode (`--leader`) with a wrapper: a session may get another one, or none.
+- Don't update grok by hand inside a persona (`grok update`): that copy may bypass the wrapper. Use
+  `nexus grok-heavy upgrade` ([runbook §6](runbook.md#6-upgrade-claude-code-or-grok-apm-or-ddev)).
+
+Details: runbook §2, [A wrapper file for every session](runbook.md#a-wrapper-file-for-every-session-grok).
+
 ## When something goes wrong
 
 | You see | What it means | What to do |
@@ -416,6 +498,8 @@ the persona can't stop it. Take it down once on the VM, then start it again from
 | `required variable SSH_AUTH_SOCK is missing a value: run an ssh-agent on the VM, …` | The persona was set up to borrow your ssh keys for git (SSH `agent`), and this login has no keys to lend. | Easiest: `nexus --config` → `change` → the persona → SSH `none`, then `nexus <persona> restart`. Or connect with `ssh -A you@your-vm`, which lends your laptop's keys to the VM for that login only: you have to do it every time, and a persona started with it needs `nexus <persona> restart` after you reconnect. |
 | `nothing was started: claude-team's image was built before nexus had --skip-bypass-permissions` (or `… --bypass-permissions`) | The persona's image was built before Nexus had the words `--skip-bypass-permissions` and `--bypass-permissions`. | Rebuild it once: `nexus claude-team build` (if your team uses an image registry: `nexus claude-team pull`), then `nexus claude-team restart`. That closes its sessions, so finish your work first. |
 | `session billing already runs its tools without asking (…)` or `… already asks before running tools (…)`, or `session main is claude-team's shell, in its own mode …` | You asked for the other mode, but that session is already open, and an open session can't switch (example 11). | Give the new session a name of its own, with the same word you typed: e.g. `nexus claude-team --skip-bypass-permissions billing-careful -- claude`. For `billing`, you can also end the old one first; for `main`, change the persona's setting instead (example 11). |
+| `nothing was started: grok-heavy's image was built before its grok took a wrapper file` | The persona's image was built before Nexus had wrapper files. | Rebuild it once: `nexus grok-heavy build` (with an image registry: `nexus grok-heavy pull`), then `nexus grok-heavy restart`. That closes its sessions, so finish your work first. |
+| `session quick already runs under the wrapper file …` (or `… without a wrapper file`, or `… under grok-heavy's own wrapper file …`) | That session is already open with another wrapper, and an open session can't switch (example 14). | Give the new session a name of its own: e.g. `nexus grok-heavy --wrapper ./light.md quick2 -- grok`. Or end the old one first. |
 | `the shared scratch root /srv/nexus-scratch isn't there …` | The folder the personas share with their containers is missing: the setup couldn't create it without your password. Until it is there, no persona starts; one that is running already still opens, with this as a warning. | Run the `sudo install -d …` command in the message, once (example 1). |
 | `Error response from daemon: nexus guard: … isn't labelled nexus.persona=…` | The agent tried to stop or remove something it didn't make, or to use another persona's volume. The Docker guard stopped it; nothing was removed (example 13). | Leave it. If it really should go, do it yourself on the VM. The message says whose it is, and `docker compose ls` shows the stacks' names: a persona's is `<persona>-<project>` (e.g. `grok-docker-shop`); yours, or one from before the update, is the bare `shop` (runbook §10). Then `docker compose -p <that name> down`. |
 | `… port is already allocated` | Another stack on the VM already uses that port. | Have the stack use a port Docker picks, or one from `$NEXUS_PORTS` (example 13). `docker ps --filter publish=8080` shows who has 8080. If the project's compose file fixes the port, the agent can override it in a file of its own: runbook §4, [Compose project names](runbook.md#compose-project-names). |
@@ -438,6 +522,9 @@ Anything else: the message usually says what to run. The full list is in
 | make one session ask before it acts | `nexus <persona> --skip-bypass-permissions -- claude` |
 | let one session act without asking, in a persona that asks | `nexus <persona> --bypass-permissions -- claude` |
 | make a whole persona ask | `nexus --config` → `change` → the persona → `n` at "Let … run its tools without asking", then `nexus <persona> restart` |
+| give every new grok session of a persona my working rules | `nexus --config --yes --wrapper <persona>:<file>`, then `nexus <persona> restart` once |
+| one grok session with other rules | `nexus <persona> --wrapper <file> <session> -- grok` |
+| one plain grok, in a persona that has a wrapper file | `grok --no-wrapper` inside it; `nexus <persona> headless "…" --no-wrapper` for a one-shot run |
 | send tokens and cost to an OpenTelemetry collector | `nexus --config` → `telemetry`, then `nexus <persona> restart` |
 | send tool details too (the commands, file paths and other input the tools ran with) | `nexus --config` → `telemetry` → `all` or `some` at "Tool details too", then `nexus <persona> restart` for a Claude persona (grok needs none) |
 | send tool content too (what the tools read, wrote and printed) | `nexus --config` → `telemetry` → `all` or `some` at "Tool content too", then `nexus <persona> restart` for a Claude persona (grok needs none) |
@@ -450,5 +537,6 @@ Anything else: the message usually says what to run. The full list is in
 | see what a persona made on Docker | `docker ps -a --filter label=nexus.persona=<persona>` |
 | run the APM version a project needs | `nexus-apm X.Y.Z install`, inside the persona |
 
-The persona names on this page (`claude-docker`, `claude-team`, `claude-max`, `grok-docker`), the repo address
-and `you@your-vm` are examples: use your own, and the persona names `nexus ls` shows on your VM.
+The persona names on this page (`claude-docker`, `claude-team`, `claude-max`, `grok-docker`, `grok-heavy`,
+`grok-heavy-1`), the repo address and `you@your-vm` are examples: use your own, and the persona names `nexus ls`
+shows on your VM.

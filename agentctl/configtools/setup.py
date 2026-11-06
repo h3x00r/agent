@@ -21,6 +21,10 @@ def main(repo, argv, out):
     from agentctl.configtools.cli import parse
     from agentctl.nexus.context import checkout
     opts = parse(argv)
+    try:
+        opts.cwd = os.getcwd()     # before the chdir: a relative --wrapper PATH is from where it was run
+    except OSError:
+        opts.cwd = ""
     if opts.help:
         out.usage(USAGE)
         return 0
