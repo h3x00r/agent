@@ -27,10 +27,11 @@ ARG DEBIAN_FRONTEND=noninteractive
 
 # --- base tooling (python3: the statusline script, grok-mode.sh's UTF-8 check, and APM's venv runs on it;
 # python3-venv: `python3 -m venv`, which bookworm's python3 can't do without it (no ensurepip); uv makes venvs
-# without it)
+# without it; vim-tiny gives `vi`, and nano is the other editor at hand)
 RUN apt-get update && apt-get install -y --no-install-recommends \
       ca-certificates curl gnupg git openssh-client tmux ncurses-term \
       jq ripgrep less procps tar unzip xz-utils make bash-completion python3 python3-venv \
+      vim-tiny nano \
  && install -m 0755 -d /etc/apt/keyrings \
  && rm -rf /var/lib/apt/lists/*
 
